@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CGV — PremiumStream</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    :root{--bg:#0a0a0f;--card:#12121a;--border:#1e1e2e;--text:#f0f0f5;--muted:#8888aa;--green:#00ffaa;}
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);}
+    h1,h2,h3{font-family:'Syne',sans-serif;}
+    nav{position:sticky;top:0;z-index:100;background:rgba(10,10,15,0.9);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);}
+    .nav-inner{max-width:900px;margin:0 auto;padding:0 20px;height:60px;display:flex;align-items:center;justify-content:space-between;}
+    .logo{display:flex;align-items:center;gap:8px;font-family:'Syne',sans-serif;font-weight:800;font-size:1rem;color:var(--text);text-decoration:none;}
+    .logo-icon{background:#fff;color:#000;border-radius:6px;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-size:0.8rem;}
+    .back-btn{font-size:0.82rem;color:var(--muted);text-decoration:none;transition:color 0.2s;}
+    .back-btn:hover{color:var(--text);}
+    .content{max-width:760px;margin:0 auto;padding:60px 24px 80px;}
+    .content h1{font-size:clamp(1.8rem,4vw,2.4rem);font-weight:800;letter-spacing:-0.02em;margin-bottom:8px;}
+    .content .subtitle{color:var(--muted);font-size:0.88rem;margin-bottom:48px;padding-bottom:24px;border-bottom:1px solid var(--border);}
+    .section-title{font-size:1.1rem;font-weight:700;margin:36px 0 12px;color:var(--text);}
+    .section-title::before{content:"";display:inline-block;width:4px;height:1em;background:var(--green);border-radius:2px;margin-right:10px;vertical-align:middle;}
+    p{color:var(--muted);font-size:0.9rem;line-height:1.75;margin-bottom:12px;}
+    ul{color:var(--muted);font-size:0.9rem;line-height:1.75;padding-left:20px;margin-bottom:12px;}
+    ul li{margin-bottom:6px;}
+    .highlight-box{background:var(--card);border:1px solid var(--border);border-left:3px solid var(--green);border-radius:8px;padding:16px 20px;margin:20px 0;}
+    .highlight-box p{margin:0;color:var(--text);font-size:0.88rem;}
+    footer{border-top:1px solid var(--border);padding:28px 24px;text-align:center;}
+    .footer-inner{max-width:900px;margin:0 auto;display:flex;flex-direction:column;align-items:center;gap:10px;}
+    .footer-links{display:flex;flex-wrap:wrap;justify-content:center;gap:20px;}
+    .footer-links a{font-size:0.78rem;color:var(--muted);text-decoration:none;transition:color 0.2s;}
+    .footer-links a:hover{color:var(--text);}
+    footer p{font-size:0.74rem;color:var(--muted);}
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="index.html" class="logo">
+      <span class="logo-icon"><i class="fa-solid fa-bolt"></i></span>
+      PremiumStream
+    </a>
+    <a href="index.html" class="back-btn">
+      <i class="fa-solid fa-arrow-left"></i> Retour
+    </a>
+  </div>
+</nav>
+
+<div class="content">
+  <h1>Conditions Générales de Vente</h1>
+  <p class="subtitle">Dernière mise à jour : Avril 2025</p>
+
+  <h2 class="section-title">Article 1 — Objet et champ d'application</h2>
+  <p>Les présentes Conditions Générales de Vente (CGV) régissent les relations contractuelles entre PremiumStream (ci-après "le Vendeur") et toute personne physique ou morale effectuant un achat via le bot Telegram @abonnementpro_bot ou le site web associé (ci-après "le Client").</p>
+  <p>Tout achat implique l'acceptation pleine et entière des présentes CGV.</p>
+
+  <h2 class="section-title">Article 2 — Nature du service</h2>
+  <p>PremiumStream propose un service de <strong style="color:var(--text)">fourniture d'accès à des abonnements numériques dématérialisés</strong> (YouTube Premium, Disney+, etc.) via des abonnements familiaux légaux.</p>
+  <p>Le service est livré sous forme d'identifiants de connexion ou d'invitation électronique, transmis directement via le bot Telegram, immédiatement après validation du paiement.</p>
+
+  <div class="highlight-box">
+    <p>⚠️ Conformément à l'article L.221-28 du Code de la consommation, <strong>le droit de rétractation de 14 jours ne s'applique pas</strong> aux contenus numériques fournis sur support immatériel dont l'exécution a commencé avec l'accord préalable du consommateur.</p>
+  </div>
+
+  <h2 class="section-title">Article 3 — Prix et modalités de paiement</h2>
+  <p>Les prix sont indiqués en euros toutes taxes comprises (TTC). Le Vendeur se réserve le droit de modifier ses tarifs à tout moment, les prix applicables étant ceux en vigueur au moment de la commande.</p>
+  <p>Les paiements sont acceptés via les moyens suivants :</p>
+  <ul>
+    <li>Carte bancaire via Sumeria (ex-Lydia)</li>
+    <li>PayPal (envoi entre proches)</li>
+    <li>Cryptomonnaies (USDT TRC-20, Solana, XRP)</li>
+  </ul>
+  <p>Toute commande est définitive dès réception et validation du paiement par le Vendeur.</p>
+
+  <h2 class="section-title">Article 4 — Livraison du service</h2>
+  <p>Le service est livré par voie électronique via le bot Telegram, généralement <strong style="color:var(--text)">dans un délai de moins d'une heure</strong> après validation du paiement. En cas de délai exceptionnel, le Client sera informé via le bot.</p>
+  <p>Pour YouTube Premium, une adresse Gmail valide est requise pour l'envoi de l'invitation.</p>
+
+  <h2 class="section-title">Article 5 — Durée et résiliation</h2>
+  <p>Les abonnements sont proposés en formule mensuelle (31 jours) ou annuelle (366 jours).</p>
+  <p><strong style="color:var(--text)">La résiliation est possible à tout moment</strong>, sans frais ni pénalité, directement via le bot Telegram (Menu → Mes abonnements → Résilier). L'accès est maintenu jusqu'à la fin de la période déjà payée.</p>
+  <p>Aucun remboursement ne sera effectué pour les périodes déjà entamées, le service étant immédiatement disponible dès activation.</p>
+
+  <h2 class="section-title">Article 6 — Obligations du Client</h2>
+  <p>Le Client s'engage à :</p>
+  <ul>
+    <li>Ne pas partager ses identifiants d'accès avec des tiers</li>
+    <li>Utiliser le service uniquement à des fins personnelles</li>
+    <li>Fournir des informations exactes lors de la commande</li>
+    <li>Ne pas tenter de contourner les systèmes de protection du service</li>
+  </ul>
+
+  <h2 class="section-title">Article 7 — Responsabilité</h2>
+  <p>Le Vendeur s'engage à fournir un accès fonctionnel au service commandé. En cas d'interruption du service imputable à une cause extérieure (modification des conditions d'utilisation par la plateforme tierce, force majeure), le Vendeur proposera un avoir ou un remplacement par un service équivalent.</p>
+  <p>La responsabilité du Vendeur ne saurait être engagée pour les dommages indirects résultant de l'utilisation du service.</p>
+
+  <h2 class="section-title">Article 8 — Protection des données</h2>
+  <p>Les informations collectées (adresse e-mail, identifiant Telegram) sont utilisées uniquement pour la gestion des commandes et le service après-vente. Elles ne sont jamais transmises à des tiers. Conformément au RGPD, le Client dispose d'un droit d'accès, de rectification et de suppression de ses données.</p>
+
+  <h2 class="section-title">Article 9 — Droit applicable</h2>
+  <p>Les présentes CGV sont soumises au droit français. En cas de litige, et à défaut de résolution amiable, les tribunaux français seront seuls compétents.</p>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <a href="index.html" class="logo" style="font-size:0.9rem;">
+      <span class="logo-icon"><i class="fa-solid fa-bolt"></i></span>
+      PremiumStream
+    </a>
+    <div class="footer-links">
+      <a href="index.html">Accueil</a>
+      <a href="cgv.html">CGV</a>
+      <a href="mentions-legales.html">Mentions Légales</a>
+      <a href="https://t.me/abonnementpro_bot"><i class="fa-brands fa-telegram"></i> Support</a>
+    </div>
+    <p>© 2025 PremiumStream. Tous droits réservés.</p>
+  </div>
+</footer>
+
+</body>
+</html>

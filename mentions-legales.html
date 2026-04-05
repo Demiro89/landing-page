@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Mentions Légales — PremiumStream</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    :root{--bg:#0a0a0f;--card:#12121a;--border:#1e1e2e;--text:#f0f0f5;--muted:#8888aa;--green:#00ffaa;}
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);}
+    h1,h2,h3{font-family:'Syne',sans-serif;}
+    nav{position:sticky;top:0;z-index:100;background:rgba(10,10,15,0.9);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);}
+    .nav-inner{max-width:900px;margin:0 auto;padding:0 20px;height:60px;display:flex;align-items:center;justify-content:space-between;}
+    .logo{display:flex;align-items:center;gap:8px;font-family:'Syne',sans-serif;font-weight:800;font-size:1rem;color:var(--text);text-decoration:none;}
+    .logo-icon{background:#fff;color:#000;border-radius:6px;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-size:0.8rem;}
+    .back-btn{font-size:0.82rem;color:var(--muted);text-decoration:none;transition:color 0.2s;}
+    .back-btn:hover{color:var(--text);}
+    .content{max-width:760px;margin:0 auto;padding:60px 24px 80px;}
+    .content h1{font-size:clamp(1.8rem,4vw,2.4rem);font-weight:800;letter-spacing:-0.02em;margin-bottom:8px;}
+    .content .subtitle{color:var(--muted);font-size:0.88rem;margin-bottom:48px;padding-bottom:24px;border-bottom:1px solid var(--border);}
+    .section-title{font-size:1.1rem;font-weight:700;margin:36px 0 12px;color:var(--text);}
+    .section-title::before{content:"";display:inline-block;width:4px;height:1em;background:var(--green);border-radius:2px;margin-right:10px;vertical-align:middle;}
+    p{color:var(--muted);font-size:0.9rem;line-height:1.75;margin-bottom:12px;}
+    .info-grid{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;margin:16px 0;}
+    .info-row{display:flex;gap:16px;padding:10px 0;border-bottom:1px solid var(--border);font-size:0.88rem;}
+    .info-row:last-child{border-bottom:none;padding-bottom:0;}
+    .info-label{color:var(--muted);min-width:160px;flex-shrink:0;}
+    .info-value{color:var(--text);font-weight:500;}
+    .placeholder{color:#f59e0b;font-style:italic;}
+    footer{border-top:1px solid var(--border);padding:28px 24px;text-align:center;}
+    .footer-inner{max-width:900px;margin:0 auto;display:flex;flex-direction:column;align-items:center;gap:10px;}
+    .footer-links{display:flex;flex-wrap:wrap;justify-content:center;gap:20px;}
+    .footer-links a{font-size:0.78rem;color:var(--muted);text-decoration:none;transition:color 0.2s;}
+    .footer-links a:hover{color:var(--text);}
+    footer p{font-size:0.74rem;color:var(--muted);}
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="index.html" class="logo">
+      <span class="logo-icon"><i class="fa-solid fa-bolt"></i></span>
+      PremiumStream
+    </a>
+    <a href="index.html" class="back-btn">
+      <i class="fa-solid fa-arrow-left"></i> Retour
+    </a>
+  </div>
+</nav>
+
+<div class="content">
+  <h1>Mentions Légales</h1>
+  <p class="subtitle">Dernière mise à jour : Avril 2025</p>
+
+  <h2 class="section-title">Éditeur du site</h2>
+  <div class="info-grid">
+    <div class="info-row">
+      <span class="info-label">Nom / Raison sociale</span>
+      <span class="info-value placeholder">[VOTRE NOM COMPLET]</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Statut</span>
+      <span class="info-value placeholder">[Particulier / Auto-entrepreneur / SASU...]</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Adresse</span>
+      <span class="info-value placeholder">[VOTRE ADRESSE POSTALE]</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">E-mail de contact</span>
+      <span class="info-value placeholder">[VOTRE@EMAIL.COM]</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Bot Telegram</span>
+      <span class="info-value"><a href="https://t.me/abonnementpro_bot" style="color:var(--green);">@abonnementpro_bot</a></span>
+    </div>
+  </div>
+
+  <h2 class="section-title">Hébergement</h2>
+  <div class="info-grid">
+    <div class="info-row">
+      <span class="info-label">Hébergeur</span>
+      <span class="info-value">GitHub Pages</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Société</span>
+      <span class="info-value">GitHub, Inc.</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Adresse</span>
+      <span class="info-value">88 Colin P. Kelly Jr. Street, San Francisco, CA 94107, USA</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Site</span>
+      <span class="info-value"><a href="https://pages.github.com" style="color:var(--green);">pages.github.com</a></span>
+    </div>
+  </div>
+
+  <h2 class="section-title">Propriété intellectuelle</h2>
+  <p>L'ensemble du contenu de ce site (textes, images, design) est la propriété exclusive de PremiumStream. Toute reproduction, même partielle, est interdite sans autorisation préalable écrite.</p>
+  <p>Les marques YouTube™, Disney+™ sont la propriété de leurs détenteurs respectifs. PremiumStream n'est affilié à aucune de ces marques.</p>
+
+  <h2 class="section-title">Protection des données personnelles (RGPD)</h2>
+  <p>Conformément au Règlement Général sur la Protection des Données (RGPD) et à la loi Informatique et Libertés, vous disposez des droits suivants sur vos données :</p>
+  <ul style="color:var(--muted);font-size:0.9rem;line-height:1.75;padding-left:20px;margin-bottom:12px;">
+    <li style="margin-bottom:6px;"><strong style="color:var(--text);">Droit d'accès</strong> : obtenir une copie de vos données</li>
+    <li style="margin-bottom:6px;"><strong style="color:var(--text);">Droit de rectification</strong> : corriger vos données inexactes</li>
+    <li style="margin-bottom:6px;"><strong style="color:var(--text);">Droit à l'effacement</strong> : demander la suppression de vos données</li>
+    <li style="margin-bottom:6px;"><strong style="color:var(--text);">Droit d'opposition</strong> : vous opposer au traitement de vos données</li>
+  </ul>
+  <p>Pour exercer ces droits, contactez-nous à : <span class="placeholder">[VOTRE@EMAIL.COM]</span></p>
+  <p>Les données collectées (adresse e-mail, identifiant Telegram) sont utilisées uniquement pour la gestion des abonnements et le service après-vente. Elles ne sont jamais revendues ni transmises à des tiers.</p>
+
+  <h2 class="section-title">Cookies</h2>
+  <p>Ce site n'utilise pas de cookies de traçage ou de publicité. Seuls des cookies techniques strictement nécessaires au bon fonctionnement du site peuvent être déposés.</p>
+
+  <h2 class="section-title">Droit applicable</h2>
+  <p>Le présent site est soumis au droit français. Tout litige relatif à son utilisation sera de la compétence exclusive des tribunaux français.</p>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <a href="index.html" class="logo" style="font-size:0.9rem;">
+      <span class="logo-icon"><i class="fa-solid fa-bolt"></i></span>
+      PremiumStream
+    </a>
+    <div class="footer-links">
+      <a href="index.html">Accueil</a>
+      <a href="cgv.html">CGV</a>
+      <a href="mentions-legales.html">Mentions Légales</a>
+      <a href="https://t.me/abonnementpro_bot"><i class="fa-brands fa-telegram"></i> Support</a>
+    </div>
+    <p>© 2025 PremiumStream. Tous droits réservés.</p>
+  </div>
+</footer>
+
+</body>
+</html>
