@@ -1,0 +1,4 @@
+.env.local
+dev.db
+.next/
+node_modules/
