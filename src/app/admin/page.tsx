@@ -254,6 +254,26 @@ export default function AdminPage() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
+          <a
+            href={`/admin/inventory?token=${encodeURIComponent(token)}`}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: 'rgba(124,58,237,0.12)',
+              border: '1px solid rgba(124,58,237,0.3)',
+              color: '#a78bfa',
+              fontFamily: 'Syne, sans-serif',
+              fontWeight: 700,
+              fontSize: '0.82rem',
+              padding: '9px 16px',
+              borderRadius: '8px',
+              textDecoration: 'none',
+            }}
+          >
+            <i className="fa-solid fa-boxes-stacked" />
+            Gérer les stocks
+          </a>
           <button
             onClick={() => fetchOrders(token)}
             disabled={loading}
