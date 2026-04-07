@@ -1,0 +1,249 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ══════════════════════════════════════
+   CSS Variables — Design System StreamMalin
+   ══════════════════════════════════════ */
+:root {
+  --bg: #0a0a0f;
+  --card: #12121a;
+  --border: #1e1e2e;
+  --border2: #2a2a3a;
+  --yt: #ff3b3b;
+  --yt-glow: rgba(255, 59, 59, 0.3);
+  --dis: #7c3aed;
+  --dis-glow: rgba(124, 58, 237, 0.3);
+  --green: #00ffaa;
+  --text: #f0f0f5;
+  --muted: #8888aa;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  overflow-x: hidden;
+}
+
+h1, h2, h3, h4, h5, h6,
+.syne {
+  font-family: 'Syne', sans-serif;
+}
+
+/* ══ Grain texture overlay ══ */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.4;
+}
+
+/* ══ Blobs background ══ */
+.blob {
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(130px);
+  opacity: 0.2;
+  pointer-events: none;
+  z-index: 0;
+}
+.blob-red {
+  background: var(--yt);
+  width: 550px;
+  height: 550px;
+  top: -180px;
+  left: -180px;
+}
+.blob-violet {
+  background: var(--dis);
+  width: 650px;
+  height: 650px;
+  bottom: -220px;
+  right: -220px;
+}
+
+/* ══ Scrollbar ══ */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border2);
+  border-radius: 3px;
+}
+
+/* ══ Animations ══ */
+@keyframes blink {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.3; transform: scale(1.5); }
+}
+
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 25px rgba(124, 58, 237, 0.5), 0 0 50px rgba(37, 99, 235, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 45px rgba(124, 58, 237, 0.75), 0 0 80px rgba(37, 99, 235, 0.4);
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes counterUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ══ Reveal on scroll ══ */
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+.d1 { transition-delay: 0.1s; }
+.d2 { transition-delay: 0.2s; }
+.d3 { transition-delay: 0.3s; }
+
+/* ══ CTA Button ══ */
+.cta-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  color: #fff;
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 1.05rem;
+  padding: 17px 36px;
+  border-radius: 14px;
+  text-decoration: none;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s, box-shadow 0.2s;
+  animation: glow 2.5s ease-in-out infinite;
+  cursor: pointer;
+  border: none;
+}
+.cta-btn:hover {
+  transform: translateY(-3px) scale(1.02);
+}
+.cta-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.12), transparent);
+  pointer-events: none;
+}
+
+/* ══ Modal backdrop ══ */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeInUp 0.2s ease;
+}
+
+.modal-box {
+  background: var(--card);
+  border: 1px solid var(--border2);
+  border-radius: 20px;
+  width: 100%;
+  max-width: 520px;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: slideIn 0.25s ease;
+}
+
+/* ══ Copy button ══ */
+.copy-btn {
+  cursor: pointer;
+  padding: 4px 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  font-size: 0.72rem;
+  color: var(--muted);
+  transition: background 0.2s, color 0.2s;
+}
+.copy-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text);
+}
+.copy-btn.copied {
+  background: rgba(0, 255, 170, 0.12);
+  border-color: rgba(0, 255, 170, 0.3);
+  color: var(--green);
+}
+
+/* ══ Dashboard ══ */
+.dashboard-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 24px;
+  transition: border-color 0.2s;
+}
+.dashboard-card:hover {
+  border-color: var(--border2);
+}
+
+/* ══ Steps ══ */
+.step-connector {
+  display: none;
+}
+@media (min-width: 640px) {
+  .step-connector {
+    display: block;
+    width: 40px;
+    height: 1px;
+    background: var(--border2);
+    flex-shrink: 0;
+    margin-top: 19px;
+  }
+}
