@@ -46,7 +46,9 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [confirming, setConfirming] = useState<string | null>(null);
-  const [confirmResult, setConfirmResult] = useState<Record<string, string>>({});
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [actionResult, setActionResult] = useState<Record<string, string>>({});
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [filter, setFilter] = useState<'ALL' | 'PAYMENT_DECLARED' | 'ACTIVE' | 'PENDING'>('PAYMENT_DECLARED');
 
   const fetchOrders = useCallback(async (t: string) => {
@@ -75,20 +77,58 @@ export default function AdminPage() {
     setConfirming(orderId);
     try {
       const res = await fetch(`/api/admin/confirm?orderId=${orderId}&token=${encodeURIComponent(token)}`);
-      const text = await res.text();
       const success = res.ok && res.status === 200;
-      setConfirmResult((p) => ({
-        ...p,
-        [orderId]: success ? '✅ Confirmé !' : '❌ Erreur',
-      }));
-      if (success) {
-        // Refresh orders
-        setTimeout(() => fetchOrders(token), 500);
-      }
+      setActionResult((p) => ({ ...p, [orderId]: success ? '✅ Activé !' : '❌ Erreur' }));
+      if (success) setTimeout(() => fetchOrders(token), 600);
     } catch {
-      setConfirmResult((p) => ({ ...p, [orderId]: '❌ Erreur réseau' }));
+      setActionResult((p) => ({ ...p, [orderId]: '❌ Erreur réseau' }));
     } finally {
       setConfirming(null);
+    }
+  };
+
+  const handleAction = async (orderId: string, action: 'activate' | 'cancel') => {
+    setActionLoading(orderId + action);
+    try {
+      const res = await fetch('/api/admin/orders', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, orderId, action }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Erreur');
+      const label = action === 'activate' ? '✅ Activé !' : '🚫 Annulé';
+      setActionResult((p) => ({ ...p, [orderId]: label }));
+      setTimeout(() => fetchOrders(token), 600);
+    } catch (err) {
+      setActionResult((p) => ({
+        ...p,
+        [orderId]: `❌ ${err instanceof Error ? err.message : 'Erreur'}`,
+      }));
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleDelete = async (orderId: string) => {
+    setDeleteConfirm(null);
+    setActionLoading(orderId + 'delete');
+    try {
+      const res = await fetch(
+        `/api/admin/orders?orderId=${orderId}&token=${encodeURIComponent(token)}`,
+        { method: 'DELETE' }
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Erreur');
+      // Remove from local state immediately
+      setOrders((prev) => prev.filter((o) => o.id !== orderId));
+    } catch (err) {
+      setActionResult((p) => ({
+        ...p,
+        [orderId]: `❌ ${err instanceof Error ? err.message : 'Erreur'}`,
+      }));
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -390,10 +430,80 @@ export default function AdminPage() {
               key={order.id}
               order={order}
               onConfirm={() => handleConfirm(order.id)}
+              onActivate={() => handleAction(order.id, 'activate')}
+              onCancel={() => handleAction(order.id, 'cancel')}
+              onDelete={() => setDeleteConfirm(order.id)}
               confirming={confirming === order.id}
-              confirmResult={confirmResult[order.id]}
+              actionLoading={actionLoading?.startsWith(order.id) ?? false}
+              actionResult={actionResult[order.id]}
             />
           ))}
+        </div>
+      )}
+
+      {/* Delete confirmation modal */}
+      {deleteConfirm && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 200, padding: '24px',
+          }}
+          onClick={() => setDeleteConfirm(null)}
+        >
+          <div
+            style={{
+              background: 'var(--card)', border: '1px solid var(--border)',
+              borderTop: '3px solid #ff3b3b', borderRadius: '16px',
+              padding: '28px', maxWidth: '400px', width: '100%',
+              textAlign: 'center',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{
+              width: '52px', height: '52px', borderRadius: '50%',
+              background: 'rgba(255,59,59,0.12)', color: '#ff3b3b',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '1.4rem', margin: '0 auto 16px',
+            }}>
+              <i className="fa-solid fa-trash" />
+            </div>
+            <h3 style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, marginBottom: '8px' }}>
+              Supprimer cette commande ?
+            </h3>
+            <p style={{ fontSize: '0.84rem', color: 'var(--muted)', marginBottom: '6px' }}>
+              ID : <code style={{ fontSize: '0.78rem' }}>{deleteConfirm}</code>
+            </p>
+            <p style={{ fontSize: '0.82rem', color: 'var(--muted)', marginBottom: '24px', lineHeight: 1.5 }}>
+              Cette action est <strong style={{ color: '#ff3b3b' }}>irréversible</strong>.
+              Le slot Disney+ sera libéré si assigné.
+            </p>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                style={{
+                  flex: 1, padding: '11px', borderRadius: '9px',
+                  background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border2)',
+                  color: 'var(--muted)', fontFamily: 'Syne, sans-serif',
+                  fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer',
+                }}
+              >
+                Annuler
+              </button>
+              <button
+                onClick={() => handleDelete(deleteConfirm)}
+                style={{
+                  flex: 1, padding: '11px', borderRadius: '9px',
+                  background: '#ff3b3b', border: 'none', color: '#fff',
+                  fontFamily: 'Syne, sans-serif', fontWeight: 700,
+                  fontSize: '0.85rem', cursor: 'pointer',
+                }}
+              >
+                <i className="fa-solid fa-trash" style={{ marginRight: '6px' }} />
+                Supprimer
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -404,17 +514,28 @@ export default function AdminPage() {
 function AdminOrderCard({
   order,
   onConfirm,
+  onActivate,
+  onCancel,
+  onDelete,
   confirming,
-  confirmResult,
+  actionLoading,
+  actionResult,
 }: {
   order: Order;
   onConfirm: () => void;
+  onActivate: () => void;
+  onCancel: () => void;
+  onDelete: () => void;
   confirming: boolean;
-  confirmResult?: string;
+  actionLoading: boolean;
+  actionResult?: string;
 }) {
   const statusColor = STATUS_COLOR[order.status] ?? '#8888aa';
   const isYoutube = order.service === 'YOUTUBE';
   const canConfirm = ['PENDING', 'PAYMENT_DECLARED'].includes(order.status);
+  const canActivate = !['ACTIVE'].includes(order.status);
+  const canCancel = !['CANCELLED', 'EXPIRED'].includes(order.status);
+  const busy = confirming || actionLoading;
 
   return (
     <div
@@ -534,51 +655,79 @@ function AdminOrderCard({
         </div>
       </div>
 
-      {/* Action button */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
-        {canConfirm && !confirmResult && (
-          <button
-            onClick={onConfirm}
-            disabled={confirming}
-            style={{
-              background: 'linear-gradient(135deg,#2563eb,#7c3aed)',
-              color: '#fff',
-              fontFamily: 'Syne, sans-serif',
-              fontWeight: 700,
-              fontSize: '0.82rem',
-              padding: '10px 18px',
-              borderRadius: '9px',
-              border: 'none',
-              cursor: confirming ? 'not-allowed' : 'pointer',
-              opacity: confirming ? 0.7 : 1,
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {confirming ? (
-              <><i className="fa-solid fa-spinner fa-spin" style={{ marginRight: '6px' }} />Traitement...</>
-            ) : (
-              <><i className="fa-solid fa-circle-check" style={{ marginRight: '6px' }} />Valider le paiement</>
-            )}
-          </button>
-        )}
+      {/* Actions */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '7px', alignItems: 'flex-end', minWidth: '140px' }}>
 
-        {confirmResult && (
-          <div
-            style={{
-              fontFamily: 'Syne, sans-serif',
-              fontWeight: 700,
-              fontSize: '0.85rem',
-              color: confirmResult.startsWith('✅') ? '#00ffaa' : '#ff3b3b',
-              padding: '8px 14px',
-              background: confirmResult.startsWith('✅') ? 'rgba(0,255,170,0.08)' : 'rgba(255,59,59,0.08)',
-              borderRadius: '8px',
-              border: `1px solid ${confirmResult.startsWith('✅') ? 'rgba(0,255,170,0.2)' : 'rgba(255,59,59,0.2)'}`,
-            }}
-          >
-            {confirmResult}
+        {actionResult ? (
+          <div style={{
+            fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.82rem',
+            color: actionResult.startsWith('✅') || actionResult.startsWith('🚫') ? '#00ffaa' : '#ff3b3b',
+            padding: '8px 12px', borderRadius: '8px',
+            background: actionResult.startsWith('❌') ? 'rgba(255,59,59,0.08)' : 'rgba(0,255,170,0.06)',
+            border: `1px solid ${actionResult.startsWith('❌') ? 'rgba(255,59,59,0.2)' : 'rgba(0,255,170,0.15)'}`,
+            whiteSpace: 'nowrap',
+          }}>
+            {actionResult}
           </div>
+        ) : (
+          <>
+            {/* Valider → Active */}
+            {canActivate && (
+              <button
+                onClick={canConfirm ? onConfirm : onActivate}
+                disabled={busy}
+                style={btnStyle('#00ffaa', 'rgba(0,255,170,0.12)', busy)}
+              >
+                {busy && (confirming || actionLoading)
+                  ? <><i className="fa-solid fa-spinner fa-spin" style={{ marginRight: '6px' }} />Traitement...</>
+                  : <><i className="fa-solid fa-circle-check" style={{ marginRight: '6px' }} />Valider</>
+                }
+              </button>
+            )}
+
+            {/* Annuler → Cancelled */}
+            {canCancel && (
+              <button
+                onClick={onCancel}
+                disabled={busy}
+                style={btnStyle('#f59e0b', 'rgba(245,158,11,0.1)', busy)}
+              >
+                <i className="fa-solid fa-ban" style={{ marginRight: '6px' }} />
+                Annuler
+              </button>
+            )}
+
+            {/* Supprimer (ouvre confirmation) */}
+            <button
+              onClick={onDelete}
+              disabled={busy}
+              style={btnStyle('#ff3b3b', 'rgba(255,59,59,0.08)', busy)}
+            >
+              <i className="fa-solid fa-trash" style={{ marginRight: '6px' }} />
+              Supprimer
+            </button>
+          </>
         )}
       </div>
     </div>
   );
+}
+
+function btnStyle(color: string, bg: string, disabled: boolean): React.CSSProperties {
+  return {
+    background: bg,
+    color,
+    border: `1px solid ${color}40`,
+    fontFamily: 'Syne, sans-serif',
+    fontWeight: 700,
+    fontSize: '0.8rem',
+    padding: '8px 14px',
+    borderRadius: '8px',
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    opacity: disabled ? 0.5 : 1,
+    whiteSpace: 'nowrap',
+    width: '100%',
+    textAlign: 'center',
+    transition: 'opacity 0.15s',
+  };
 }
