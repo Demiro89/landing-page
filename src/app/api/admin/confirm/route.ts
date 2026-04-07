@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { dispatchDisneySlot } from '@/lib/dispatch';
 import { notifyOrderConfirmed } from '@/lib/telegram';
+import { sendOrderConfirmed } from '@/lib/email';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -107,6 +108,22 @@ export async function GET(req: NextRequest) {
       email: order.user.email,
       service: order.service as 'YOUTUBE' | 'DISNEY',
       slotInfo,
+    });
+
+    // ── Email confirmation ──
+    await sendOrderConfirmed({
+      to: order.user.email,
+      orderId,
+      service: order.service as 'YOUTUBE' | 'DISNEY',
+      expiresAt: order.expiresAt ?? undefined,
+      disneyAccess: slotInfo
+        ? {
+            email: slotInfo.masterEmail,
+            password: slotInfo.masterPassword,
+            profileNumber: slotInfo.profileNumber,
+            pinCode: slotInfo.pinCode,
+          }
+        : undefined,
     });
 
     const successMsg =
