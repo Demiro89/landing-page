@@ -101,8 +101,8 @@ export async function POST(req: NextRequest) {
       gmail: service === 'YOUTUBE' ? gmail : undefined,
     });
 
-    // ── Emails (admin + client) — en parallèle, sans bloquer la réponse ──
-    Promise.all([
+    // ── Emails (admin + client) ──
+    await Promise.all([
       sendAdminNewOrder({
         orderId: order.id,
         customerEmail: email.toLowerCase().trim(),
@@ -119,7 +119,7 @@ export async function POST(req: NextRequest) {
         amount: expectedAmount,
         paymentMethod,
       }),
-    ]).catch((err) => console.error('[orders] email error:', err));
+    ]);
 
     return NextResponse.json(
       { orderId: order.id, status: order.status },

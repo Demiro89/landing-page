@@ -14,8 +14,6 @@
 
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 const FROM = 'StreamMalin <contact@streammalin.fr>';
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://streammalin.fr';
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? 'oub9493@gmail.com';
@@ -35,13 +33,24 @@ async function send(options: {
   subject: string;
   html: string;
 }): Promise<boolean> {
-  if (!process.env.RESEND_API_KEY) {
-    console.warn('[Email] RESEND_API_KEY non configurée — email ignoré');
+  const apiKey = process.env.RESEND_API_KEY;
+
+  console.log(`[Email] Tentative envoi → "${options.subject}" à ${options.to}`);
+  console.log(`[Email] RESEND_API_KEY présente : ${Boolean(apiKey)} | Longueur : ${apiKey?.length ?? 0}`);
+  console.log(`[Email] ADMIN_EMAIL : ${ADMIN_EMAIL}`);
+  console.log(`[Email] FROM : ${FROM}`);
+
+  if (!apiKey) {
+    console.error('[Email] ❌ RESEND_API_KEY absente — email non envoyé. Vérifiez les variables Vercel.');
     return false;
   }
 
+  // Instanciation au moment de l'appel pour garantir la lecture de la clé
+  const resend = new Resend(apiKey);
+
   try {
-    const { error } = await resend.emails.send({
+    console.log(`[Email] Appel resend.emails.send() en cours...`);
+    const { data, error } = await resend.emails.send({
       from: FROM,
       to: options.to,
       subject: options.subject,
@@ -49,13 +58,14 @@ async function send(options: {
     });
 
     if (error) {
-      console.error('[Email] Erreur Resend:', error);
+      console.error('[Email] ❌ Erreur Resend (réponse API):', JSON.stringify(error));
       return false;
     }
 
+    console.log(`[Email] ✅ Email envoyé avec succès. ID Resend : ${data?.id}`);
     return true;
   } catch (err) {
-    console.error('[Email] Erreur réseau:', err);
+    console.error('[Email] ❌ Exception lors de l\'envoi:', err instanceof Error ? err.message : err);
     return false;
   }
 }
