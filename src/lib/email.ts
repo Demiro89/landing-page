@@ -5,7 +5,9 @@
  * Variable requise : RESEND_API_KEY
  *
  * Fonctions disponibles :
- *  - sendOrderConfirmed()    → accès Disney+ ou invitation YouTube envoyée
+ *  - sendAdminNewOrder()     → alerte patron : nouvelle commande reçue
+ *  - sendOrderReceived()     → confirmation client : commande en cours de vérification
+ *  - sendOrderConfirmed()    → livraison : accès Disney+ ou invitation YouTube envoyée
  *  - sendExpiryReminder()    → relance 3 jours avant expiration
  *  - sendExpiryNotice()      → notification le jour J d'expiration
  */
@@ -16,6 +18,14 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 const FROM = 'StreamMalin <contact@streammalin.fr>';
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://streammalin.fr';
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? 'oub9493@gmail.com';
+
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  PAYPAL: 'PayPal (Entre proches)',
+  SOL: 'Solana (SOL)',
+  XRP: 'XRP (Ripple)',
+  USDT_TRC20: 'USDT TRC-20 (TRON)',
+};
 
 // ──────────────────────────────────────
 // Helper : envoie un email et log l'erreur sans crasher
@@ -51,8 +61,159 @@ async function send(options: {
 }
 
 // ══════════════════════════════════════
-// 1. CONFIRMATION DE COMMANDE
+// 1. ALERTE PATRON — Nouvelle commande
 // ══════════════════════════════════════
+
+/**
+ * Envoyé à l'admin dès qu'un client déclare son paiement.
+ * Destinataire : ADMIN_EMAIL (oub9493@gmail.com par défaut)
+ */
+export async function sendAdminNewOrder(data: {
+  orderId: string;
+  customerEmail: string;
+  service: 'YOUTUBE' | 'DISNEY';
+  amount: number;
+  paymentMethod: string;
+  paymentTxId: string;
+  gmail?: string;
+}) {
+  const serviceLabel = data.service === 'YOUTUBE' ? 'YouTube Premium' : 'Disney+ 4K';
+  const accentColor = data.service === 'YOUTUBE' ? '#ff3b3b' : '#7c3aed';
+  const adminUrl = `${BASE_URL}/admin`;
+  const confirmUrl = `${BASE_URL}/api/admin/confirm?orderId=${data.orderId}&token=${process.env.ADMIN_SECRET_TOKEN ?? 'TOKEN'}`;
+
+  const html = baseTemplate({
+    title: `🔔 Nouvelle commande ${serviceLabel}`,
+    accentColor,
+    body: `
+      <p style="margin:0 0 16px;font-size:15px;color:#f0f0f5;">
+        Un client vient de déclarer un paiement. Vérifiez et validez la commande.
+      </p>
+
+      <table style="width:100%;border-collapse:collapse;margin:0 0 20px;">
+        <tr style="border-bottom:1px solid #1e1e2e;">
+          <td style="padding:8px 0;font-size:13px;color:#8888aa;width:140px;">Commande</td>
+          <td style="padding:8px 0;font-size:13px;color:#f0f0f5;font-family:monospace;">#${data.orderId.slice(0, 12).toUpperCase()}</td>
+        </tr>
+        <tr style="border-bottom:1px solid #1e1e2e;">
+          <td style="padding:8px 0;font-size:13px;color:#8888aa;">Client</td>
+          <td style="padding:8px 0;font-size:13px;color:#f0f0f5;">${data.customerEmail}</td>
+        </tr>
+        <tr style="border-bottom:1px solid #1e1e2e;">
+          <td style="padding:8px 0;font-size:13px;color:#8888aa;">Service</td>
+          <td style="padding:8px 0;font-size:13px;color:${accentColor};font-weight:700;">${serviceLabel}</td>
+        </tr>
+        <tr style="border-bottom:1px solid #1e1e2e;">
+          <td style="padding:8px 0;font-size:13px;color:#8888aa;">Montant</td>
+          <td style="padding:8px 0;font-size:13px;color:#00ffaa;font-weight:700;">${data.amount.toFixed(2).replace('.', ',')}€</td>
+        </tr>
+        <tr style="border-bottom:1px solid #1e1e2e;">
+          <td style="padding:8px 0;font-size:13px;color:#8888aa;">Méthode</td>
+          <td style="padding:8px 0;font-size:13px;color:#f0f0f5;">${PAYMENT_METHOD_LABELS[data.paymentMethod] ?? data.paymentMethod}</td>
+        </tr>
+        <tr style="border-bottom:1px solid #1e1e2e;">
+          <td style="padding:8px 0;font-size:13px;color:#8888aa;">TxID / Référence</td>
+          <td style="padding:8px 0;font-size:13px;color:#f0f0f5;font-family:monospace;word-break:break-all;">${data.paymentTxId}</td>
+        </tr>
+        ${data.gmail ? `
+        <tr>
+          <td style="padding:8px 0;font-size:13px;color:#8888aa;">Gmail client</td>
+          <td style="padding:8px 0;font-size:13px;color:#f0f0f5;">${data.gmail}</td>
+        </tr>` : ''}
+      </table>
+
+      <table cellpadding="0" cellspacing="0">
+        <tr>
+          <td style="padding-right:12px;">
+            <a href="${confirmUrl}" style="display:inline-block;padding:12px 22px;background:#00ffaa;color:#000;text-decoration:none;border-radius:10px;font-weight:700;font-size:14px;">
+              ✅ Valider la commande
+            </a>
+          </td>
+          <td>
+            <a href="${adminUrl}" style="display:inline-block;padding:12px 22px;background:#1e1e2e;border:1px solid #2a2a3a;color:#f0f0f5;text-decoration:none;border-radius:10px;font-weight:700;font-size:14px;">
+              🔧 Ouvrir l'admin
+            </a>
+          </td>
+        </tr>
+      </table>`,
+  });
+
+  return send({
+    to: ADMIN_EMAIL,
+    subject: `🔔 Nouvelle commande ${serviceLabel} — #${data.orderId.slice(0, 8).toUpperCase()}`,
+    html,
+  });
+}
+
+// ══════════════════════════════════════
+// 2. CONFIRMATION CLIENT — Commande reçue
+// ══════════════════════════════════════
+
+/**
+ * Envoyé au client dès qu'il soumet sa commande.
+ * Confirme que la commande est bien reçue et en cours de vérification.
+ */
+export async function sendOrderReceived(data: {
+  to: string;
+  orderId: string;
+  service: 'YOUTUBE' | 'DISNEY';
+  amount: number;
+  paymentMethod: string;
+}) {
+  const isYoutube = data.service === 'YOUTUBE';
+  const serviceLabel = isYoutube ? 'YouTube Premium' : 'Disney+ 4K';
+  const accentColor = isYoutube ? '#ff3b3b' : '#7c3aed';
+  const dashboardUrl = `${BASE_URL}/dashboard?email=${encodeURIComponent(data.to)}`;
+
+  const html = baseTemplate({
+    title: `📬 Commande reçue — ${serviceLabel}`,
+    accentColor,
+    body: `
+      <p style="margin:0 0 16px;font-size:15px;color:#f0f0f5;">
+        Merci ! Votre commande a bien été enregistrée. Notre équipe vérifie votre paiement et activera votre accès sous peu.
+      </p>
+
+      <div style="background:#1a1a24;border:1px solid #2a2a3a;border-radius:10px;padding:16px;margin:0 0 20px;">
+        <table style="width:100%;border-collapse:collapse;">
+          <tr style="border-bottom:1px solid #2a2a3a;">
+            <td style="padding:6px 0;font-size:13px;color:#8888aa;width:130px;">Commande</td>
+            <td style="padding:6px 0;font-size:13px;color:#f0f0f5;font-family:monospace;">#${data.orderId.slice(0, 12).toUpperCase()}</td>
+          </tr>
+          <tr style="border-bottom:1px solid #2a2a3a;">
+            <td style="padding:6px 0;font-size:13px;color:#8888aa;">Service</td>
+            <td style="padding:6px 0;font-size:13px;color:${accentColor};font-weight:700;">${serviceLabel}</td>
+          </tr>
+          <tr style="border-bottom:1px solid #2a2a3a;">
+            <td style="padding:6px 0;font-size:13px;color:#8888aa;">Montant</td>
+            <td style="padding:6px 0;font-size:13px;color:#f0f0f5;">${data.amount.toFixed(2).replace('.', ',')}€/mois</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;font-size:13px;color:#8888aa;">Statut</td>
+            <td style="padding:6px 0;font-size:13px;color:#f59e0b;font-weight:700;">⏳ En cours de vérification</td>
+          </tr>
+        </table>
+      </div>
+
+      <p style="margin:0 0 20px;font-size:14px;color:#8888aa;line-height:1.6;">
+        Délai de traitement habituel : <strong style="color:#f0f0f5;">moins de 30 minutes</strong>.<br/>
+        Vous recevrez un second email dès que votre accès sera activé.
+      </p>
+
+      <a href="${dashboardUrl}" style="display:inline-block;margin:0 0 16px;padding:12px 24px;background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;text-decoration:none;border-radius:10px;font-weight:700;font-size:14px;">
+        Suivre ma commande →
+      </a>
+
+      <p style="margin:0;font-size:13px;color:#8888aa;">
+        Une question ? <a href="https://t.me/abonnementpro_bot" style="color:#3b82f6;">Contactez le support sur Telegram</a>
+      </p>`,
+  });
+
+  return send({
+    to: data.to,
+    subject: `📬 Commande reçue — ${serviceLabel} en cours de vérification`,
+    html,
+  });
+}
 
 /**
  * Envoyé quand l'admin valide le paiement.

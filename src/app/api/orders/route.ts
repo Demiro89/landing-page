@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { notifyPaymentDeclared } from '@/lib/telegram';
 import { getAvailableStock } from '@/lib/dispatch';
+import { sendAdminNewOrder, sendOrderReceived } from '@/lib/email';
 
 const VALID_SERVICES = ['YOUTUBE', 'DISNEY'] as const;
 const VALID_METHODS = ['PAYPAL', 'SOL', 'XRP', 'USDT_TRC20'] as const;
@@ -99,6 +100,26 @@ export async function POST(req: NextRequest) {
       paymentTxId: paymentTxId.trim(),
       gmail: service === 'YOUTUBE' ? gmail : undefined,
     });
+
+    // ── Emails (admin + client) — en parallèle, sans bloquer la réponse ──
+    Promise.all([
+      sendAdminNewOrder({
+        orderId: order.id,
+        customerEmail: email.toLowerCase().trim(),
+        service: service as Service,
+        amount: expectedAmount,
+        paymentMethod,
+        paymentTxId: paymentTxId.trim(),
+        gmail: service === 'YOUTUBE' ? gmail : undefined,
+      }),
+      sendOrderReceived({
+        to: email.toLowerCase().trim(),
+        orderId: order.id,
+        service: service as Service,
+        amount: expectedAmount,
+        paymentMethod,
+      }),
+    ]).catch((err) => console.error('[orders] email error:', err));
 
     return NextResponse.json(
       { orderId: order.id, status: order.status },
