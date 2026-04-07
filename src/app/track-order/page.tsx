@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
@@ -31,7 +31,8 @@ const METHOD_LABELS: Record<string, string> = {
   USDT_TRC20: 'USDT TRC-20',
 };
 
-export default function TrackOrderPage() {
+// Inner component — uses useSearchParams(), must be inside <Suspense>
+function TrackOrderContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -313,5 +314,18 @@ export default function TrackOrderPage() {
       </main>
       <Footer />
     </>
+  );
+}
+
+// Default export — wraps content in Suspense (required by Next.js 14 for useSearchParams)
+export default function TrackOrderPage() {
+  return (
+    <Suspense fallback={
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <i className="fa-solid fa-spinner fa-spin" style={{ fontSize: '1.5rem', color: 'var(--muted)' }} />
+      </div>
+    }>
+      <TrackOrderContent />
+    </Suspense>
   );
 }
