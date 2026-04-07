@@ -18,12 +18,15 @@ const SERVICE_LABELS: Record<Service, string> = {
 };
 
 const PAYPAL_BASE =
-  process.env.NEXT_PUBLIC_PAYPAL_ME_BASE ?? 'https://www.paypal.com/paypalme/AccesPremium89';
+  process.env.NEXT_PUBLIC_PAYPAL_ME ??
+  process.env.NEXT_PUBLIC_PAYPAL_ME_BASE ??
+  'https://www.paypal.com/paypalme/AccesPremium89';
 
 const WALLETS = {
   SOL: process.env.NEXT_PUBLIC_WALLET_SOL ?? '8aUZeioqmxWJMf6Lfa6BCbv3dCQpMU7KxoQHPwT1Mz9e',
   XRP: process.env.NEXT_PUBLIC_WALLET_XRP ?? 'rPLwSnrUEMZaiV6zZW2gvcgNbtk6ASt3it',
   USDT_TRC20:
+    process.env.NEXT_PUBLIC_WALLET_USDT ??
     process.env.NEXT_PUBLIC_WALLET_USDT_TRC20 ??
     'TDN6Jd12G9AoJfD9b46SEThEjKsXzBGUVR',
 };
