@@ -5,16 +5,21 @@
  * Variables requises: TELEGRAM_BOT_TOKEN, TELEGRAM_ADMIN_CHAT_ID
  */
 
-const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const ADMIN_CHAT_ID = process.env.TELEGRAM_ADMIN_CHAT_ID;
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? 'http://localhost:3000';
 
 /**
  * Envoie un message au chat admin via l'API Telegram
  */
 async function sendTelegramMessage(text: string): Promise<boolean> {
+  // Lire les variables au moment de l'appel (pas au chargement du module)
+  const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+  const ADMIN_CHAT_ID = process.env.TELEGRAM_ADMIN_CHAT_ID;
+
+  console.log(`[Telegram] TELEGRAM_BOT_TOKEN présent : ${Boolean(BOT_TOKEN)}`);
+  console.log(`[Telegram] TELEGRAM_ADMIN_CHAT_ID présent : ${Boolean(ADMIN_CHAT_ID)}`);
+
   if (!BOT_TOKEN || !ADMIN_CHAT_ID) {
-    console.warn('[Telegram] BOT_TOKEN ou ADMIN_CHAT_ID non configuré — notification ignorée');
+    console.error('[Telegram] ❌ TELEGRAM_BOT_TOKEN ou TELEGRAM_ADMIN_CHAT_ID manquant — vérifiez les variables Vercel');
     return false;
   }
 
@@ -70,7 +75,8 @@ export async function notifyPaymentDeclared(data: {
     USDT_TRC20: '💚 USDT TRC-20',
   };
 
-  const confirmUrl = `${BASE_URL}/api/admin/confirm?orderId=${data.orderId}&token=${process.env.ADMIN_SECRET_TOKEN}`;
+  const adminToken = process.env.ADMIN_SECRET_TOKEN ?? 'TOKEN_MANQUANT';
+  const confirmUrl = `${BASE_URL}/api/admin/confirm?orderId=${data.orderId}&token=${adminToken}`;
 
   const lines = [
     `🔔 <b>NOUVEAU PAIEMENT DÉCLARÉ</b>`,
