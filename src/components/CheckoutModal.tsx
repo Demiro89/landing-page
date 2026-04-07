@@ -107,6 +107,17 @@ export default function CheckoutModal({
       }
 
       setOrderId(data.orderId);
+
+      // Sauvegarde en localStorage pour retrouver la commande plus tard
+      try {
+        localStorage.setItem('sm_last_order', JSON.stringify({
+          orderId: data.orderId,
+          email: email.toLowerCase().trim(),
+          service,
+          createdAt: new Date().toISOString(),
+        }));
+      } catch { /* ignoré si localStorage bloqué */ }
+
       setStep('success');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Une erreur est survenue.');
