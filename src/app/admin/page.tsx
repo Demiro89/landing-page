@@ -14,6 +14,7 @@ interface Order {
   paymentTxId?: string;
   gmail?: string;
   createdAt: string;
+  expiresAt?: string;
   user: { email: string };
   slot?: {
     profileNumber: number;
@@ -483,6 +484,7 @@ function AdminOrderCard({
               day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
             })}
           </span>
+          <ExpiryBadgeAdmin expiresAt={order.expiresAt} status={order.status} />
         </div>
 
         {/* Row 2: details */}
@@ -600,5 +602,65 @@ function AdminOrderCard({
         )}
       </div>
     </div>
+  );
+}
+
+// ──────────────────────────────────────
+// ExpiryBadgeAdmin — badge inline pour la liste admin
+// ──────────────────────────────────────
+function ExpiryBadgeAdmin({
+  expiresAt,
+  status,
+}: {
+  expiresAt?: string;
+  status: string;
+}) {
+  if (!expiresAt || !['ACTIVE', 'CONFIRMED'].includes(status)) return null;
+
+  const daysLeft = Math.ceil(
+    (new Date(expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+  );
+
+  const isUrgent = daysLeft <= 3;
+  const isExpired = daysLeft <= 0;
+
+  const color = isExpired ? '#ff3b3b' : isUrgent ? '#f59e0b' : '#00ffaa';
+  const bg = isExpired
+    ? 'rgba(255,59,59,0.1)'
+    : isUrgent
+    ? 'rgba(245,158,11,0.1)'
+    : 'rgba(0,255,170,0.08)';
+  const border = isExpired
+    ? 'rgba(255,59,59,0.3)'
+    : isUrgent
+    ? 'rgba(245,158,11,0.3)'
+    : 'rgba(0,255,170,0.2)';
+
+  const label = isExpired
+    ? 'Expiré'
+    : isUrgent
+    ? `⚠️ ${daysLeft}j restant${daysLeft > 1 ? 's' : ''}`
+    : `${daysLeft}j`;
+
+  return (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '4px',
+        fontSize: '0.7rem',
+        fontWeight: 700,
+        fontFamily: 'Syne, sans-serif',
+        color,
+        background: bg,
+        border: `1px solid ${border}`,
+        borderRadius: '999px',
+        padding: '2px 8px',
+        animation: isUrgent ? 'blink 1.8s ease-in-out infinite' : 'none',
+      }}
+    >
+      <i className="fa-regular fa-clock" style={{ fontSize: '0.6rem' }} />
+      {label}
+    </span>
   );
 }

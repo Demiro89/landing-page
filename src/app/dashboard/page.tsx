@@ -763,49 +763,125 @@ function OrderCard({
           </div>
         )}
 
-        {/* Expiration */}
-        {order.expiresAt && isActive && (
-          <div
-            style={{
-              fontSize: '0.78rem',
-              color: 'var(--muted)',
-              marginTop: '4px',
-            }}
-          >
-            <i className="fa-regular fa-calendar" style={{ marginRight: '6px' }} />
-            Expire le{' '}
-            {new Date(order.expiresAt).toLocaleDateString('fr-FR', {
-              day: 'numeric',
-              month: 'long',
-              year: 'numeric',
-            })}
-          </div>
-        )}
-
-        {/* Renew button for expired */}
-        {order.status === 'EXPIRED' && (
-          <a
-            href="/#offres"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              marginTop: '12px',
-              background: isYoutube ? 'var(--yt)' : 'linear-gradient(135deg,#2563eb,#7c3aed)',
-              color: '#fff',
-              fontFamily: 'Syne, sans-serif',
-              fontWeight: 700,
-              fontSize: '0.82rem',
-              padding: '9px 16px',
-              borderRadius: '8px',
-              textDecoration: 'none',
-            }}
-          >
-            <i className="fa-solid fa-rotate-right" />
-            Renouveler
-          </a>
-        )}
+        {/* Expiration countdown */}
+        <ExpiryCountdown expiresAt={order.expiresAt} status={order.status} isYoutube={isYoutube} />
       </div>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────
+// ExpiryCountdown — badge compte à rebours
+// ──────────────────────────────────────
+function ExpiryCountdown({
+  expiresAt,
+  status,
+  isYoutube,
+}: {
+  expiresAt?: string;
+  status: string;
+  isYoutube: boolean;
+}) {
+  const renewColor = isYoutube ? 'var(--yt)' : 'linear-gradient(135deg,#2563eb,#7c3aed)';
+
+  // Abonnement expiré (statut EXPIRED)
+  if (status === 'EXPIRED') {
+    return (
+      <div style={{ marginTop: '14px' }}>
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: '6px',
+          background: 'rgba(255,59,59,0.08)', border: '1px solid rgba(255,59,59,0.3)',
+          borderRadius: '8px', padding: '8px 12px',
+          fontSize: '0.8rem', color: 'var(--yt)', marginBottom: '10px',
+        }}>
+          <i className="fa-solid fa-triangle-exclamation" />
+          Abonnement expiré — votre accès a été désactivé.
+        </div>
+        <br />
+        <a href="/#offres" style={{
+          display: 'inline-flex', alignItems: 'center', gap: '6px',
+          background: renewColor, color: '#fff',
+          fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.82rem',
+          padding: '9px 16px', borderRadius: '8px', textDecoration: 'none',
+        }}>
+          <i className="fa-solid fa-rotate-right" />
+          Se réabonner
+        </a>
+      </div>
+    );
+  }
+
+  // Pas de date ou pas actif : rien
+  if (!expiresAt || !['ACTIVE', 'CONFIRMED'].includes(status)) return null;
+
+  const msLeft = new Date(expiresAt).getTime() - Date.now();
+  const daysLeft = Math.ceil(msLeft / (1000 * 60 * 60 * 24));
+  const isUrgent = daysLeft <= 3;
+  const expiryLabel = new Date(expiresAt).toLocaleDateString('fr-FR', {
+    day: 'numeric', month: 'long', year: 'numeric',
+  });
+
+  // Badge vert normal
+  if (!isUrgent) {
+    return (
+      <div style={{
+        display: 'inline-flex', alignItems: 'center', gap: '6px',
+        marginTop: '12px',
+        background: 'rgba(0,255,170,0.06)', border: '1px solid rgba(0,255,170,0.2)',
+        borderRadius: '8px', padding: '7px 12px',
+        fontSize: '0.78rem', color: 'var(--green)',
+      }}>
+        <i className="fa-regular fa-calendar-check" />
+        Expire le <strong style={{ marginLeft: 3 }}>{expiryLabel}</strong>
+        <span style={{
+          marginLeft: 6, background: 'rgba(0,255,170,0.12)',
+          border: '1px solid rgba(0,255,170,0.25)', borderRadius: '999px',
+          padding: '1px 8px', fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.72rem',
+        }}>
+          {daysLeft} jour{daysLeft > 1 ? 's' : ''}
+        </span>
+      </div>
+    );
+  }
+
+  // Badge urgent (≤ 3 jours) — rouge clignotant + bouton réabonnement
+  return (
+    <div style={{ marginTop: '12px' }}>
+      <style>{`
+        @keyframes urgentPulse {
+          0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(255,59,59,0.4); }
+          50% { opacity: 0.8; box-shadow: 0 0 0 6px rgba(255,59,59,0); }
+        }
+      `}</style>
+      <div style={{
+        display: 'inline-flex', alignItems: 'center', gap: '8px',
+        background: 'rgba(255,59,59,0.1)', border: '1px solid rgba(255,59,59,0.4)',
+        borderRadius: '10px', padding: '10px 14px',
+        fontSize: '0.82rem', color: 'var(--yt)',
+        animation: 'urgentPulse 1.8s ease-in-out infinite',
+        marginBottom: '10px',
+      }}>
+        <i className="fa-solid fa-triangle-exclamation" />
+        <span>
+          <strong>
+            {daysLeft <= 0
+              ? 'Expire aujourd\'hui !'
+              : `Expire dans ${daysLeft} jour${daysLeft > 1 ? 's' : ''} !`}
+          </strong>
+          {' '}<span style={{ opacity: 0.75 }}>({expiryLabel})</span>
+        </span>
+      </div>
+      <br />
+      <a href="/#offres" style={{
+        display: 'inline-flex', alignItems: 'center', gap: '6px',
+        background: renewColor, color: '#fff',
+        fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.85rem',
+        padding: '10px 20px', borderRadius: '9px', textDecoration: 'none',
+        boxShadow: '0 4px 20px rgba(255,59,59,0.3)',
+      }}>
+        <i className="fa-solid fa-rotate-right" />
+        Se réabonner maintenant
+      </a>
     </div>
   );
 }

@@ -27,7 +27,12 @@ export async function GET(req: NextRequest) {
           },
         },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: [
+        // Active orders expiring soonest first, then by creation date
+        { status: 'asc' },
+        { expiresAt: 'asc' },
+        { createdAt: 'desc' },
+      ],
       take: 200,
     });
 
