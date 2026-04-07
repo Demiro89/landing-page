@@ -101,9 +101,14 @@ export async function POST(req: NextRequest) {
       gmail: service === 'YOUTUBE' ? gmail : undefined,
     });
 
-    // ── Emails (admin + client) ──
-    await Promise.all([
-      sendAdminNewOrder({
+    // ── Emails — séquentiels, chacun dans son propre try/catch ──
+    // NE PAS utiliser Promise.all : si un email lève une exception,
+    // il annule l'autre et remonte dans le catch global (→ 500 sans email).
+    console.log('[orders] Début envoi emails pour commande', order.id);
+
+    try {
+      console.log('[orders] → Email admin en cours...');
+      const adminOk = await sendAdminNewOrder({
         orderId: order.id,
         customerEmail: email.toLowerCase().trim(),
         service: service as Service,
@@ -111,15 +116,25 @@ export async function POST(req: NextRequest) {
         paymentMethod,
         paymentTxId: paymentTxId.trim(),
         gmail: service === 'YOUTUBE' ? gmail : undefined,
-      }),
-      sendOrderReceived({
+      });
+      console.log('[orders] Email admin :', adminOk ? '✅ envoyé' : '❌ échec');
+    } catch (err) {
+      console.error('[orders] Exception email admin :', err);
+    }
+
+    try {
+      console.log('[orders] → Email client en cours...');
+      const clientOk = await sendOrderReceived({
         to: email.toLowerCase().trim(),
         orderId: order.id,
         service: service as Service,
         amount: expectedAmount,
         paymentMethod,
-      }),
-    ]);
+      });
+      console.log('[orders] Email client :', clientOk ? '✅ envoyé' : '❌ échec');
+    } catch (err) {
+      console.error('[orders] Exception email client :', err);
+    }
 
     return NextResponse.json(
       { orderId: order.id, status: order.status },

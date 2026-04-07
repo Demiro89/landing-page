@@ -49,7 +49,7 @@ async function send(options: {
   const resend = new Resend(apiKey);
 
   try {
-    console.log(`[Email] Appel resend.emails.send() en cours...`);
+    console.log(`[Email] → resend.emails.send() | from: ${FROM} | to: ${options.to}`);
     const { data, error } = await resend.emails.send({
       from: FROM,
       to: options.to,
@@ -58,14 +58,16 @@ async function send(options: {
     });
 
     if (error) {
-      console.error('[Email] ❌ Erreur Resend (réponse API):', JSON.stringify(error));
+      // Log the full error object as JSON for diagnosis in Vercel logs
+      console.error('[Email] ❌ Erreur API Resend:', JSON.stringify(error, null, 2));
+      console.error('[Email] Détail — name:', (error as { name?: string }).name, '| message:', (error as { message?: string }).message);
       return false;
     }
 
-    console.log(`[Email] ✅ Email envoyé avec succès. ID Resend : ${data?.id}`);
+    console.log(`[Email] ✅ Envoyé ! ID Resend : ${data?.id} | to : ${options.to}`);
     return true;
   } catch (err) {
-    console.error('[Email] ❌ Exception lors de l\'envoi:', err instanceof Error ? err.message : err);
+    console.error('[Email] ❌ Exception réseau/SDK:', err instanceof Error ? `${err.name}: ${err.message}` : JSON.stringify(err));
     return false;
   }
 }
