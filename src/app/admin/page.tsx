@@ -253,7 +253,9 @@ export default function AdminPage() {
   };
 
   const handleAdjustSlots = async (id: string, delta: number) => {
-    setSlotLoading(id + delta);
+    // Clé unique sans ambiguïté : "id_+1" ou "id_-1"
+    const loadingKey = id + '_' + (delta > 0 ? '+1' : '-1');
+    setSlotLoading(loadingKey);
     setAccError('');
     try {
       const res = await fetch('/api/admin/master-accounts', {
@@ -263,16 +265,17 @@ export default function AdminPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Erreur');
-      // Mise à jour locale immédiate sans recharger tout
+      // Recompute disponibilités depuis le tableau slots retourné (source de vérité)
+      const returnedSlots: SlotInfo[] = data.account.slots ?? [];
       setAccounts((prev) =>
         prev.map((acc) =>
           acc.id === id
             ? {
                 ...acc,
-                slotsTotal: data.account.slotsTotal,
-                slotsAvailable: data.account.slotsAvailable,
                 maxSlots: data.account.maxSlots,
-                slots: data.account.slots ?? acc.slots,
+                slotsTotal: returnedSlots.length,
+                slotsAvailable: returnedSlots.filter((s) => s.isAvailable).length,
+                slots: returnedSlots,
               }
             : acc
         )
@@ -720,8 +723,8 @@ export default function AdminPage() {
               {accounts.map((acc) => {
                 const svcColor = acc.service === 'YOUTUBE' ? '#ff3b3b' : '#a78bfa';
                 const svcIcon = acc.service === 'YOUTUBE' ? 'fa-brands fa-youtube' : 'fa-solid fa-server';
-                const isLoadingPlus = slotLoading === acc.id + '1';
-                const isLoadingMinus = slotLoading === acc.id + '-1';
+                const isLoadingPlus = slotLoading === acc.id + '_+1';
+                const isLoadingMinus = slotLoading === acc.id + '_-1';
                 const anySlotLoading = isLoadingPlus || isLoadingMinus;
                 return (
                 <div
@@ -1392,18 +1395,18 @@ function AdminOrderCard({
                 Annuler
               </button>
             )}
-
-            {/* Supprimer (ouvre confirmation) */}
-            <button
-              onClick={onDelete}
-              disabled={busy}
-              style={btnStyle('#ff3b3b', 'rgba(255,59,59,0.08)', busy)}
-            >
-              <i className="fa-solid fa-trash" style={{ marginRight: '6px' }} />
-              Supprimer
-            </button>
           </>
         )}
+
+        {/* Supprimer — toujours visible quel que soit le statut ou actionResult */}
+        <button
+          onClick={onDelete}
+          disabled={busy}
+          style={btnStyle('#ff3b3b', 'rgba(255,59,59,0.08)', busy)}
+        >
+          <i className="fa-solid fa-trash" style={{ marginRight: '6px' }} />
+          Supprimer
+        </button>
       </div>
     </div>
   );
