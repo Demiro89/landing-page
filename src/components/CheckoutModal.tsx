@@ -4,13 +4,21 @@ import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 
 type Service = 'YOUTUBE' | 'DISNEY';
-type PaymentMethod = 'PAYPAL' | 'SOL' | 'XRP' | 'USDT_TRC20';
+type PaymentMethod = 'PAYPAL' | 'SOL' | 'XRP' | 'USDT_TRC20' | 'STRIPE';
+type Duration = 1 | 3 | 6 | 12;
 type Step = 'info' | 'payment' | 'declare' | 'success';
 
 const PRICES: Record<Service, number> = {
   YOUTUBE: 5.99,
   DISNEY: 4.99,
 };
+
+const DURATION_OPTIONS: { months: Duration; label: string; badge?: string }[] = [
+  { months: 1,  label: '1 mois' },
+  { months: 3,  label: '3 mois', badge: '-5%' },
+  { months: 6,  label: '6 mois', badge: '-10%' },
+  { months: 12, label: '12 mois', badge: '-15%' },
+];
 
 const SERVICE_LABELS: Record<Service, string> = {
   YOUTUBE: 'YouTube Premium',
@@ -41,7 +49,8 @@ export default function CheckoutModal({
 }) {
   const router = useRouter();
   const [step, setStep] = useState<Step>('info');
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('PAYPAL');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('STRIPE');
+  const [duration, setDuration] = useState<Duration>(1);
   const [email, setEmail] = useState('');
   const [gmail, setGmail] = useState('');
   const [txId, setTxId] = useState('');
@@ -51,6 +60,7 @@ export default function CheckoutModal({
   const [copiedKey, setCopiedKey] = useState('');
 
   const price = PRICES[service];
+  const totalPrice = price * duration;
   const label = SERVICE_LABELS[service];
 
   // -- Helpers --
@@ -76,6 +86,30 @@ export default function CheckoutModal({
     setStep('payment');
   };
 
+  // -- Stripe redirect --
+  const handleStripeCheckout = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch('/api/stripe/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          service,
+          gmail: service === 'YOUTUBE' ? gmail : undefined,
+          durationMonths: duration,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Erreur Stripe.');
+      window.location.href = data.url;
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Erreur lors de la création du paiement.');
+      setLoading(false);
+    }
+  };
+
   // -- Step 3 : Declare payment --
   const handleDeclarePayment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,7 +127,8 @@ export default function CheckoutModal({
         body: JSON.stringify({
           email,
           service,
-          amount: price,
+          amount: totalPrice,
+          durationMonths: duration,
           paymentMethod,
           paymentTxId: txId.trim(),
           gmail: service === 'YOUTUBE' ? gmail : undefined,
@@ -130,9 +165,6 @@ export default function CheckoutModal({
   const goToDashboard = () => {
     router.push(`/dashboard?orderId=${orderId}&email=${encodeURIComponent(email)}`);
   };
-
-  // -- Paypal link --
-  const paypalLink = `${PAYPAL_BASE}/${price.toFixed(2)}EUR`;
 
   return (
     <div className="modal-backdrop" onClick={(e) => e.target === e.currentTarget && onClose()}>
@@ -181,6 +213,11 @@ export default function CheckoutModal({
               </div>
               <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
                 {price.toFixed(2).replace('.', ',')}€/mois
+                {duration > 1 && (
+                  <span style={{ color: 'var(--green)', marginLeft: '6px' }}>
+                    · {duration} mois = {totalPrice.toFixed(2).replace('.', ',')}€
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -311,6 +348,55 @@ export default function CheckoutModal({
               </label>
             )}
 
+            {/* Duration selector */}
+            <div style={{ marginTop: '20px' }}>
+              <div style={{ fontSize: '0.82rem', fontWeight: 600, marginBottom: '8px' }}>
+                Durée de l'abonnement
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+                {DURATION_OPTIONS.map(({ months, label: dlabel, badge }) => (
+                  <button
+                    key={months}
+                    type="button"
+                    onClick={() => setDuration(months)}
+                    style={{
+                      position: 'relative',
+                      padding: '10px 6px',
+                      borderRadius: '9px',
+                      border: duration === months
+                        ? `1px solid ${service === 'YOUTUBE' ? 'var(--yt)' : '#7c3aed'}`
+                        : '1px solid var(--border)',
+                      background: duration === months
+                        ? service === 'YOUTUBE' ? 'rgba(255,59,59,0.1)' : 'rgba(124,58,237,0.1)'
+                        : 'rgba(255,255,255,0.02)',
+                      color: duration === months ? 'var(--text)' : 'var(--muted)',
+                      fontFamily: 'Syne, sans-serif',
+                      fontWeight: 700,
+                      fontSize: '0.78rem',
+                      cursor: 'pointer',
+                      textAlign: 'center',
+                      transition: 'all 0.2s',
+                    }}
+                  >
+                    {badge && (
+                      <span style={{
+                        position: 'absolute', top: '-8px', right: '4px',
+                        background: 'var(--green)', color: '#000',
+                        fontSize: '0.6rem', fontWeight: 800,
+                        padding: '1px 5px', borderRadius: '4px',
+                      }}>
+                        {badge}
+                      </span>
+                    )}
+                    {dlabel}
+                    <div style={{ fontSize: '0.68rem', color: 'var(--muted)', marginTop: '2px', fontWeight: 400 }}>
+                      {(price * months).toFixed(2).replace('.', ',')}€
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {error && <ErrorBox message={error} />}
 
             <button type="submit" style={{ ...submitBtnStyle(service), marginTop: '20px' }}>
@@ -340,6 +426,16 @@ export default function CheckoutModal({
             {/* Method selector */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
               <MethodOption
+                id="STRIPE"
+                selected={paymentMethod === 'STRIPE'}
+                icon="fa-solid fa-credit-card"
+                iconColor="#635bff"
+                title="CB / Apple Pay / Google Pay"
+                subtitle="Paiement sécurisé par Stripe — activation immédiate"
+                badge="Recommandé"
+                onClick={() => setPaymentMethod('STRIPE')}
+              />
+              <MethodOption
                 id="PAYPAL"
                 selected={paymentMethod === 'PAYPAL'}
                 icon="fa-brands fa-paypal"
@@ -354,7 +450,7 @@ export default function CheckoutModal({
                 icon="fa-solid fa-coins"
                 iconColor="#9945ff"
                 title="Solana (SOL)"
-                subtitle="Réseau Solana — confirmation rapide"
+                subtitle="Réseau Solana — vérification manuelle"
                 onClick={() => setPaymentMethod('SOL')}
               />
               <MethodOption
@@ -363,7 +459,7 @@ export default function CheckoutModal({
                 icon="fa-solid fa-coins"
                 iconColor="#346aa9"
                 title="XRP (Ripple)"
-                subtitle="Réseau XRP Ledger"
+                subtitle="Réseau XRP Ledger — vérification manuelle"
                 onClick={() => setPaymentMethod('XRP')}
               />
               <MethodOption
@@ -372,10 +468,33 @@ export default function CheckoutModal({
                 icon="fa-solid fa-coins"
                 iconColor="#26a17b"
                 title="USDT (TRC-20)"
-                subtitle="Réseau TRON — stable"
+                subtitle="Réseau TRON uniquement — vérification manuelle"
                 onClick={() => setPaymentMethod('USDT_TRC20')}
               />
             </div>
+
+            {/* Stripe block */}
+            {paymentMethod === 'STRIPE' && (
+              <div style={{
+                background: 'rgba(99,91,255,0.06)', border: '1px solid rgba(99,91,255,0.25)',
+                borderRadius: '12px', padding: '16px', marginBottom: '20px',
+              }}>
+                <p style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.88rem', marginBottom: '8px', color: '#635bff' }}>
+                  <i className="fa-solid fa-lock" style={{ marginRight: '6px' }} />
+                  Paiement 100% sécurisé — Stripe
+                </p>
+                <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                  {[
+                    '✅ CB Visa/Mastercard, Apple Pay, Google Pay',
+                    '✅ Activation immédiate après paiement',
+                    `💶 Montant total : ${totalPrice.toFixed(2).replace('.', ',')}€ (${duration} mois)`,
+                    '🔒 Vos données bancaires ne nous sont jamais transmises',
+                  ].map((line, i) => (
+                    <li key={i} style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>{line}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             {/* Payment instructions */}
             {paymentMethod === 'PAYPAL' && (
@@ -412,7 +531,7 @@ export default function CheckoutModal({
                   {[
                     '⚠️ Sélectionner "Envoyer à un proche" (pas "Paiement de biens/services")',
                     '🔇 Ne pas mettre de message ni de libellé dans la note',
-                    `💶 Montant exact : ${price.toFixed(2).replace('.', ',')}€`,
+                    `💶 Montant exact : ${totalPrice.toFixed(2).replace('.', ',')}€ (${duration} mois)`,
                     '📋 Notez votre ID de transaction PayPal après le paiement',
                   ].map((line, i) => (
                     <li key={i} style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
@@ -422,7 +541,7 @@ export default function CheckoutModal({
                 </ul>
 
                 <a
-                  href={paypalLink}
+                  href={`${PAYPAL_BASE}/${totalPrice.toFixed(2)}EUR`}
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{
@@ -448,20 +567,31 @@ export default function CheckoutModal({
                   }
                 >
                   <i className="fa-brands fa-paypal" />
-                  Payer {price.toFixed(2).replace('.', ',')}€ via PayPal.Me
+                  Payer {totalPrice.toFixed(2).replace('.', ',')}€ via PayPal.Me
                   <i className="fa-solid fa-arrow-up-right-from-square" style={{ fontSize: '0.7rem' }} />
                 </a>
               </div>
             )}
 
-            {paymentMethod !== 'PAYPAL' && (
+            {paymentMethod !== 'PAYPAL' && paymentMethod !== 'STRIPE' && (
+              <div style={{ marginBottom: '20px' }}>
+                {/* RED WARNING */}
+                <div style={{
+                  background: 'rgba(255,59,59,0.08)', border: '1px solid rgba(255,59,59,0.4)',
+                  borderRadius: '10px', padding: '12px 14px', marginBottom: '12px',
+                  display: 'flex', alignItems: 'flex-start', gap: '10px',
+                }}>
+                  <i className="fa-solid fa-triangle-exclamation" style={{ color: '#ff3b3b', fontSize: '1rem', marginTop: '2px', flexShrink: 0 }} />
+                  <p style={{ margin: 0, fontSize: '0.8rem', color: '#ff6b6b', lineHeight: 1.6, fontWeight: 600 }}>
+                    <strong style={{ color: '#ff3b3b' }}>Attention :</strong> Utilisez exclusivement le réseau mentionné, sinon vos fonds seront <strong>définitivement perdus</strong>.
+                  </p>
+                </div>
               <div
                 style={{
                   background: 'rgba(249,168,11,0.06)',
                   border: '1px solid rgba(249,168,11,0.2)',
                   borderRadius: '12px',
                   padding: '16px',
-                  marginBottom: '20px',
                 }}
               >
                 <p
@@ -508,10 +638,11 @@ export default function CheckoutModal({
                 <p style={{ fontSize: '0.78rem', color: 'var(--muted)', marginTop: '10px' }}>
                   <i className="fa-solid fa-circle-info" style={{ marginRight: '4px' }} />
                   Envoyez exactement{' '}
-                  <strong style={{ color: 'var(--text)' }}>{price.toFixed(2).replace('.', ',')}€</strong>{' '}
-                  en équivalent {paymentMethod.replace('_TRC20', '')}. Conservez le hash de
+                  <strong style={{ color: 'var(--text)' }}>{totalPrice.toFixed(2).replace('.', ',')}€</strong>{' '}
+                  ({duration} mois) en équivalent {paymentMethod.replace('_TRC20', '')}. Conservez le hash de
                   transaction pour l'étape suivante.
                 </p>
+              </div>
               </div>
             )}
 
@@ -529,19 +660,33 @@ export default function CheckoutModal({
                   padding: '12px 16px',
                   borderRadius: '10px',
                   cursor: 'pointer',
-                  transition: 'color 0.2s, border-color 0.2s',
                 }}
               >
                 <i className="fa-solid fa-arrow-left" />
               </button>
-              <button
-                onClick={() => setStep('declare')}
-                style={{ ...submitBtnStyle(service), flex: 1 }}
-              >
-                J'ai payé — Déclarer le paiement
-                <i className="fa-solid fa-arrow-right" style={{ marginLeft: '8px' }} />
-              </button>
+              {paymentMethod === 'STRIPE' ? (
+                <button
+                  onClick={handleStripeCheckout}
+                  disabled={loading}
+                  style={{ ...submitBtnStyle(service), flex: 1, background: 'linear-gradient(135deg,#635bff,#4f46e5)', opacity: loading ? 0.7 : 1, cursor: loading ? 'not-allowed' : 'pointer' }}
+                >
+                  {loading ? (
+                    <><i className="fa-solid fa-spinner fa-spin" style={{ marginRight: '8px' }} />Redirection...</>
+                  ) : (
+                    <><i className="fa-solid fa-lock" style={{ marginRight: '8px' }} />Payer {totalPrice.toFixed(2).replace('.', ',')}€ en sécurité</>
+                  )}
+                </button>
+              ) : (
+                <button
+                  onClick={() => setStep('declare')}
+                  style={{ ...submitBtnStyle(service), flex: 1 }}
+                >
+                  J'ai payé — Déclarer le paiement
+                  <i className="fa-solid fa-arrow-right" style={{ marginLeft: '8px' }} />
+                </button>
+              )}
             </div>
+            {error && <ErrorBox message={error} />}
           </div>
         )}
 
@@ -591,7 +736,7 @@ export default function CheckoutModal({
                   color: service === 'YOUTUBE' ? 'var(--yt)' : '#a78bfa',
                 }}
               >
-                {label} · {price.toFixed(2).replace('.', ',')}€
+                {label} · {duration} mois · {totalPrice.toFixed(2).replace('.', ',')}€
               </span>
             </div>
 
@@ -775,6 +920,7 @@ function MethodOption({
   iconColor,
   title,
   subtitle,
+  badge,
   onClick,
 }: {
   id: string;
@@ -783,6 +929,7 @@ function MethodOption({
   iconColor: string;
   title: string;
   subtitle: string;
+  badge?: string;
   onClick: () => void;
 }) {
   return (
@@ -790,6 +937,7 @@ function MethodOption({
       type="button"
       onClick={onClick}
       style={{
+        position: 'relative',
         display: 'flex',
         alignItems: 'center',
         gap: '12px',
@@ -803,6 +951,16 @@ function MethodOption({
         transition: 'border-color 0.2s, background 0.2s',
       }}
     >
+      {badge && (
+        <span style={{
+          position: 'absolute', top: '-8px', right: '10px',
+          background: 'var(--green)', color: '#000',
+          fontSize: '0.62rem', fontWeight: 800,
+          padding: '2px 7px', borderRadius: '4px',
+        }}>
+          {badge}
+        </span>
+      )}
       <div
         style={{
           width: '34px',

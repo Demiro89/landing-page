@@ -15,6 +15,7 @@ import { sendAdminNewOrder, sendOrderReceived } from '@/lib/email';
 
 const VALID_SERVICES = ['YOUTUBE', 'DISNEY'] as const;
 const VALID_METHODS = ['PAYPAL', 'SOL', 'XRP', 'USDT_TRC20'] as const;
+const VALID_DURATIONS = [1, 3, 6, 12] as const;
 
 type Service = (typeof VALID_SERVICES)[number];
 type PaymentMethod = (typeof VALID_METHODS)[number];
@@ -22,7 +23,7 @@ type PaymentMethod = (typeof VALID_METHODS)[number];
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { email, service, amount, paymentMethod, paymentTxId, gmail } = body;
+    const { email, service, amount, paymentMethod, paymentTxId, gmail, durationMonths = 1 } = body;
 
     // ── Validation ──
     if (!email || typeof email !== 'string' || !email.includes('@')) {
@@ -37,12 +38,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Méthode de paiement invalide.' }, { status: 400 });
     }
 
+    if (!VALID_DURATIONS.includes(durationMonths)) {
+      return NextResponse.json({ error: 'Durée invalide (1, 3, 6 ou 12 mois).' }, { status: 400 });
+    }
+
     if (!paymentTxId || typeof paymentTxId !== 'string' || paymentTxId.length < 3) {
       return NextResponse.json({ error: 'ID de transaction requis.' }, { status: 400 });
     }
 
-    const expectedAmount = service === 'YOUTUBE' ? 5.99 : 4.99;
-    if (typeof amount !== 'number' || Math.abs(amount - expectedAmount) > 0.01) {
+    const basePrice = service === 'YOUTUBE' ? 5.99 : 4.99;
+    const expectedAmount = Math.round(basePrice * durationMonths * 100) / 100;
+    if (typeof amount !== 'number' || Math.abs(amount - expectedAmount) > 0.05) {
       return NextResponse.json({ error: 'Montant invalide.' }, { status: 400 });
     }
 
@@ -76,6 +82,7 @@ export async function POST(req: NextRequest) {
     });
 
     // ── Create order ──
+    const msPerMonth = 30.5 * 24 * 60 * 60 * 1000;
     const order = await prisma.order.create({
       data: {
         userId: user.id,
@@ -84,9 +91,9 @@ export async function POST(req: NextRequest) {
         paymentMethod: paymentMethod as PaymentMethod,
         paymentTxId: paymentTxId.trim(),
         status: 'PAYMENT_DECLARED',
+        durationMonths,
         gmail: service === 'YOUTUBE' ? gmail?.toLowerCase().trim() : null,
-        // Expire dans 31 jours
-        expiresAt: new Date(Date.now() + 31 * 24 * 60 * 60 * 1000),
+        expiresAt: new Date(Date.now() + durationMonths * msPerMonth),
       },
     });
 
@@ -113,6 +120,7 @@ export async function POST(req: NextRequest) {
         customerEmail: email.toLowerCase().trim(),
         service: service as Service,
         amount: expectedAmount,
+        durationMonths,
         paymentMethod,
         paymentTxId: paymentTxId.trim(),
         gmail: service === 'YOUTUBE' ? gmail : undefined,
@@ -129,6 +137,7 @@ export async function POST(req: NextRequest) {
         orderId: order.id,
         service: service as Service,
         amount: expectedAmount,
+        durationMonths,
         paymentMethod,
       });
       console.log('[orders] Email client :', clientOk ? '✅ envoyé' : '❌ échec');

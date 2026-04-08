@@ -29,6 +29,7 @@ const METHOD_LABELS: Record<string, string> = {
   SOL:        'Solana',
   XRP:        'XRP',
   USDT_TRC20: 'USDT TRC-20',
+  STRIPE:     'Carte / Apple Pay',
 };
 
 // Inner component — uses useSearchParams(), must be inside <Suspense>
@@ -310,6 +311,32 @@ function TrackOrderContent() {
             </div>
           )
         )}
+
+        {/* Telegram support */}
+        <div style={{
+          marginTop: '32px', textAlign: 'center',
+          padding: '20px', background: 'var(--card)',
+          border: '1px solid var(--border)', borderRadius: '14px',
+        }}>
+          <p style={{ fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '12px' }}>
+            Un problème avec votre commande ?
+          </p>
+          <a
+            href="https://t.me/flexnight9493"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: '8px',
+              background: 'rgba(37,99,235,0.1)', border: '1px solid rgba(37,99,235,0.3)',
+              color: '#3b82f6', borderRadius: '10px', padding: '10px 20px',
+              fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.85rem',
+              textDecoration: 'none',
+            }}
+          >
+            <i className="fa-brands fa-telegram" />
+            Contacter le support Telegram
+          </a>
+        </div>
 
       </main>
       <Footer />

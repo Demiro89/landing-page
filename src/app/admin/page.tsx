@@ -1,10 +1,22 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 // ──────────────────────────────────────
 // Types
 // ──────────────────────────────────────
+interface MasterAccount {
+  id: string;
+  service: 'YOUTUBE' | 'DISNEY';
+  email: string;
+  password?: string;
+  maxSlots: number;
+  active: boolean;
+  createdAt: string;
+  slotsTotal: number;
+  slotsAvailable: number;
+}
+
 interface Order {
   id: string;
   service: 'YOUTUBE' | 'DISNEY';
@@ -32,10 +44,11 @@ const STATUS_COLOR: Record<string, string> = {
 };
 
 const METHOD_LABEL: Record<string, string> = {
-  PAYPAL: '💙 PayPal',
-  SOL: '🌐 SOL',
-  XRP: '🔷 XRP',
+  PAYPAL:     '💙 PayPal',
+  SOL:        '🌐 SOL',
+  XRP:        '🔷 XRP',
   USDT_TRC20: '💚 USDT',
+  STRIPE:     '💳 Stripe',
 };
 
 // ──────────────────────────────────────
@@ -51,6 +64,17 @@ export default function AdminPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [inviteConfirm, setInviteConfirm] = useState<string | null>(null);
   const [filter, setFilter] = useState<'ALL' | 'PAYMENT_DECLARED' | 'ACTIVE' | 'PENDING'>('PAYMENT_DECLARED');
+  const [tab, setTab] = useState<'orders' | 'accounts'>('orders');
+
+  // ── Master accounts state ──
+  const [accounts, setAccounts] = useState<MasterAccount[]>([]);
+  const [accLoading, setAccLoading] = useState(false);
+  const [accError, setAccError] = useState('');
+  const [addAccLoading, setAddAccLoading] = useState(false);
+  const [editAcc, setEditAcc] = useState<{ id: string; email: string; password: string } | null>(null);
+  const newAccRef = useRef<{ service: string; email: string; password: string; maxSlots: string }>({
+    service: 'DISNEY', email: '', password: '', maxSlots: '5',
+  });
 
   const fetchOrders = useCallback(async (t: string) => {
     setLoading(true);
@@ -150,6 +174,96 @@ export default function AdminPage() {
         ...p,
         [orderId]: `❌ ${err instanceof Error ? err.message : 'Erreur'}`,
       }));
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // ── Master accounts ──
+  const fetchAccounts = useCallback(async () => {
+    setAccLoading(true);
+    setAccError('');
+    try {
+      const res = await fetch(`/api/admin/master-accounts?token=${encodeURIComponent(token)}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Erreur');
+      setAccounts(data.accounts);
+    } catch (err) {
+      setAccError(err instanceof Error ? err.message : 'Erreur');
+    } finally {
+      setAccLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    if (tab === 'accounts' && token) fetchAccounts();
+  }, [tab, token, fetchAccounts]);
+
+  const handleAddAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const { service, email, password, maxSlots } = newAccRef.current;
+    if (!email.includes('@')) return;
+    setAddAccLoading(true);
+    try {
+      const res = await fetch('/api/admin/master-accounts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, service, email, password, maxSlots: parseInt(maxSlots) }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Erreur');
+      newAccRef.current = { service: 'DISNEY', email: '', password: '', maxSlots: '5' };
+      // Force re-render of form by resetting inputs
+      (e.target as HTMLFormElement).reset();
+      fetchAccounts();
+    } catch (err) {
+      setAccError(err instanceof Error ? err.message : 'Erreur');
+    } finally {
+      setAddAccLoading(false);
+    }
+  };
+
+  const handleUpdateAccount = async (id: string, email: string, password: string) => {
+    try {
+      const res = await fetch('/api/admin/master-accounts', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, id, email, password }),
+      });
+      if (!res.ok) throw new Error('Erreur mise à jour');
+      setEditAcc(null);
+      fetchAccounts();
+    } catch (err) {
+      setAccError(err instanceof Error ? err.message : 'Erreur');
+    }
+  };
+
+  const handleDeactivateAccount = async (id: string) => {
+    try {
+      const res = await fetch(
+        `/api/admin/master-accounts?token=${encodeURIComponent(token)}&id=${id}`,
+        { method: 'DELETE' }
+      );
+      if (!res.ok) throw new Error('Erreur désactivation');
+      fetchAccounts();
+    } catch (err) {
+      setAccError(err instanceof Error ? err.message : 'Erreur');
+    }
+  };
+
+  const handleNotifyAccess = async (orderId: string) => {
+    setActionLoading(orderId + 'notify');
+    try {
+      const res = await fetch('/api/admin/orders', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, orderId, action: 'notify_access' }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Erreur');
+      setActionResult((p) => ({ ...p, [orderId]: '📧 Accès notifiés' }));
+    } catch (err) {
+      setActionResult((p) => ({ ...p, [orderId]: `❌ ${err instanceof Error ? err.message : 'Erreur'}` }));
     } finally {
       setActionLoading(null);
     }
@@ -397,6 +511,201 @@ export default function AdminPage() {
         ))}
       </div>
 
+      {/* Main tabs */}
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '24px', borderBottom: '1px solid var(--border)', paddingBottom: '16px' }}>
+        {([
+          { key: 'orders', label: '📋 Commandes', count: orders.length },
+          { key: 'accounts', label: '🗄️ Comptes Maîtres', count: null },
+        ] as const).map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            style={{
+              background: tab === t.key ? 'rgba(124,58,237,0.2)' : 'transparent',
+              border: tab === t.key ? '1px solid rgba(124,58,237,0.5)' : '1px solid transparent',
+              color: tab === t.key ? '#a78bfa' : 'var(--muted)',
+              fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.85rem',
+              padding: '9px 18px', borderRadius: '10px', cursor: 'pointer',
+            }}
+          >
+            {t.label}{t.count !== null ? ` (${t.count})` : ''}
+          </button>
+        ))}
+      </div>
+
+      {/* ═══ TAB: COMPTES MAÎTRES ═══ */}
+      {tab === 'accounts' && (
+        <div>
+          {accError && (
+            <div style={{ background: 'rgba(255,59,59,0.08)', border: '1px solid rgba(255,59,59,0.3)', borderRadius: '10px', padding: '12px', color: '#ff3b3b', fontSize: '0.82rem', marginBottom: '16px' }}>
+              {accError}
+            </div>
+          )}
+
+          {/* Add account form */}
+          <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '16px', padding: '22px', marginBottom: '20px' }}>
+            <h3 style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '1rem', marginBottom: '16px' }}>
+              <i className="fa-solid fa-plus" style={{ color: '#00ffaa', marginRight: '8px' }} />
+              Ajouter un compte maître
+            </h3>
+            <form onSubmit={handleAddAccount}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: '12px', marginBottom: '14px' }}>
+                <label style={smallLabel}>
+                  Service
+                  <select
+                    defaultValue="DISNEY"
+                    onChange={(e) => { newAccRef.current.service = e.target.value; }}
+                    style={smallInput}
+                  >
+                    <option value="DISNEY">Disney+ 4K</option>
+                    <option value="YOUTUBE">YouTube Premium</option>
+                  </select>
+                </label>
+                <label style={smallLabel}>
+                  Email du compte
+                  <input
+                    type="email"
+                    required
+                    placeholder="compte@disney.com"
+                    onChange={(e) => { newAccRef.current.email = e.target.value; }}
+                    style={smallInput}
+                  />
+                </label>
+                <label style={smallLabel}>
+                  Mot de passe
+                  <input
+                    type="text"
+                    placeholder="(optionnel pour YouTube)"
+                    onChange={(e) => { newAccRef.current.password = e.target.value; }}
+                    style={smallInput}
+                  />
+                </label>
+                <label style={smallLabel}>
+                  Nb de slots
+                  <input
+                    type="number"
+                    min={1}
+                    max={20}
+                    defaultValue={5}
+                    onChange={(e) => { newAccRef.current.maxSlots = e.target.value; }}
+                    style={smallInput}
+                  />
+                </label>
+              </div>
+              <button
+                type="submit"
+                disabled={addAccLoading}
+                style={{
+                  background: 'rgba(0,255,170,0.1)', border: '1px solid rgba(0,255,170,0.3)',
+                  color: '#00ffaa', fontFamily: 'Syne, sans-serif', fontWeight: 700,
+                  fontSize: '0.82rem', padding: '9px 18px', borderRadius: '9px',
+                  cursor: addAccLoading ? 'not-allowed' : 'pointer', opacity: addAccLoading ? 0.6 : 1,
+                }}
+              >
+                {addAccLoading
+                  ? <><i className="fa-solid fa-spinner fa-spin" style={{ marginRight: '6px' }} />Ajout...</>
+                  : <><i className="fa-solid fa-plus" style={{ marginRight: '6px' }} />Créer le compte + slots</>
+                }
+              </button>
+            </form>
+          </div>
+
+          {/* Accounts list */}
+          {accLoading ? (
+            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--muted)' }}>
+              <i className="fa-solid fa-spinner fa-spin" style={{ fontSize: '1.5rem' }} />
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {accounts.length === 0 && (
+                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--muted)', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '14px' }}>
+                  Aucun compte maître. Ajoutez-en un ci-dessus.
+                </div>
+              )}
+              {accounts.map((acc) => (
+                <div
+                  key={acc.id}
+                  style={{
+                    background: 'var(--card)', border: `1px solid var(--border)`,
+                    borderLeft: `3px solid ${acc.service === 'YOUTUBE' ? '#ff3b3b' : '#7c3aed'}`,
+                    borderRadius: '12px', padding: '16px 20px',
+                    opacity: acc.active ? 1 : 0.5,
+                    display: 'grid', gridTemplateColumns: '1fr auto', gap: '12px', alignItems: 'start',
+                  }}
+                >
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                      <span style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.9rem', color: acc.service === 'YOUTUBE' ? '#ff3b3b' : '#a78bfa' }}>
+                        <i className={acc.service === 'YOUTUBE' ? 'fa-brands fa-youtube' : 'fa-solid fa-wand-magic-sparkles'} style={{ marginRight: '6px' }} />
+                        {acc.service === 'YOUTUBE' ? 'YouTube Premium' : 'Disney+ 4K'}
+                      </span>
+                      {!acc.active && <span style={{ fontSize: '0.7rem', background: 'rgba(255,59,59,0.1)', color: '#ff3b3b', border: '1px solid rgba(255,59,59,0.3)', padding: '2px 8px', borderRadius: '4px' }}>Désactivé</span>}
+                    </div>
+                    {editAcc?.id === acc.id ? (
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '6px' }}>
+                        <input
+                          type="email"
+                          value={editAcc.email}
+                          onChange={(e) => setEditAcc({ ...editAcc, email: e.target.value })}
+                          style={{ ...smallInput, width: '200px' }}
+                        />
+                        <input
+                          type="text"
+                          value={editAcc.password}
+                          placeholder="Mot de passe"
+                          onChange={(e) => setEditAcc({ ...editAcc, password: e.target.value })}
+                          style={{ ...smallInput, width: '180px' }}
+                        />
+                        <button onClick={() => handleUpdateAccount(editAcc.id, editAcc.email, editAcc.password)} style={{ background: '#00ffaa', color: '#000', border: 'none', borderRadius: '7px', padding: '7px 14px', fontWeight: 700, fontSize: '0.78rem', cursor: 'pointer' }}>
+                          ✅ Sauvegarder
+                        </button>
+                        <button onClick={() => setEditAcc(null)} style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--muted)', border: '1px solid var(--border2)', borderRadius: '7px', padding: '7px 12px', fontSize: '0.78rem', cursor: 'pointer' }}>
+                          Annuler
+                        </button>
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: '0.82rem', display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
+                        <span><span style={{ color: 'var(--muted)' }}>Email : </span><code>{acc.email}</code></span>
+                        {acc.password && <span><span style={{ color: 'var(--muted)' }}>Mdp : </span><code>{acc.password}</code></span>}
+                        <span><span style={{ color: 'var(--muted)' }}>Slots : </span>
+                          <strong style={{ color: acc.slotsAvailable === 0 ? '#ff3b3b' : '#00ffaa' }}>
+                            {acc.slotsAvailable} dispo / {acc.slotsTotal}
+                          </strong>
+                        </span>
+                      </div>
+                    )}
+                    <div style={{ fontSize: '0.7rem', color: 'var(--muted)', marginTop: '6px' }}>
+                      ID : <code>{acc.id}</code>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '7px', flexDirection: 'column', alignItems: 'flex-end' }}>
+                    {acc.active && (
+                      <>
+                        <button
+                          onClick={() => setEditAcc({ id: acc.id, email: acc.email, password: acc.password ?? '' })}
+                          style={btnStyle('#3b82f6', 'rgba(59,130,246,0.08)', false)}
+                        >
+                          <i className="fa-solid fa-pen" style={{ marginRight: '5px' }} />Modifier
+                        </button>
+                        <button
+                          onClick={() => handleDeactivateAccount(acc.id)}
+                          style={btnStyle('#ff3b3b', 'rgba(255,59,59,0.08)', false)}
+                        >
+                          <i className="fa-solid fa-power-off" style={{ marginRight: '5px' }} />Désactiver
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ═══ TAB: COMMANDES ═══ */}
+      {tab === 'orders' && <>
+
       {/* Filter tabs */}
       <div
         style={{
@@ -457,6 +766,7 @@ export default function AdminPage() {
               onCancel={() => handleAction(order.id, 'cancel')}
               onDelete={() => setDeleteConfirm(order.id)}
               onSendInvite={() => setInviteConfirm(order.id)}
+              onNotifyAccess={() => handleNotifyAccess(order.id)}
               confirming={confirming === order.id}
               actionLoading={actionLoading?.startsWith(order.id) ?? false}
               actionResult={actionResult[order.id]}
@@ -496,6 +806,9 @@ export default function AdminPage() {
           </div>
         </div>
       )}
+
+      {/* ── end orders tab ── */}
+      </>}
 
       {/* Delete confirmation modal */}
       {deleteConfirm && (
@@ -574,6 +887,7 @@ function AdminOrderCard({
   onCancel,
   onDelete,
   onSendInvite,
+  onNotifyAccess,
   confirming,
   actionLoading,
   actionResult,
@@ -584,6 +898,7 @@ function AdminOrderCard({
   onCancel: () => void;
   onDelete: () => void;
   onSendInvite: () => void;
+  onNotifyAccess: () => void;
   confirming: boolean;
   actionLoading: boolean;
   actionResult?: string;
@@ -594,6 +909,7 @@ function AdminOrderCard({
   const canActivate = !['ACTIVE'].includes(order.status);
   const canCancel = !['CANCELLED', 'EXPIRED'].includes(order.status);
   const showInviteBtn = isYoutube && order.status === 'ACTIVE';
+  const showNotifyBtn = !isYoutube && order.status === 'ACTIVE' && order.slot;
   const busy = confirming || actionLoading;
 
   return (
@@ -742,6 +1058,18 @@ function AdminOrderCard({
               </button>
             )}
 
+            {/* Notifier accès Disney+ */}
+            {showNotifyBtn && (
+              <button
+                onClick={onNotifyAccess}
+                disabled={busy}
+                style={btnStyle('#3b82f6', 'rgba(59,130,246,0.08)', busy)}
+              >
+                <i className="fa-solid fa-bell" style={{ marginRight: '6px' }} />
+                Notifier accès
+              </button>
+            )}
+
             {/* Valider → Active */}
             {canActivate && (
               <button
@@ -802,3 +1130,24 @@ function btnStyle(color: string, bg: string, disabled: boolean): React.CSSProper
     transition: 'opacity 0.15s',
   };
 }
+
+const smallLabel: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '5px',
+  fontSize: '0.78rem',
+  fontWeight: 600,
+  color: 'var(--muted)',
+};
+
+const smallInput: React.CSSProperties = {
+  background: 'rgba(255,255,255,0.04)',
+  border: '1px solid var(--border2)',
+  borderRadius: '7px',
+  padding: '8px 11px',
+  fontSize: '0.82rem',
+  color: 'var(--text)',
+  outline: 'none',
+  fontFamily: 'DM Sans, monospace',
+  width: '100%',
+};

@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { dispatchDisneySlot } from '@/lib/dispatch';
-import { sendYouTubeInvitationSent } from '@/lib/email';
+import { sendYouTubeInvitationSent, sendAccessUpdated } from '@/lib/email';
 
 function auth(req: NextRequest): boolean {
   const token = new URL(req.url).searchParams.get('token')
@@ -54,7 +54,7 @@ export async function PATCH(req: NextRequest) {
   const { token, orderId, action } = body as {
     token: string;
     orderId: string;
-    action: 'activate' | 'cancel' | 'send_youtube_invite';
+    action: 'activate' | 'cancel' | 'send_youtube_invite' | 'notify_access';
   };
   const adminToken = process.env.ADMIN_SECRET_TOKEN;
 
@@ -62,7 +62,7 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: 'Non autorisé.' }, { status: 401 });
   }
 
-  if (!orderId || !['activate', 'cancel', 'send_youtube_invite'].includes(action)) {
+  if (!orderId || !['activate', 'cancel', 'send_youtube_invite', 'notify_access'].includes(action)) {
     return NextResponse.json({ error: 'Paramètres invalides.' }, { status: 400 });
   }
 
@@ -108,6 +108,30 @@ export async function PATCH(req: NextRequest) {
       });
       if (!sent) {
         return NextResponse.json({ error: 'Échec envoi email — vérifiez les logs Vercel.' }, { status: 500 });
+      }
+      return NextResponse.json({ ok: true });
+    }
+
+    if (action === 'notify_access') {
+      if (order.service !== 'DISNEY') {
+        return NextResponse.json({ error: 'Action réservée aux commandes Disney+.' }, { status: 400 });
+      }
+      if (!order.slot) {
+        return NextResponse.json({ error: 'Aucun slot assigné à cette commande.' }, { status: 400 });
+      }
+      const sent = await sendAccessUpdated({
+        to: order.user.email,
+        orderId: order.id,
+        service: 'DISNEY',
+        disneyAccess: {
+          email: order.slot.masterAccount.email,
+          password: order.slot.masterAccount.password ?? '',
+          profileNumber: order.slot.profileNumber,
+          pinCode: order.slot.pinCode ?? undefined,
+        },
+      });
+      if (!sent) {
+        return NextResponse.json({ error: 'Échec envoi email.' }, { status: 500 });
       }
       return NextResponse.json({ ok: true });
     }

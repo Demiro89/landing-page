@@ -25,6 +25,7 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
   SOL:        'Solana (SOL)',
   XRP:        'XRP (Ripple)',
   USDT_TRC20: 'USDT TRC-20 (TRON)',
+  STRIPE:     'Stripe (CB / Apple Pay / Google Pay)',
 };
 
 // ──────────────────────────────────────
@@ -79,14 +80,17 @@ export async function sendAdminNewOrder(data: {
   customerEmail: string;
   service: 'YOUTUBE' | 'DISNEY';
   amount: number;
+  durationMonths?: number;
   paymentMethod: string;
   paymentTxId: string;
   gmail?: string;
 }) {
-  const serviceLabel = data.service === 'YOUTUBE' ? 'YouTube Premium' : 'Disney+ 4K';
-  const accentColor  = data.service === 'YOUTUBE' ? '#ff3b3b' : '#7c3aed';
-  const adminUrl     = `${BASE_URL}/admin`;
-  const confirmUrl   = `${BASE_URL}/api/admin/confirm?orderId=${data.orderId}&token=${process.env.ADMIN_SECRET_TOKEN ?? 'TOKEN'}`;
+  const serviceLabel   = data.service === 'YOUTUBE' ? 'YouTube Premium' : 'Disney+ 4K';
+  const accentColor    = data.service === 'YOUTUBE' ? '#ff3b3b' : '#7c3aed';
+  const adminUrl       = `${BASE_URL}/admin`;
+  const confirmUrl     = `${BASE_URL}/api/admin/confirm?orderId=${data.orderId}&token=${process.env.ADMIN_SECRET_TOKEN ?? 'TOKEN'}`;
+  const isStripe       = data.paymentMethod === 'STRIPE';
+  const durationMonths = data.durationMonths ?? 1;
 
   const html = baseTemplate({
     title: `🔔 Nouvelle commande ${serviceLabel}`,
@@ -94,7 +98,10 @@ export async function sendAdminNewOrder(data: {
     adminOnly: true,
     body: `
       <p style="margin:0 0 16px;font-size:15px;color:#f0f0f5;">
-        Un client vient de déclarer un paiement. Vérifiez et validez la commande.
+        ${isStripe
+          ? '✅ <strong style="color:#00ffaa;">Paiement Stripe confirmé automatiquement.</strong> La commande est déjà ACTIVE.'
+          : 'Un client vient de déclarer un paiement. Vérifiez et validez la commande.'
+        }
       </p>
 
       <table style="width:100%;border-collapse:collapse;margin:0 0 20px;">
@@ -109,6 +116,10 @@ export async function sendAdminNewOrder(data: {
         <tr style="border-bottom:1px solid #1e1e2e;">
           <td style="padding:8px 0;font-size:13px;color:#8888aa;">Service</td>
           <td style="padding:8px 0;font-size:13px;color:${accentColor};font-weight:700;">${serviceLabel}</td>
+        </tr>
+        <tr style="border-bottom:1px solid #1e1e2e;">
+          <td style="padding:8px 0;font-size:13px;color:#8888aa;">Durée</td>
+          <td style="padding:8px 0;font-size:13px;color:#f0f0f5;font-weight:700;">${durationMonths} mois</td>
         </tr>
         <tr style="border-bottom:1px solid #1e1e2e;">
           <td style="padding:8px 0;font-size:13px;color:#8888aa;">Montant</td>
@@ -131,11 +142,12 @@ export async function sendAdminNewOrder(data: {
 
       <table cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
         <tr>
+          ${isStripe ? '' : `
           <td style="padding-right:10px;">
             <a href="${confirmUrl}" style="display:inline-block;padding:13px 22px;background:#00ffaa;color:#000;text-decoration:none;border-radius:10px;font-weight:700;font-size:14px;">
               ✅ Valider la commande
             </a>
-          </td>
+          </td>`}
           <td>
             <a href="${adminUrl}" style="display:inline-block;padding:13px 22px;background:#2563eb;color:#fff;text-decoration:none;border-radius:10px;font-weight:700;font-size:14px;">
               🔧 Ouvrir /admin
@@ -161,12 +173,14 @@ export async function sendOrderReceived(data: {
   orderId: string;
   service: 'YOUTUBE' | 'DISNEY';
   amount: number;
+  durationMonths?: number;
   paymentMethod: string;
 }) {
-  const isYoutube    = data.service === 'YOUTUBE';
-  const serviceLabel = isYoutube ? 'YouTube Premium' : 'Disney+ 4K';
-  const accentColor  = isYoutube ? '#ff3b3b' : '#7c3aed';
-  const dashboardUrl = `${BASE_URL}/dashboard?email=${encodeURIComponent(data.to)}`;
+  const isYoutube      = data.service === 'YOUTUBE';
+  const serviceLabel   = isYoutube ? 'YouTube Premium' : 'Disney+ 4K';
+  const accentColor    = isYoutube ? '#ff3b3b' : '#7c3aed';
+  const dashboardUrl   = `${BASE_URL}/dashboard?email=${encodeURIComponent(data.to)}`;
+  const durationMonths = data.durationMonths ?? 1;
 
   const html = baseTemplate({
     title: `📬 Commande reçue — ${serviceLabel}`,
@@ -181,8 +195,10 @@ export async function sendOrderReceived(data: {
             <td style="padding:10px 14px;font-size:13px;color:#f0f0f5;font-family:monospace;border-bottom:1px solid #2a2a3a;">#${data.orderId.slice(0, 12).toUpperCase()}</td></tr>
         <tr><td style="padding:10px 14px;font-size:13px;color:#8888aa;border-bottom:1px solid #2a2a3a;">Service</td>
             <td style="padding:10px 14px;font-size:13px;color:${accentColor};font-weight:700;border-bottom:1px solid #2a2a3a;">${serviceLabel}</td></tr>
-        <tr><td style="padding:10px 14px;font-size:13px;color:#8888aa;border-bottom:1px solid #2a2a3a;">Montant</td>
-            <td style="padding:10px 14px;font-size:13px;color:#f0f0f5;border-bottom:1px solid #2a2a3a;">${data.amount.toFixed(2).replace('.', ',')}€/mois</td></tr>
+        <tr><td style="padding:10px 14px;font-size:13px;color:#8888aa;border-bottom:1px solid #2a2a3a;">Durée</td>
+            <td style="padding:10px 14px;font-size:13px;color:#f0f0f5;border-bottom:1px solid #2a2a3a;">${durationMonths} mois</td></tr>
+        <tr><td style="padding:10px 14px;font-size:13px;color:#8888aa;border-bottom:1px solid #2a2a3a;">Montant total</td>
+            <td style="padding:10px 14px;font-size:13px;color:#f0f0f5;border-bottom:1px solid #2a2a3a;">${data.amount.toFixed(2).replace('.', ',')}€</td></tr>
         <tr><td style="padding:10px 14px;font-size:13px;color:#8888aa;">Statut</td>
             <td style="padding:10px 14px;font-size:13px;color:#f59e0b;font-weight:700;">⏳ En cours de vérification</td></tr>
       </table>
@@ -197,7 +213,7 @@ export async function sendOrderReceived(data: {
       </a>
 
       <p style="margin:0;font-size:13px;color:#8888aa;">
-        Une question ? <a href="https://t.me/abonnementpro_bot" style="color:#3b82f6;">Support Telegram</a>
+        Une question ? <a href="https://t.me/flexnight9493" style="color:#3b82f6;">Support Telegram</a>
       </p>`,
   });
 
@@ -270,7 +286,7 @@ export async function sendOrderConfirmed(data: {
         Accéder à mon espace client →
       </a>
       <p style="margin:14px 0 0;font-size:13px;color:#8888aa;">
-        Commande #${data.orderId.slice(0, 12).toUpperCase()} · <a href="https://t.me/abonnementpro_bot" style="color:#3b82f6;">Support Telegram</a>
+        Commande #${data.orderId.slice(0, 12).toUpperCase()} · <a href="https://t.me/flexnight9493" style="color:#3b82f6;">Support Telegram</a>
       </p>`,
   });
 
@@ -317,7 +333,7 @@ export async function sendYouTubeInvitationSent(data: {
       </a>
 
       <p style="margin:0;font-size:13px;color:#8888aa;">
-        Commande #${data.orderId.slice(0, 12).toUpperCase()} · <a href="https://t.me/abonnementpro_bot" style="color:#3b82f6;">Support Telegram si besoin</a>
+        Commande #${data.orderId.slice(0, 12).toUpperCase()} · <a href="https://t.me/flexnight9493" style="color:#3b82f6;">Support Telegram si besoin</a>
       </p>`,
   });
 
@@ -329,7 +345,64 @@ export async function sendYouTubeInvitationSent(data: {
 }
 
 // ══════════════════════════════════════
-// 5. RELANCE J-3
+// 5. MISE À JOUR ACCÈS — Notification client
+// ══════════════════════════════════════
+export async function sendAccessUpdated(data: {
+  to: string;
+  orderId: string;
+  service: 'YOUTUBE' | 'DISNEY';
+  disneyAccess?: {
+    email: string;
+    password: string;
+    profileNumber: number;
+    pinCode?: string;
+  };
+}) {
+  const isYoutube    = data.service === 'YOUTUBE';
+  const serviceLabel = isYoutube ? 'YouTube Premium' : 'Disney+ 4K';
+  const accentColor  = isYoutube ? '#ff3b3b' : '#7c3aed';
+
+  const accessBlock = data.disneyAccess
+    ? `<div style="background:#1a1a24;border-left:3px solid #7c3aed;border-radius:8px;padding:14px 16px;margin:14px 0;">
+        <p style="margin:0 0 10px;font-size:13px;color:#a78bfa;font-weight:700;">✦ Vos nouveaux accès Disney+</p>
+        <table style="width:100%;border-collapse:collapse;">
+          <tr><td style="padding:4px 0;font-size:13px;color:#8888aa;width:120px;">Email</td>
+              <td style="padding:4px 0;font-size:13px;color:#f0f0f5;font-family:monospace;">${data.disneyAccess.email}</td></tr>
+          <tr><td style="padding:4px 0;font-size:13px;color:#8888aa;">Mot de passe</td>
+              <td style="padding:4px 0;font-size:13px;color:#f0f0f5;font-family:monospace;">${data.disneyAccess.password}</td></tr>
+          <tr><td style="padding:4px 0;font-size:13px;color:#8888aa;">Votre profil</td>
+              <td style="padding:4px 0;font-size:13px;color:#f0f0f5;">Profil <strong>${data.disneyAccess.profileNumber}</strong></td></tr>
+          ${data.disneyAccess.pinCode
+            ? `<tr><td style="padding:4px 0;font-size:13px;color:#8888aa;">Code PIN</td>
+                   <td style="padding:4px 0;font-size:13px;color:#f0f0f5;font-family:monospace;">${data.disneyAccess.pinCode}</td></tr>`
+            : ''}
+        </table>
+        <p style="margin:10px 0 0;font-size:12px;color:#8888aa;">⚠️ Utilisez uniquement le Profil ${data.disneyAccess.profileNumber}. Ne modifiez pas le mot de passe.</p>
+      </div>`
+    : '';
+
+  const html = baseTemplate({
+    title: `🔑 Mise à jour de vos accès ${serviceLabel}`,
+    accentColor,
+    body: `
+      <p style="margin:0 0 14px;font-size:15px;color:#f0f0f5;">
+        Vos identifiants d'accès <strong>${serviceLabel}</strong> ont été mis à jour.
+      </p>
+      ${accessBlock}
+      <p style="margin:14px 0 0;font-size:13px;color:#8888aa;">
+        Commande #${data.orderId.slice(0, 12).toUpperCase()} · <a href="https://t.me/flexnight9493" style="color:#3b82f6;">Support Telegram</a>
+      </p>`,
+  });
+
+  return send({
+    to: data.to,
+    subject: `🔑 Mise à jour de vos accès ${serviceLabel} — StreamMalin`,
+    html,
+  });
+}
+
+// ══════════════════════════════════════
+// 7. RELANCE J-3
 // ══════════════════════════════════════
 export async function sendExpiryReminder(data: {
   to: string;
@@ -369,7 +442,7 @@ export async function sendExpiryReminder(data: {
 }
 
 // ══════════════════════════════════════
-// 6. EXPIRATION (JOUR J)
+// 8. EXPIRATION (JOUR J)
 // ══════════════════════════════════════
 export async function sendExpiryNotice(data: {
   to: string;

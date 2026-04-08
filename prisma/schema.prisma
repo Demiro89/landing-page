@@ -85,7 +85,7 @@ model Order {
   /// Montant en euros
   amount        Float
 
-  /// Méthode : "PAYPAL" | "SOL" | "XRP" | "USDT_TRC20"
+  /// Méthode : "PAYPAL" | "SOL" | "XRP" | "USDT_TRC20" | "STRIPE"
   paymentMethod String
   /// Hash/TxID fourni par le client
   paymentTxId   String?
@@ -99,6 +99,9 @@ model Order {
   /// Slot Disney+ assigné (null jusqu'à confirmation)
   slot          Slot?   @relation(fields: [slotId], references: [id])
   slotId        String? @unique
+
+  /// Durée choisie par le client : 1, 3, 6 ou 12 mois
+  durationMonths Int @default(1)
 
   /// Mois d'abonnement restants (renouvellement mensuel)
   expiresAt     DateTime?
