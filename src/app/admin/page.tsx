@@ -2,6 +2,13 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 
+// ── Helper : lit un cookie côté client ──────────────────────────────────────
+function readCookie(name: string): string {
+  if (typeof document === 'undefined') return '';
+  const match = document.cookie.split('; ').find((r) => r.startsWith(name + '='));
+  return match ? decodeURIComponent(match.split('=')[1]) : '';
+}
+
 // ──────────────────────────────────────
 // Types
 // ──────────────────────────────────────
@@ -89,6 +96,16 @@ export default function AdminPage() {
   const newAccRef = useRef<{ service: string; email: string; password: string; maxSlots: string }>({
     service: '', email: '', password: '', maxSlots: '5',
   });
+
+  // Auto-login depuis le cookie posé par /admin/login ──────────────────────
+  useEffect(() => {
+    const saved = readCookie('sm_admin_auth');
+    if (saved && !token) {
+      setToken(saved);
+      fetchOrders(saved);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const fetchOrders = useCallback(async (t: string) => {
     setLoading(true);
@@ -549,7 +566,10 @@ export default function AdminPage() {
             Actualiser
           </button>
           <button
-            onClick={() => { setToken(''); setOrders([]); }}
+            onClick={async () => {
+            await fetch('/api/admin/login', { method: 'DELETE' });
+            window.location.href = '/admin/login';
+          }}
             style={{
               background: 'rgba(255,59,59,0.08)',
               border: '1px solid rgba(255,59,59,0.2)',
