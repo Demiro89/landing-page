@@ -185,22 +185,22 @@ const sections = [
     content: `
       <p>La commande est considérée comme ferme et définitive dès sa validation et la déclaration du paiement. Les moyens de paiement acceptés sont :</p>
       ${ul([
-        'Carte bancaire, Apple Pay, Google Pay (via Stripe — activation immédiate)',
-        'PayPal — envoi "Entre proches" uniquement, sans note ni libellé',
-        'Cryptomonnaies : Solana (SOL) réseau Solana, XRP réseau Ripple, USDT réseau TRC-20/TRON',
+        `${strong('Carte bancaire, Apple Pay, Google Pay')} — via Stripe. Le libellé bancaire apparaîtra sous <code style="background:rgba(255,255,255,0.06);padding:1px 6px;border-radius:4px;font-size:0.85em;">STREAMMALIN</code>. Activation immédiate.`,
+        `${strong('PayPal')} — envoi "Entre proches" uniquement, sans note ni libellé, au montant exact.`,
+        `${strong('Cryptomonnaies')} — Solana (SOL) · réseau Solana, XRP · réseau Ripple, USDT · réseau TRC-20/TRON uniquement.`,
       ])}
-      <p style="margin-top:12px;">Pour les paiements crypto, le client est seul responsable du choix du réseau. Tout envoi sur un réseau incorrect entraînera la perte définitive des fonds, StreamMalin ne pouvant en aucun cas les récupérer.</p>
+      ${warn(`<strong style="color:#ff3b3b;">⚠️ Cryptomonnaies — Réseau obligatoire :</strong> Utilisez exclusivement le réseau indiqué pour chaque crypto. Tout envoi sur un réseau incorrect entraînera la <strong>perte définitive et irrécupérable des fonds</strong>. StreamMalin ne pourra en aucun cas être tenu responsable de cette erreur.`)}
     `,
   },
   {
     title: 'Livraison et activation',
     content: `
-      <p>Les accès sont livrés par voie électronique :</p>
+      <p>Les accès sont livrés par voie électronique, selon le mode de paiement :</p>
       ${ul([
-        `${strong('Stripe')} : activation immédiate et automatique après confirmation du paiement.`,
-        `${strong('PayPal / Crypto')} : activation sous 1 à 24 heures après vérification manuelle du paiement.`,
+        `${strong('Stripe (CB / Apple Pay / Google Pay)')} : activation <strong style="color:var(--text)">immédiate et automatique</strong> dès confirmation du paiement par Stripe.`,
+        `${strong('PayPal / Cryptomonnaies')} : activation sous <strong style="color:var(--text)">1 à 24 heures</strong> après vérification manuelle du paiement par notre équipe.`,
       ])}
-      <p style="margin-top:12px;">Les identifiants et accès sont transmis par email et disponibles dans l'espace client. StreamMalin ne peut être tenu responsable d'un délai supplémentaire lié à une indisponibilité temporaire des plateformes.</p>
+      <p style="margin-top:12px;">Les identifiants sont transmis par email et disponibles dans l'espace client. StreamMalin ne peut être tenu responsable des délais liés à une indisponibilité temporaire des plateformes tierces.</p>
     `,
   },
   {
@@ -254,22 +254,31 @@ const sections = [
     `,
   },
   {
+    title: 'Support — Canal officiel unique',
+    content: `
+      <p>Le ${strong('seul canal de support officiel')} de StreamMalin est Telegram. Toute demande (problème d'accès, question sur une commande, signalement de dysfonctionnement) doit être adressée via :</p>
+      ${info(`<strong style="color:#f0f0f5;">Telegram : <a href="https://t.me/flexnight9493" style="color:#60a5fa;font-size:1.05em;">t.me/flexnight9493</a></strong><br/>Disponible 7j/7. Merci de préciser votre numéro de commande et votre email lors du premier contact.`)}
+      <p style="margin-top:12px;">Les demandes adressées via d'autres canaux (commentaires, réseaux sociaux, etc.) ne peuvent pas être traitées.</p>
+    `,
+  },
+  {
     title: 'Litiges — Politique de contestation',
     content: `
-      ${warn(`<strong style="color:#ff3b3b;">Tout litige ouvert sur Stripe ou PayPal (chargeback, contestation de paiement) sans contact préalable avec notre support Telegram entraînera la clôture immédiate et définitive de l'accès, sans compensation ni remboursement.</strong>`)}
-      <p style="margin-top:14px;">En cas de problème, le client doit impérativement contacter le support en premier lieu :</p>
+      ${warn(`<strong style="color:#ff3b3b;">Tout litige ouvert sur Stripe ou PayPal (chargeback, contestation de paiement, demande de remboursement) sans contact préalable avec notre support Telegram entraînera la clôture immédiate et définitive de l'accès concerné, sans compensation ni remboursement d'aucune sorte.</strong>`)}
+      <p style="margin-top:14px;">Procédure obligatoire en cas de problème :</p>
       ${ul([
-        `Telegram : <a href="https://t.me/flexnight9493" style="color:#60a5fa;">t.me/flexnight9493</a>`,
-        `Email : <a href="mailto:contact@streammalin.fr" style="color:#60a5fa;">contact@streammalin.fr</a>`,
+        `Contacter le support Telegram avant toute démarche : <a href="https://t.me/flexnight9493" style="color:#60a5fa;">t.me/flexnight9493</a>`,
+        `Attendre la réponse de l'équipe (sous 24h maximum).`,
+        `Si aucune solution n'est trouvée, les voies légales restent ouvertes.`,
       ])}
-      <p style="margin-top:12px;">Les présentes CGV sont soumises au droit français. En cas de litige persistant, les tribunaux compétents sont ceux du ressort du siège social du Vendeur.</p>
+      <p style="margin-top:12px;">Les présentes CGV sont soumises au droit français. En cas de litige persistant non résolu à l'amiable, les tribunaux compétents sont ceux du ressort du siège social du Vendeur.</p>
     `,
   },
   {
     title: 'Durée et renouvellement',
     content: `
-      <p>Les abonnements sont souscrits pour une durée choisie par le client (1, 3, 6 ou 12 mois), à compter de la date d'activation. ${strong('Le renouvellement n\'est pas automatique.')} Le client doit initier une nouvelle commande avant l'expiration pour assurer la continuité du service.</p>
-      <p style="margin-top:10px;">La date d'expiration est visible dans l'espace client et communiquée par email.</p>
+      <p>Les abonnements sont disponibles pour les durées suivantes : ${strong('1 mois, 3 mois, 6 mois ou 12 mois')}, à compter de la date d'activation. Le prix total correspond au tarif mensuel multiplié par la durée choisie.</p>
+      <p style="margin-top:10px;">${strong('Le renouvellement n\'est pas automatique.')} Le client doit initier une nouvelle commande avant la date d'expiration pour assurer la continuité du service. La date d'expiration est visible dans l'espace client et communiquée par email.</p>
     `,
   },
   {
