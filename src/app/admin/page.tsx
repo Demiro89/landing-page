@@ -34,6 +34,7 @@ interface Order {
   paymentMethod: string;
   paymentTxId?: string;
   gmail?: string;
+  invitationSentAt?: string | null;
   createdAt: string;
   user: { email: string };
   slot?: {
@@ -336,6 +337,27 @@ export default function AdminPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Erreur');
       setActionResult((p) => ({ ...p, [orderId]: '📧 Accès notifiés' }));
+    } catch (err) {
+      setActionResult((p) => ({ ...p, [orderId]: `❌ ${err instanceof Error ? err.message : 'Erreur'}` }));
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleMarkInvitationSent = async (orderId: string) => {
+    setActionLoading(orderId + 'mark');
+    try {
+      const res = await fetch('/api/admin/orders', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, orderId, action: 'mark_invitation_sent' }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Erreur');
+      setOrders((prev) =>
+        prev.map((o) => o.id === orderId ? { ...o, invitationSentAt: data.invitationSentAt } : o)
+      );
+      setActionResult((p) => ({ ...p, [orderId]: '✅ Invitation marquée comme envoyée' }));
     } catch (err) {
       setActionResult((p) => ({ ...p, [orderId]: `❌ ${err instanceof Error ? err.message : 'Erreur'}` }));
     } finally {
@@ -949,6 +971,7 @@ export default function AdminPage() {
               onDelete={() => setDeleteConfirm(order.id)}
               onSendInvite={() => setInviteConfirm(order.id)}
               onNotifyAccess={() => handleNotifyAccess(order.id)}
+              onMarkInvitationSent={() => handleMarkInvitationSent(order.id)}
               confirming={confirming === order.id}
               actionLoading={actionLoading?.startsWith(order.id) ?? false}
               actionResult={actionResult[order.id]}
@@ -1136,6 +1159,7 @@ function AdminOrderCard({
   onDelete,
   onSendInvite,
   onNotifyAccess,
+  onMarkInvitationSent,
   confirming,
   actionLoading,
   actionResult,
@@ -1147,6 +1171,7 @@ function AdminOrderCard({
   onDelete: () => void;
   onSendInvite: () => void;
   onNotifyAccess: () => void;
+  onMarkInvitationSent: () => void;
   confirming: boolean;
   actionLoading: boolean;
   actionResult?: string;
@@ -1294,16 +1319,40 @@ function AdminOrderCard({
           </div>
         ) : (
           <>
-            {/* Envoyer invitation YouTube */}
+            {/* Envoyer invitation YouTube + Marquer comme envoyé */}
             {showInviteBtn && (
-              <button
-                onClick={onSendInvite}
-                disabled={busy}
-                style={btnStyle('#ff3b3b', 'rgba(255,59,59,0.08)', busy)}
-              >
-                <i className="fa-solid fa-paper-plane" style={{ marginRight: '6px' }} />
-                Envoyer l'invitation
-              </button>
+              <>
+                <button
+                  onClick={onSendInvite}
+                  disabled={busy}
+                  style={btnStyle('#ff3b3b', 'rgba(255,59,59,0.08)', busy)}
+                >
+                  <i className="fa-solid fa-paper-plane" style={{ marginRight: '6px' }} />
+                  Envoyer l'invitation
+                </button>
+
+                {order.invitationSentAt ? (
+                  <div style={{
+                    fontSize: '0.72rem', color: '#00ffaa',
+                    background: 'rgba(0,255,170,0.06)',
+                    border: '1px solid rgba(0,255,170,0.2)',
+                    borderRadius: '7px', padding: '5px 10px',
+                    textAlign: 'center', whiteSpace: 'nowrap',
+                  }}>
+                    <i className="fa-solid fa-circle-check" style={{ marginRight: '5px' }} />
+                    Envoyée le {new Date(order.invitationSentAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                  </div>
+                ) : (
+                  <button
+                    onClick={onMarkInvitationSent}
+                    disabled={busy}
+                    style={btnStyle('#00ffaa', 'rgba(0,255,170,0.06)', busy)}
+                  >
+                    <i className="fa-solid fa-envelope-circle-check" style={{ marginRight: '6px' }} />
+                    Marquer envoyée
+                  </button>
+                )}
+              </>
             )}
 
             {/* Notifier accès Disney+ */}

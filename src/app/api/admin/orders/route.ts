@@ -54,7 +54,7 @@ export async function PATCH(req: NextRequest) {
   const { token, orderId, action } = body as {
     token: string;
     orderId: string;
-    action: 'activate' | 'cancel' | 'send_youtube_invite' | 'notify_access';
+    action: 'activate' | 'cancel' | 'send_youtube_invite' | 'notify_access' | 'mark_invitation_sent';
   };
   const adminToken = process.env.ADMIN_SECRET_TOKEN;
 
@@ -62,7 +62,7 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: 'Non autorisé.' }, { status: 401 });
   }
 
-  if (!orderId || !['activate', 'cancel', 'send_youtube_invite', 'notify_access'].includes(action)) {
+  if (!orderId || !['activate', 'cancel', 'send_youtube_invite', 'notify_access', 'mark_invitation_sent'].includes(action)) {
     return NextResponse.json({ error: 'Paramètres invalides.' }, { status: 400 });
   }
 
@@ -134,6 +134,17 @@ export async function PATCH(req: NextRequest) {
         return NextResponse.json({ error: 'Échec envoi email.' }, { status: 500 });
       }
       return NextResponse.json({ ok: true });
+    }
+
+    if (action === 'mark_invitation_sent') {
+      if (order.service !== 'YOUTUBE') {
+        return NextResponse.json({ error: 'Action réservée aux commandes YouTube.' }, { status: 400 });
+      }
+      const updated = await prisma.order.update({
+        where: { id: orderId },
+        data: { invitationSentAt: new Date() },
+      });
+      return NextResponse.json({ ok: true, invitationSentAt: updated.invitationSentAt });
     }
 
     if (action === 'activate') {

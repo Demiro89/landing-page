@@ -36,6 +36,8 @@ export async function GET(req: NextRequest) {
       status: true,
       amount: true,
       paymentMethod: true,
+      gmail: true,
+      invitationSentAt: true,
       createdAt: true,
       expiresAt: true,
     },

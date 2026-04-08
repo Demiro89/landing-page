@@ -11,6 +11,8 @@ type Order = {
   status: string;
   amount: number;
   paymentMethod: string;
+  gmail: string | null;
+  invitationSentAt: string | null;
   createdAt: string;
   expiresAt: string | null;
 };
@@ -260,6 +262,37 @@ function TrackOrderContent() {
                       <span><i className="fa-solid fa-euro-sign" style={{ marginRight: '5px' }} />{order.amount.toFixed(2).replace('.', ',')}€/mois</span>
                       <span><i className="fa-solid fa-credit-card" style={{ marginRight: '5px' }} />{METHOD_LABELS[order.paymentMethod] ?? order.paymentMethod}</span>
                     </div>
+
+                    {/* YouTube invitation status */}
+                    {order.service === 'YOUTUBE' && isActive && (
+                      <div style={{
+                        background: order.invitationSentAt ? 'rgba(0,255,170,0.05)' : 'rgba(245,158,11,0.05)',
+                        border: `1px solid ${order.invitationSentAt ? 'rgba(0,255,170,0.2)' : 'rgba(245,158,11,0.2)'}`,
+                        borderRadius: '8px', padding: '10px 14px',
+                        marginBottom: '10px',
+                        display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem',
+                      }}>
+                        {order.invitationSentAt ? (
+                          <>
+                            <i className="fa-solid fa-circle-check" style={{ color: '#00ffaa', flexShrink: 0 }} />
+                            <span>
+                              <span style={{ color: '#00ffaa', fontWeight: 600 }}>
+                                L&apos;invitation a été envoyée sur votre adresse Gmail !
+                              </span>
+                              {' '}
+                              <span style={{ color: 'var(--muted)' }}>Vérifiez vos spams.</span>
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <i className="fa-solid fa-clock" style={{ color: '#f59e0b', flexShrink: 0 }} />
+                            <span style={{ color: '#f59e0b' }}>
+                              En attente de l&apos;envoi de l&apos;invitation YouTube Premium
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    )}
 
                     {/* Expiry bar */}
                     {isActive && order.expiresAt && (
