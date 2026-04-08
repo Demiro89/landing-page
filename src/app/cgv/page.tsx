@@ -185,11 +185,27 @@ const sections = [
     content: `
       <p>La commande est considérée comme ferme et définitive dès sa validation et la déclaration du paiement. Les moyens de paiement acceptés sont :</p>
       ${ul([
-        `${strong('Carte bancaire, Apple Pay, Google Pay')} — via Stripe. Le libellé bancaire apparaîtra sous <code style="background:rgba(255,255,255,0.06);padding:1px 6px;border-radius:4px;font-size:0.85em;">STREAMMALIN</code>. Activation immédiate.`,
+        `${strong('Carte bancaire, Apple Pay, Google Pay')} — via Stripe. Activation immédiate.`,
         `${strong('PayPal')} — envoi "Entre proches" uniquement, sans note ni libellé, au montant exact.`,
-        `${strong('Cryptomonnaies')} — Solana (SOL) · réseau Solana, XRP · réseau Ripple, USDT · réseau TRC-20/TRON uniquement.`,
+        `${strong('Cryptomonnaies')} — Solana (SOL) · réseau Solana uniquement, XRP · réseau Ripple uniquement, USDT · réseau TRC-20/TRON uniquement.`,
       ])}
-      ${warn(`<strong style="color:#ff3b3b;">⚠️ Cryptomonnaies — Réseau obligatoire :</strong> Utilisez exclusivement le réseau indiqué pour chaque crypto. Tout envoi sur un réseau incorrect entraînera la <strong>perte définitive et irrécupérable des fonds</strong>. StreamMalin ne pourra en aucun cas être tenu responsable de cette erreur.`)}
+
+      <p style="margin-top:16px;font-size:0.88rem;color:var(--muted);">
+        Pour les paiements par Carte Bancaire, Apple Pay et Google Pay, le libellé apparaissant sur votre relevé bancaire sera :
+        <strong style="color:var(--text);font-family:monospace;letter-spacing:0.05em;"> STREAMMALIN</strong>.
+      </p>
+
+      <div style="background:rgba(255,59,59,0.07);border:1px solid rgba(255,59,59,0.35);border-left:3px solid #ff3b3b;border-radius:9px;padding:16px 18px;margin-top:16px;line-height:1.75;">
+        <p style="margin:0 0 8px;font-size:0.88rem;font-weight:700;color:#ff3b3b;">⚠️ ATTENTION — Réseaux Cryptomonnaies</p>
+        <p style="margin:0;font-size:0.85rem;color:#ff6b6b;">
+          Vous devez impérativement utiliser les réseaux mentionnés :
+          <strong style="color:#f0f0f5;">réseau Solana</strong> pour SOL,
+          <strong style="color:#f0f0f5;">réseau Ripple</strong> pour XRP,
+          <strong style="color:#f0f0f5;">réseau TRC-20</strong> pour USDT.
+          Tout envoi via un mauvais réseau ou une erreur d'adresse entraînera la <strong style="color:#ff3b3b;">perte définitive des fonds</strong>.
+          <strong>Aucun remboursement ou crédit ne pourra être effectué dans ce cas.</strong>
+        </p>
+      </div>
     `,
   },
   {
