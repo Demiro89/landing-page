@@ -69,6 +69,9 @@ model Slot {
   /// Disponible = pas encore assigné à une commande active
   isAvailable     Boolean @default(true)
 
+  /// Email du client assigné à ce slot (gmail pour YouTube, email du compte pour Disney+)
+  assignedEmail   String?
+
   createdAt DateTime @default(now())
 
   order Order?

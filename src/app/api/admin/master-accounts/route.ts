@@ -1,7 +1,7 @@
 /**
  * GET    /api/admin/master-accounts?token=XXX           — liste tous les comptes maîtres
  * POST   /api/admin/master-accounts                     — créer un nouveau compte maître + slots
- * PATCH  /api/admin/master-accounts                     — modifier email/mdp OU ajuster les slots
+ * PATCH  /api/admin/master-accounts                     — modifier email/mdp OU ajuster les slots OU modifier l'email d'un slot
  * DELETE /api/admin/master-accounts?token=XXX&id=XXX   — supprimer définitivement un compte
  */
 
@@ -12,6 +12,15 @@ function checkAuth(token: string | null): boolean {
   const adminToken = process.env.ADMIN_SECRET_TOKEN;
   return Boolean(adminToken && token === adminToken);
 }
+
+// Sélection commune pour les slots
+const SLOT_SELECT = {
+  id: true,
+  profileNumber: true,
+  isAvailable: true,
+  pinCode: true,
+  assignedEmail: true,
+} as const;
 
 // ── GET : liste des comptes maîtres avec stats slots ────────────────────────
 export async function GET(req: NextRequest) {
@@ -24,7 +33,8 @@ export async function GET(req: NextRequest) {
     const accounts = await prisma.masterAccount.findMany({
       include: {
         slots: {
-          select: { id: true, profileNumber: true, isAvailable: true, pinCode: true },
+          select: SLOT_SELECT,
+          orderBy: { profileNumber: 'asc' },
         },
       },
       orderBy: { createdAt: 'desc' },
@@ -87,7 +97,7 @@ export async function POST(req: NextRequest) {
           })),
         },
       },
-      include: { slots: true },
+      include: { slots: { select: SLOT_SELECT, orderBy: { profileNumber: 'asc' } } },
     });
 
     return NextResponse.json({ ok: true, account }, { status: 201 });
@@ -97,7 +107,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// ── PATCH : modifier credentials OU ajuster le nombre de slots ───────────────
+// ── PATCH : modifier credentials OU ajuster les slots OU email d'un slot ─────
 export async function PATCH(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const {
@@ -107,13 +117,15 @@ export async function PATCH(req: NextRequest) {
     email,
     password,
     delta,
+    slotId,
   } = body as {
     token: string;
     id: string;
-    action?: 'update_credentials' | 'adjust_slots';
+    action?: 'update_credentials' | 'adjust_slots' | 'update_slot_email';
     email?: string;
     password?: string;
-    delta?: number; // +1 ou -1 (ou ±N)
+    delta?: number;
+    slotId?: string;
   };
 
   if (!checkAuth(token)) {
@@ -124,6 +136,35 @@ export async function PATCH(req: NextRequest) {
   }
 
   try {
+    // ── Mise à jour de l'email d'un slot spécifique ────────────────────────
+    if (action === 'update_slot_email') {
+      if (!slotId) {
+        return NextResponse.json({ error: 'slotId manquant.' }, { status: 400 });
+      }
+      await prisma.slot.update({
+        where: { id: slotId, masterAccountId: id },
+        data: { assignedEmail: email?.trim() || null },
+      });
+
+      // Retourner le compte mis à jour
+      const updated = await prisma.masterAccount.findUnique({
+        where: { id },
+        include: {
+          slots: { select: SLOT_SELECT, orderBy: { profileNumber: 'asc' } },
+        },
+      });
+      if (!updated) return NextResponse.json({ error: 'Compte introuvable.' }, { status: 404 });
+
+      return NextResponse.json({
+        ok: true,
+        account: {
+          ...updated,
+          slotsTotal: updated.slots.length,
+          slotsAvailable: updated.slots.filter((s) => s.isAvailable).length,
+        },
+      });
+    }
+
     // ── Ajustement du nombre de slots ──────────────────────────────────────
     if (action === 'adjust_slots') {
       const d = Number(delta);
@@ -132,7 +173,6 @@ export async function PATCH(req: NextRequest) {
       }
 
       if (d > 0) {
-        // Ajout de slots : on prend le prochain numéro de profil disponible
         const existing = await prisma.slot.findMany({
           where: { masterAccountId: id },
           orderBy: { profileNumber: 'desc' },
@@ -150,7 +190,6 @@ export async function PATCH(req: NextRequest) {
           }),
         ]);
       } else {
-        // Suppression du slot libre le plus récent (numéro le plus élevé)
         const freeSlot = await prisma.slot.findFirst({
           where: { masterAccountId: id, isAvailable: true },
           orderBy: { profileNumber: 'desc' },
@@ -170,11 +209,10 @@ export async function PATCH(req: NextRequest) {
         ]);
       }
 
-      // Retourner l'état mis à jour
       const updated = await prisma.masterAccount.findUnique({
         where: { id },
         include: {
-          slots: { select: { id: true, profileNumber: true, isAvailable: true, pinCode: true } },
+          slots: { select: SLOT_SELECT, orderBy: { profileNumber: 'asc' } },
         },
       });
       if (!updated) return NextResponse.json({ error: 'Compte introuvable.' }, { status: 404 });
@@ -218,12 +256,9 @@ export async function DELETE(req: NextRequest) {
   }
 
   try {
-    // Récupérer les slots du compte
     const slots = await prisma.slot.findMany({ where: { masterAccountId: id } });
     const occupiedSlotIds = slots.filter((s) => !s.isAvailable).map((s) => s.id);
 
-    // Détacher les commandes actives liées aux slots occupés
-    // (ne pas supprimer les commandes, juste retirer le slot assigné)
     if (occupiedSlotIds.length > 0) {
       await prisma.order.updateMany({
         where: { slotId: { in: occupiedSlotIds } },
@@ -231,14 +266,10 @@ export async function DELETE(req: NextRequest) {
       });
     }
 
-    // Supprimer les slots puis le compte
     await prisma.slot.deleteMany({ where: { masterAccountId: id } });
     await prisma.masterAccount.delete({ where: { id } });
 
-    return NextResponse.json({
-      ok: true,
-      affectedOrders: occupiedSlotIds.length,
-    });
+    return NextResponse.json({ ok: true, affectedOrders: occupiedSlotIds.length });
   } catch (err) {
     console.error('[DELETE /api/admin/master-accounts]', err);
     return NextResponse.json({ error: 'Erreur interne.' }, { status: 500 });

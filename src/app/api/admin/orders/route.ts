@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { dispatchDisneySlot } from '@/lib/dispatch';
+import { dispatchSlot } from '@/lib/dispatch';
 import { sendYouTubeInvitationSent, sendAccessUpdated } from '@/lib/email';
 
 function auth(req: NextRequest): boolean {
@@ -137,13 +137,13 @@ export async function PATCH(req: NextRequest) {
     }
 
     if (action === 'activate') {
-      // Si Disney+ et pas encore de slot → en dispatch un
+      // Si pas encore de slot → dispatch pour n'importe quel service
       let slotId = order.slotId;
-      if (order.service === 'DISNEY' && !slotId) {
-        const slot = await dispatchDisneySlot(orderId);
+      if (!slotId) {
+        const slot = await dispatchSlot(orderId, order.service);
         if (!slot) {
           return NextResponse.json(
-            { error: 'Stock Disney+ épuisé — ajoutez des comptes maîtres.' },
+            { error: `Stock ${order.service} épuisé — ajoutez des comptes maîtres.` },
             { status: 409 }
           );
         }

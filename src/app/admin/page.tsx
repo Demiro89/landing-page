@@ -5,6 +5,14 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 // ──────────────────────────────────────
 // Types
 // ──────────────────────────────────────
+interface SlotInfo {
+  id: string;
+  profileNumber: number;
+  isAvailable: boolean;
+  pinCode?: string;
+  assignedEmail?: string;
+}
+
 interface MasterAccount {
   id: string;
   service: string;
@@ -15,6 +23,7 @@ interface MasterAccount {
   createdAt: string;
   slotsTotal: number;
   slotsAvailable: number;
+  slots: SlotInfo[];
 }
 
 interface Order {
@@ -74,6 +83,8 @@ export default function AdminPage() {
   const [slotLoading, setSlotLoading] = useState<string | null>(null);
   const [deleteAccConfirm, setDeleteAccConfirm] = useState<string | null>(null);
   const [editAcc, setEditAcc] = useState<{ id: string; email: string; password: string } | null>(null);
+  const [editSlot, setEditSlot] = useState<{ accId: string; slotId: string; email: string } | null>(null);
+  const [slotEmailLoading, setSlotEmailLoading] = useState<string | null>(null);
   const newAccRef = useRef<{ service: string; email: string; password: string; maxSlots: string }>({
     service: '', email: '', password: '', maxSlots: '5',
   });
@@ -260,6 +271,7 @@ export default function AdminPage() {
                 slotsTotal: data.account.slotsTotal,
                 slotsAvailable: data.account.slotsAvailable,
                 maxSlots: data.account.maxSlots,
+                slots: data.account.slots ?? acc.slots,
               }
             : acc
         )
@@ -284,6 +296,32 @@ export default function AdminPage() {
       setAccounts((prev) => prev.filter((acc) => acc.id !== id));
     } catch (err) {
       setAccError(err instanceof Error ? err.message : 'Erreur');
+    }
+  };
+
+  const handleUpdateSlotEmail = async (accId: string, slotId: string, email: string) => {
+    setSlotEmailLoading(slotId);
+    setAccError('');
+    try {
+      const res = await fetch('/api/admin/master-accounts', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, id: accId, action: 'update_slot_email', slotId, email }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Erreur');
+      setAccounts((prev) =>
+        prev.map((acc) =>
+          acc.id === accId
+            ? { ...acc, slots: data.account.slots }
+            : acc
+        )
+      );
+      setEditSlot(null);
+    } catch (err) {
+      setAccError(err instanceof Error ? err.message : 'Erreur');
+    } finally {
+      setSlotEmailLoading(null);
     }
   };
 
@@ -751,6 +789,73 @@ export default function AdminPage() {
                         {isLoadingPlus ? <i className="fa-solid fa-spinner fa-spin" style={{ fontSize: '0.6rem' }} /> : '+'}
                       </button>
                     </div>
+
+                    {/* Slot list — email par slot */}
+                    {acc.slots && acc.slots.length > 0 && (
+                      <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        {acc.slots.map((slot) => {
+                          const isEditingSlot = editSlot?.slotId === slot.id;
+                          const isSavingSlot = slotEmailLoading === slot.id;
+                          return (
+                            <div key={slot.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.78rem' }}>
+                              <span style={{
+                                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                width: '22px', height: '22px', borderRadius: '50%', flexShrink: 0,
+                                background: slot.isAvailable ? 'rgba(255,255,255,0.05)' : 'rgba(0,255,170,0.08)',
+                                border: `1px solid ${slot.isAvailable ? 'var(--border2)' : 'rgba(0,255,170,0.2)'}`,
+                                color: slot.isAvailable ? 'var(--muted)' : '#00ffaa',
+                                fontWeight: 700, fontSize: '0.65rem',
+                              }}>
+                                {slot.profileNumber}
+                              </span>
+
+                              {isEditingSlot ? (
+                                <>
+                                  <input
+                                    type="email"
+                                    value={editSlot.email}
+                                    onChange={(e) => setEditSlot({ ...editSlot, email: e.target.value })}
+                                    placeholder="email@exemple.com"
+                                    style={{ ...smallInput, padding: '4px 8px', fontSize: '0.76rem', width: '180px' }}
+                                    autoFocus
+                                  />
+                                  <button
+                                    onClick={() => handleUpdateSlotEmail(acc.id, slot.id, editSlot.email)}
+                                    disabled={isSavingSlot}
+                                    style={{ background: '#00ffaa', color: '#000', border: 'none', borderRadius: '5px', padding: '4px 10px', fontWeight: 700, fontSize: '0.72rem', cursor: 'pointer' }}
+                                  >
+                                    {isSavingSlot ? '...' : '✓'}
+                                  </button>
+                                  <button
+                                    onClick={() => setEditSlot(null)}
+                                    style={{ background: 'transparent', color: 'var(--muted)', border: 'none', cursor: 'pointer', fontSize: '0.78rem', padding: '0 4px' }}
+                                  >
+                                    ✕
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  {slot.isAvailable ? (
+                                    <span style={{ color: 'var(--muted)', fontStyle: 'italic' }}>Libre</span>
+                                  ) : (
+                                    <code style={{ color: 'var(--text)', fontSize: '0.76rem' }}>
+                                      {slot.assignedEmail ?? '—'}
+                                    </code>
+                                  )}
+                                  <button
+                                    onClick={() => setEditSlot({ accId: acc.id, slotId: slot.id, email: slot.assignedEmail ?? '' })}
+                                    title="Modifier l'email du slot"
+                                    style={{ background: 'transparent', color: 'var(--muted)', border: 'none', cursor: 'pointer', padding: '2px 4px', fontSize: '0.72rem', opacity: 0.7, lineHeight: 1 }}
+                                  >
+                                    <i className="fa-solid fa-pen" />
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
 
                     <div style={{ fontSize: '0.7rem', color: 'var(--muted)', marginTop: '6px' }}>
                       ID : <code>{acc.id}</code>
