@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { dispatchDisneySlot } from '@/lib/dispatch';
+import { sendYouTubeInvitationSent } from '@/lib/email';
 
 function auth(req: NextRequest): boolean {
   const token = new URL(req.url).searchParams.get('token')
@@ -53,7 +54,7 @@ export async function PATCH(req: NextRequest) {
   const { token, orderId, action } = body as {
     token: string;
     orderId: string;
-    action: 'activate' | 'cancel';
+    action: 'activate' | 'cancel' | 'send_youtube_invite';
   };
   const adminToken = process.env.ADMIN_SECRET_TOKEN;
 
@@ -61,14 +62,17 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: 'Non autorisé.' }, { status: 401 });
   }
 
-  if (!orderId || !['activate', 'cancel'].includes(action)) {
+  if (!orderId || !['activate', 'cancel', 'send_youtube_invite'].includes(action)) {
     return NextResponse.json({ error: 'Paramètres invalides.' }, { status: 400 });
   }
 
   try {
     const order = await prisma.order.findUnique({
       where: { id: orderId },
-      include: { slot: { include: { masterAccount: true } } },
+      include: {
+        user: true,
+        slot: { include: { masterAccount: true } },
+      },
     });
 
     if (!order) {
@@ -88,6 +92,24 @@ export async function PATCH(req: NextRequest) {
         data: { status: 'CANCELLED', slotId: null },
       });
       return NextResponse.json({ ok: true, status: 'CANCELLED' });
+    }
+
+    if (action === 'send_youtube_invite') {
+      if (order.service !== 'YOUTUBE') {
+        return NextResponse.json({ error: 'Action réservée aux commandes YouTube.' }, { status: 400 });
+      }
+      if (!order.gmail) {
+        return NextResponse.json({ error: 'Aucun Gmail renseigné pour cette commande.' }, { status: 400 });
+      }
+      const sent = await sendYouTubeInvitationSent({
+        to: order.user.email,
+        orderId: order.id,
+        gmail: order.gmail,
+      });
+      if (!sent) {
+        return NextResponse.json({ error: 'Échec envoi email — vérifiez les logs Vercel.' }, { status: 500 });
+      }
+      return NextResponse.json({ ok: true });
     }
 
     if (action === 'activate') {

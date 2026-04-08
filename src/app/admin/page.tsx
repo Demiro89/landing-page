@@ -49,6 +49,7 @@ export default function AdminPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [actionResult, setActionResult] = useState<Record<string, string>>({});
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [inviteConfirm, setInviteConfirm] = useState<string | null>(null);
   const [filter, setFilter] = useState<'ALL' | 'PAYMENT_DECLARED' | 'ACTIVE' | 'PENDING'>('PAYMENT_DECLARED');
 
   const fetchOrders = useCallback(async (t: string) => {
@@ -100,6 +101,28 @@ export default function AdminPage() {
       const label = action === 'activate' ? '✅ Activé !' : '🚫 Annulé';
       setActionResult((p) => ({ ...p, [orderId]: label }));
       setTimeout(() => fetchOrders(token), 600);
+    } catch (err) {
+      setActionResult((p) => ({
+        ...p,
+        [orderId]: `❌ ${err instanceof Error ? err.message : 'Erreur'}`,
+      }));
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleSendYouTubeInvite = async (orderId: string) => {
+    setInviteConfirm(null);
+    setActionLoading(orderId + 'invite');
+    try {
+      const res = await fetch('/api/admin/orders', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, orderId, action: 'send_youtube_invite' }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Erreur');
+      setActionResult((p) => ({ ...p, [orderId]: '📧 Invitation envoyée' }));
     } catch (err) {
       setActionResult((p) => ({
         ...p,
@@ -433,11 +456,44 @@ export default function AdminPage() {
               onActivate={() => handleAction(order.id, 'activate')}
               onCancel={() => handleAction(order.id, 'cancel')}
               onDelete={() => setDeleteConfirm(order.id)}
+              onSendInvite={() => setInviteConfirm(order.id)}
               confirming={confirming === order.id}
               actionLoading={actionLoading?.startsWith(order.id) ?? false}
               actionResult={actionResult[order.id]}
             />
           ))}
+        </div>
+      )}
+
+      {/* YouTube invite confirmation modal */}
+      {inviteConfirm && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: '24px' }}
+          onClick={() => setInviteConfirm(null)}
+        >
+          <div
+            style={{ background: 'var(--card)', border: '1px solid var(--border)', borderTop: '3px solid #ff3b3b', borderRadius: '16px', padding: '28px', maxWidth: '420px', width: '100%', textAlign: 'center' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ width: '52px', height: '52px', borderRadius: '50%', background: 'rgba(255,59,59,0.12)', color: '#ff3b3b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem', margin: '0 auto 16px' }}>
+              <i className="fa-brands fa-youtube" />
+            </div>
+            <h3 style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, marginBottom: '8px' }}>
+              Confirmer l'envoi de l'invitation ?
+            </h3>
+            <p style={{ fontSize: '0.84rem', color: 'var(--muted)', marginBottom: '20px', lineHeight: 1.6 }}>
+              Un email sera envoyé au client pour lui indiquer que son invitation YouTube Premium est en route et lui rappeler de vérifier ses spams.
+            </p>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button onClick={() => setInviteConfirm(null)} style={{ flex: 1, padding: '11px', borderRadius: '9px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border2)', color: 'var(--muted)', fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer' }}>
+                Annuler
+              </button>
+              <button onClick={() => handleSendYouTubeInvite(inviteConfirm)} style={{ flex: 1, padding: '11px', borderRadius: '9px', background: '#ff3b3b', border: 'none', color: '#fff', fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer' }}>
+                <i className="fa-solid fa-paper-plane" style={{ marginRight: '6px' }} />
+                Envoyer l'invitation
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -517,6 +573,7 @@ function AdminOrderCard({
   onActivate,
   onCancel,
   onDelete,
+  onSendInvite,
   confirming,
   actionLoading,
   actionResult,
@@ -526,6 +583,7 @@ function AdminOrderCard({
   onActivate: () => void;
   onCancel: () => void;
   onDelete: () => void;
+  onSendInvite: () => void;
   confirming: boolean;
   actionLoading: boolean;
   actionResult?: string;
@@ -535,6 +593,7 @@ function AdminOrderCard({
   const canConfirm = ['PENDING', 'PAYMENT_DECLARED'].includes(order.status);
   const canActivate = !['ACTIVE'].includes(order.status);
   const canCancel = !['CANCELLED', 'EXPIRED'].includes(order.status);
+  const showInviteBtn = isYoutube && order.status === 'ACTIVE';
   const busy = confirming || actionLoading;
 
   return (
@@ -671,6 +730,18 @@ function AdminOrderCard({
           </div>
         ) : (
           <>
+            {/* Envoyer invitation YouTube */}
+            {showInviteBtn && (
+              <button
+                onClick={onSendInvite}
+                disabled={busy}
+                style={btnStyle('#ff3b3b', 'rgba(255,59,59,0.08)', busy)}
+              >
+                <i className="fa-solid fa-paper-plane" style={{ marginRight: '6px' }} />
+                Envoyer l'invitation
+              </button>
+            )}
+
             {/* Valider → Active */}
             {canActivate && (
               <button
