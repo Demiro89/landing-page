@@ -7,7 +7,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 // ──────────────────────────────────────
 interface MasterAccount {
   id: string;
-  service: 'YOUTUBE' | 'DISNEY';
+  service: string;
   email: string;
   password?: string;
   maxSlots: number;
@@ -71,9 +71,11 @@ export default function AdminPage() {
   const [accLoading, setAccLoading] = useState(false);
   const [accError, setAccError] = useState('');
   const [addAccLoading, setAddAccLoading] = useState(false);
+  const [slotLoading, setSlotLoading] = useState<string | null>(null);
+  const [deleteAccConfirm, setDeleteAccConfirm] = useState<string | null>(null);
   const [editAcc, setEditAcc] = useState<{ id: string; email: string; password: string } | null>(null);
   const newAccRef = useRef<{ service: string; email: string; password: string; maxSlots: string }>({
-    service: 'DISNEY', email: '', password: '', maxSlots: '5',
+    service: '', email: '', password: '', maxSlots: '5',
   });
 
   const fetchOrders = useCallback(async (t: string) => {
@@ -212,7 +214,7 @@ export default function AdminPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Erreur');
-      newAccRef.current = { service: 'DISNEY', email: '', password: '', maxSlots: '5' };
+      newAccRef.current = { service: '', email: '', password: '', maxSlots: '5' };
       // Force re-render of form by resetting inputs
       (e.target as HTMLFormElement).reset();
       fetchAccounts();
@@ -228,7 +230,7 @@ export default function AdminPage() {
       const res = await fetch('/api/admin/master-accounts', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, id, email, password }),
+        body: JSON.stringify({ token, id, action: 'update_credentials', email, password }),
       });
       if (!res.ok) throw new Error('Erreur mise à jour');
       setEditAcc(null);
@@ -238,14 +240,48 @@ export default function AdminPage() {
     }
   };
 
-  const handleDeactivateAccount = async (id: string) => {
+  const handleAdjustSlots = async (id: string, delta: number) => {
+    setSlotLoading(id + delta);
+    setAccError('');
+    try {
+      const res = await fetch('/api/admin/master-accounts', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, id, action: 'adjust_slots', delta }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Erreur');
+      // Mise à jour locale immédiate sans recharger tout
+      setAccounts((prev) =>
+        prev.map((acc) =>
+          acc.id === id
+            ? {
+                ...acc,
+                slotsTotal: data.account.slotsTotal,
+                slotsAvailable: data.account.slotsAvailable,
+                maxSlots: data.account.maxSlots,
+              }
+            : acc
+        )
+      );
+    } catch (err) {
+      setAccError(err instanceof Error ? err.message : 'Erreur');
+    } finally {
+      setSlotLoading(null);
+    }
+  };
+
+  const handleHardDeleteAccount = async (id: string) => {
+    setDeleteAccConfirm(null);
+    setAccError('');
     try {
       const res = await fetch(
         `/api/admin/master-accounts?token=${encodeURIComponent(token)}&id=${id}`,
         { method: 'DELETE' }
       );
-      if (!res.ok) throw new Error('Erreur désactivation');
-      fetchAccounts();
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Erreur suppression');
+      setAccounts((prev) => prev.filter((acc) => acc.id !== id));
     } catch (err) {
       setAccError(err instanceof Error ? err.message : 'Erreur');
     }
@@ -549,24 +585,23 @@ export default function AdminPage() {
               Ajouter un compte maître
             </h3>
             <form onSubmit={handleAddAccount}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: '12px', marginBottom: '14px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: '12px', marginBottom: '14px' }}>
                 <label style={smallLabel}>
-                  Service
-                  <select
-                    defaultValue="DISNEY"
+                  Service (texte libre)
+                  <input
+                    type="text"
+                    required
+                    placeholder="Netflix, Spotify, Disney+…"
                     onChange={(e) => { newAccRef.current.service = e.target.value; }}
                     style={smallInput}
-                  >
-                    <option value="DISNEY">Disney+ 4K</option>
-                    <option value="YOUTUBE">YouTube Premium</option>
-                  </select>
+                  />
                 </label>
                 <label style={smallLabel}>
                   Email du compte
                   <input
                     type="email"
                     required
-                    placeholder="compte@disney.com"
+                    placeholder="compte@exemple.com"
                     onChange={(e) => { newAccRef.current.email = e.target.value; }}
                     style={smallInput}
                   />
@@ -575,7 +610,7 @@ export default function AdminPage() {
                   Mot de passe
                   <input
                     type="text"
-                    placeholder="(optionnel pour YouTube)"
+                    placeholder="(optionnel)"
                     onChange={(e) => { newAccRef.current.password = e.target.value; }}
                     style={smallInput}
                   />
@@ -585,7 +620,7 @@ export default function AdminPage() {
                   <input
                     type="number"
                     min={1}
-                    max={20}
+                    max={50}
                     defaultValue={5}
                     onChange={(e) => { newAccRef.current.maxSlots = e.target.value; }}
                     style={smallInput}
@@ -622,25 +657,34 @@ export default function AdminPage() {
                   Aucun compte maître. Ajoutez-en un ci-dessus.
                 </div>
               )}
-              {accounts.map((acc) => (
+              {accounts.map((acc) => {
+                const svcColor = acc.service === 'YOUTUBE' ? '#ff3b3b' : '#a78bfa';
+                const svcIcon = acc.service === 'YOUTUBE' ? 'fa-brands fa-youtube' : 'fa-solid fa-server';
+                const isLoadingPlus = slotLoading === acc.id + '1';
+                const isLoadingMinus = slotLoading === acc.id + '-1';
+                const anySlotLoading = isLoadingPlus || isLoadingMinus;
+                return (
                 <div
                   key={acc.id}
                   style={{
-                    background: 'var(--card)', border: `1px solid var(--border)`,
-                    borderLeft: `3px solid ${acc.service === 'YOUTUBE' ? '#ff3b3b' : '#7c3aed'}`,
+                    background: 'var(--card)', border: '1px solid var(--border)',
+                    borderLeft: `3px solid ${svcColor}`,
                     borderRadius: '12px', padding: '16px 20px',
-                    opacity: acc.active ? 1 : 0.5,
+                    opacity: acc.active ? 1 : 0.55,
                     display: 'grid', gridTemplateColumns: '1fr auto', gap: '12px', alignItems: 'start',
                   }}
                 >
                   <div>
+                    {/* Service name + status badge */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-                      <span style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.9rem', color: acc.service === 'YOUTUBE' ? '#ff3b3b' : '#a78bfa' }}>
-                        <i className={acc.service === 'YOUTUBE' ? 'fa-brands fa-youtube' : 'fa-solid fa-wand-magic-sparkles'} style={{ marginRight: '6px' }} />
-                        {acc.service === 'YOUTUBE' ? 'YouTube Premium' : 'Disney+ 4K'}
+                      <span style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.9rem', color: svcColor }}>
+                        <i className={svcIcon} style={{ marginRight: '6px' }} />
+                        {acc.service}
                       </span>
                       {!acc.active && <span style={{ fontSize: '0.7rem', background: 'rgba(255,59,59,0.1)', color: '#ff3b3b', border: '1px solid rgba(255,59,59,0.3)', padding: '2px 8px', borderRadius: '4px' }}>Désactivé</span>}
                     </div>
+
+                    {/* Edit credentials inline form OR info display */}
                     {editAcc?.id === acc.id ? (
                       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '6px' }}>
                         <input
@@ -667,37 +711,70 @@ export default function AdminPage() {
                       <div style={{ fontSize: '0.82rem', display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
                         <span><span style={{ color: 'var(--muted)' }}>Email : </span><code>{acc.email}</code></span>
                         {acc.password && <span><span style={{ color: 'var(--muted)' }}>Mdp : </span><code>{acc.password}</code></span>}
-                        <span><span style={{ color: 'var(--muted)' }}>Slots : </span>
-                          <strong style={{ color: acc.slotsAvailable === 0 ? '#ff3b3b' : '#00ffaa' }}>
-                            {acc.slotsAvailable} dispo / {acc.slotsTotal}
-                          </strong>
-                        </span>
                       </div>
                     )}
+
+                    {/* Slot counter + +/- adjustment */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '10px' }}>
+                      <span style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>Slots :</span>
+                      <strong style={{ fontSize: '0.82rem', color: acc.slotsAvailable === 0 ? '#ff3b3b' : '#00ffaa' }}>
+                        {acc.slotsAvailable} dispo / {acc.slotsTotal}
+                      </strong>
+                      <button
+                        onClick={() => handleAdjustSlots(acc.id, -1)}
+                        disabled={anySlotLoading || acc.slotsAvailable === 0}
+                        title="Retirer un slot libre"
+                        style={{
+                          width: '26px', height: '26px', borderRadius: '6px',
+                          background: 'rgba(255,59,59,0.1)', border: '1px solid rgba(255,59,59,0.3)',
+                          color: '#ff3b3b', fontWeight: 700, fontSize: '0.9rem',
+                          cursor: anySlotLoading || acc.slotsAvailable === 0 ? 'not-allowed' : 'pointer',
+                          opacity: anySlotLoading || acc.slotsAvailable === 0 ? 0.4 : 1,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}
+                      >
+                        {isLoadingMinus ? <i className="fa-solid fa-spinner fa-spin" style={{ fontSize: '0.6rem' }} /> : '−'}
+                      </button>
+                      <button
+                        onClick={() => handleAdjustSlots(acc.id, 1)}
+                        disabled={anySlotLoading}
+                        title="Ajouter un slot"
+                        style={{
+                          width: '26px', height: '26px', borderRadius: '6px',
+                          background: 'rgba(0,255,170,0.1)', border: '1px solid rgba(0,255,170,0.3)',
+                          color: '#00ffaa', fontWeight: 700, fontSize: '0.9rem',
+                          cursor: anySlotLoading ? 'not-allowed' : 'pointer',
+                          opacity: anySlotLoading ? 0.4 : 1,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}
+                      >
+                        {isLoadingPlus ? <i className="fa-solid fa-spinner fa-spin" style={{ fontSize: '0.6rem' }} /> : '+'}
+                      </button>
+                    </div>
+
                     <div style={{ fontSize: '0.7rem', color: 'var(--muted)', marginTop: '6px' }}>
                       ID : <code>{acc.id}</code>
                     </div>
                   </div>
+
+                  {/* Action buttons */}
                   <div style={{ display: 'flex', gap: '7px', flexDirection: 'column', alignItems: 'flex-end' }}>
-                    {acc.active && (
-                      <>
-                        <button
-                          onClick={() => setEditAcc({ id: acc.id, email: acc.email, password: acc.password ?? '' })}
-                          style={btnStyle('#3b82f6', 'rgba(59,130,246,0.08)', false)}
-                        >
-                          <i className="fa-solid fa-pen" style={{ marginRight: '5px' }} />Modifier
-                        </button>
-                        <button
-                          onClick={() => handleDeactivateAccount(acc.id)}
-                          style={btnStyle('#ff3b3b', 'rgba(255,59,59,0.08)', false)}
-                        >
-                          <i className="fa-solid fa-power-off" style={{ marginRight: '5px' }} />Désactiver
-                        </button>
-                      </>
-                    )}
+                    <button
+                      onClick={() => setEditAcc({ id: acc.id, email: acc.email, password: acc.password ?? '' })}
+                      style={btnStyle('#3b82f6', 'rgba(59,130,246,0.08)', false)}
+                    >
+                      <i className="fa-solid fa-pen" style={{ marginRight: '5px' }} />Modifier
+                    </button>
+                    <button
+                      onClick={() => setDeleteAccConfirm(acc.id)}
+                      style={btnStyle('#ff3b3b', 'rgba(255,59,59,0.08)', false)}
+                    >
+                      <i className="fa-solid fa-trash" style={{ marginRight: '5px' }} />Supprimer
+                    </button>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -809,6 +886,72 @@ export default function AdminPage() {
 
       {/* ── end orders tab ── */}
       </>}
+
+      {/* Account hard-delete confirmation modal */}
+      {deleteAccConfirm && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 300, padding: '24px',
+          }}
+          onClick={() => setDeleteAccConfirm(null)}
+        >
+          <div
+            style={{
+              background: 'var(--card)', border: '1px solid var(--border)',
+              borderTop: '3px solid #ff3b3b', borderRadius: '16px',
+              padding: '28px', maxWidth: '420px', width: '100%',
+              textAlign: 'center',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{
+              width: '52px', height: '52px', borderRadius: '50%',
+              background: 'rgba(255,59,59,0.12)', color: '#ff3b3b',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '1.4rem', margin: '0 auto 16px',
+            }}>
+              <i className="fa-solid fa-server" />
+            </div>
+            <h3 style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, marginBottom: '8px' }}>
+              Supprimer ce compte maître ?
+            </h3>
+            <p style={{ fontSize: '0.84rem', color: 'var(--muted)', marginBottom: '6px' }}>
+              ID : <code style={{ fontSize: '0.78rem' }}>{deleteAccConfirm}</code>
+            </p>
+            <p style={{ fontSize: '0.82rem', color: 'var(--muted)', marginBottom: '24px', lineHeight: 1.5 }}>
+              Cette action est <strong style={{ color: '#ff3b3b' }}>irréversible</strong>.
+              Tous les slots associés seront supprimés. Les commandes actives seront détachées (non supprimées).
+            </p>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={() => setDeleteAccConfirm(null)}
+                style={{
+                  flex: 1, padding: '11px', borderRadius: '9px',
+                  background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border2)',
+                  color: 'var(--muted)', fontFamily: 'Syne, sans-serif',
+                  fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer',
+                }}
+              >
+                Annuler
+              </button>
+              <button
+                onClick={() => handleHardDeleteAccount(deleteAccConfirm)}
+                style={{
+                  flex: 1, padding: '11px', borderRadius: '9px',
+                  background: '#ff3b3b', border: 'none', color: '#fff',
+                  fontFamily: 'Syne, sans-serif', fontWeight: 700,
+                  fontSize: '0.85rem', cursor: 'pointer',
+                }}
+              >
+                <i className="fa-solid fa-trash" style={{ marginRight: '6px' }} />
+                Supprimer définitivement
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete confirmation modal */}
       {deleteConfirm && (
