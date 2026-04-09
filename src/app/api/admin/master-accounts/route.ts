@@ -141,10 +141,18 @@ export async function PATCH(req: NextRequest) {
       if (!slotId) {
         return NextResponse.json({ error: 'slotId manquant.' }, { status: 400 });
       }
-      await prisma.slot.update({
-        where: { id: slotId, masterAccountId: id },
-        data: { assignedEmail: email?.trim() || null },
-      });
+      const newEmail = email?.trim() || null;
+      await prisma.$transaction([
+        prisma.slot.update({
+          where: { id: slotId, masterAccountId: id },
+          data: { assignedEmail: newEmail },
+        }),
+        // Sync the linked active order's gmail field
+        prisma.order.updateMany({
+          where: { slotId, status: { in: ['ACTIVE', 'PENDING'] } },
+          data: { gmail: newEmail },
+        }),
+      ]);
 
       // Retourner le compte mis à jour
       const updated = await prisma.masterAccount.findUnique({
