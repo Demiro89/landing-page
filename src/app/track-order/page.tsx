@@ -208,7 +208,12 @@ function TrackOrderContent() {
                 const cfg = STATUS_CONFIG[order.status] ?? STATUS_CONFIG['PENDING'];
                 const isActive = order.status === 'ACTIVE';
                 const days = order.expiresAt ? daysLeft(order.expiresAt) : null;
-                const urgent = days !== null && days <= 3;
+                const urgent = days !== null && days <= 5;
+                // Considérer comme expiré si statut EXPIRED ou si ACTIVE avec expiresAt dépassée
+                const isExpired =
+                  order.status === 'EXPIRED' ||
+                  order.status === 'CANCELLED' ||
+                  (isActive && days !== null && days <= 0);
 
                 return (
                   <div
@@ -294,50 +299,116 @@ function TrackOrderContent() {
                       </div>
                     )}
 
-                    {/* Expiry bar */}
-                    {isActive && order.expiresAt && (
+                    {/* Expiry bar (ACTIVE seulement) */}
+                    {isActive && order.expiresAt && days !== null && days > 0 && (
                       <div style={{
-                        background: urgent ? 'rgba(255,59,59,0.06)' : 'rgba(0,255,170,0.04)',
-                        border: `1px solid ${urgent ? 'rgba(255,59,59,0.2)' : 'rgba(0,255,170,0.15)'}`,
-                        borderRadius: '8px', padding: '8px 12px',
+                        background: urgent ? 'rgba(245,158,11,0.06)' : 'rgba(0,255,170,0.04)',
+                        border: `1px solid ${urgent ? 'rgba(245,158,11,0.3)' : 'rgba(0,255,170,0.15)'}`,
+                        borderRadius: '8px', padding: '10px 14px',
                         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                        marginBottom: '14px', flexWrap: 'wrap' as const, gap: '6px',
+                        marginBottom: urgent ? '0' : '14px',
+                        flexWrap: 'wrap' as const, gap: '6px',
                       }}>
                         <span style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>
                           <i className="fa-solid fa-clock" style={{ marginRight: '5px' }} />
                           Expire le {formatDate(order.expiresAt)}
                         </span>
-                        <span style={{
-                          fontSize: '0.74rem', fontWeight: 700,
-                          color: urgent ? '#ff6b6b' : 'var(--green)',
-                        }}>
-                          {days !== null && days > 0 ? `J-${days}` : 'Expiré'}
+                        <span style={{ fontSize: '0.74rem', fontWeight: 700, color: urgent ? '#f59e0b' : 'var(--green)' }}>
+                          J-{days}
                         </span>
                       </div>
                     )}
 
-                    {/* CTA */}
-                    <button
-                      onClick={() => router.push(`/dashboard?orderId=${order.id}&email=${encodeURIComponent(email)}`)}
-                      style={{
-                        width: '100%', padding: '10px', borderRadius: '9px',
-                        border: '1px solid var(--border2)', background: 'rgba(255,255,255,0.03)',
-                        color: 'var(--muted)', fontSize: '0.82rem', fontWeight: 600,
-                        cursor: 'pointer', fontFamily: 'Syne, sans-serif',
-                        transition: 'background 0.2s, color 0.2s',
-                      }}
-                      onMouseEnter={(e) => {
-                        (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.07)';
-                        (e.currentTarget as HTMLButtonElement).style.color = 'var(--text)';
-                      }}
-                      onMouseLeave={(e) => {
-                        (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.03)';
-                        (e.currentTarget as HTMLButtonElement).style.color = 'var(--muted)';
-                      }}
-                    >
-                      <i className="fa-solid fa-gauge-high" style={{ marginRight: '7px' }} />
-                      Voir le détail dans mon espace client
-                    </button>
+                    {/* Alerte urgence (≤ 5 jours) */}
+                    {isActive && urgent && days !== null && days > 0 && (
+                      <div style={{
+                        background: 'rgba(245,158,11,0.08)',
+                        border: '1px solid rgba(245,158,11,0.35)',
+                        borderRadius: '8px', padding: '10px 14px',
+                        display: 'flex', alignItems: 'flex-start', gap: '10px',
+                        marginTop: '8px', marginBottom: '14px', fontSize: '0.82rem',
+                      }}>
+                        <i className="fa-solid fa-triangle-exclamation" style={{ color: '#f59e0b', marginTop: '2px', flexShrink: 0 }} />
+                        <span style={{ color: '#f59e0b', lineHeight: 1.5 }}>
+                          <strong>Attention, votre accès expire bientôt.</strong>
+                          {' '}Pensez à renouveler pour éviter une coupure de service.
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Bloc "Accès expiré" */}
+                    {isExpired && (
+                      <div style={{
+                        background: 'rgba(255,59,59,0.06)',
+                        border: '1px solid rgba(255,59,59,0.25)',
+                        borderRadius: '10px', padding: '16px',
+                        marginBottom: '14px', textAlign: 'center' as const,
+                      }}>
+                        <i className="fa-solid fa-circle-xmark" style={{ fontSize: '1.6rem', color: '#ff6b6b', marginBottom: '8px', display: 'block' }} />
+                        <p style={{ color: '#ff6b6b', fontWeight: 700, fontSize: '0.88rem', marginBottom: '6px' }}>
+                          Accès expiré
+                        </p>
+                        <p style={{ color: 'var(--muted)', fontSize: '0.8rem', marginBottom: '14px' }}>
+                          Votre abonnement a pris fin. Souscrivez à un nouvel abonnement pour retrouver l&apos;accès.
+                        </p>
+                        <a
+                          href="/#offres"
+                          style={{
+                            display: 'inline-flex', alignItems: 'center', gap: '7px',
+                            background: 'linear-gradient(135deg,#2563eb,#7c3aed)',
+                            color: '#fff', borderRadius: '9px', padding: '10px 20px',
+                            fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.85rem',
+                            textDecoration: 'none',
+                          }}
+                        >
+                          <i className="fa-solid fa-rotate-right" />
+                          Renouveler mon abonnement
+                        </a>
+                      </div>
+                    )}
+
+                    {/* Bouton Renouveler (urgent mais pas encore expiré) */}
+                    {isActive && urgent && days !== null && days > 0 && (
+                      <a
+                        href="/#offres"
+                        style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px',
+                          width: '100%', padding: '10px', borderRadius: '9px', marginBottom: '8px',
+                          background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.35)',
+                          color: '#f59e0b', fontSize: '0.82rem', fontWeight: 700,
+                          fontFamily: 'Syne, sans-serif', textDecoration: 'none',
+                          boxSizing: 'border-box' as const,
+                        }}
+                      >
+                        <i className="fa-solid fa-rotate-right" />
+                        Renouveler maintenant
+                      </a>
+                    )}
+
+                    {/* CTA espace client */}
+                    {!isExpired && (
+                      <button
+                        onClick={() => router.push(`/dashboard?orderId=${order.id}&email=${encodeURIComponent(email)}`)}
+                        style={{
+                          width: '100%', padding: '10px', borderRadius: '9px',
+                          border: '1px solid var(--border2)', background: 'rgba(255,255,255,0.03)',
+                          color: 'var(--muted)', fontSize: '0.82rem', fontWeight: 600,
+                          cursor: 'pointer', fontFamily: 'Syne, sans-serif',
+                          transition: 'background 0.2s, color 0.2s',
+                        }}
+                        onMouseEnter={(e) => {
+                          (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.07)';
+                          (e.currentTarget as HTMLButtonElement).style.color = 'var(--text)';
+                        }}
+                        onMouseLeave={(e) => {
+                          (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.03)';
+                          (e.currentTarget as HTMLButtonElement).style.color = 'var(--muted)';
+                        }}
+                      >
+                        <i className="fa-solid fa-gauge-high" style={{ marginRight: '7px' }} />
+                        Voir le détail dans mon espace client
+                      </button>
+                    )}
                   </div>
                 );
               })}

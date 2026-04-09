@@ -55,6 +55,32 @@ export async function GET(req: NextRequest) {
     }),
   ]);
 
+  // Auto-expire: ACTIVE orders whose expiresAt is in the past (before noticeMin window)
+  const expiredOrders = await prisma.order.findMany({
+    where: {
+      status: 'ACTIVE',
+      expiresAt: { lt: noticeMin },
+    },
+    select: { id: true, slotId: true },
+  });
+
+  let autoExpired = 0;
+  for (const order of expiredOrders) {
+    await prisma.$transaction(async (tx) => {
+      await tx.order.update({
+        where: { id: order.id },
+        data: { status: 'EXPIRED', slotId: null },
+      });
+      if (order.slotId) {
+        await tx.slot.update({
+          where: { id: order.slotId },
+          data: { isAvailable: true, assignedEmail: null },
+        });
+      }
+    });
+    autoExpired++;
+  }
+
   let remindersSent = 0;
   let noticesSent = 0;
 
@@ -83,6 +109,7 @@ export async function GET(req: NextRequest) {
     ok: true,
     remindersSent,
     noticesSent,
+    autoExpired,
     timestamp: now.toISOString(),
   });
 }

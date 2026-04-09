@@ -42,6 +42,8 @@ interface Order {
   paymentTxId?: string;
   gmail?: string;
   invitationSentAt?: string | null;
+  expiresAt?: string | null;
+  durationMonths?: number;
   createdAt: string;
   user: { email: string };
   slot?: {
@@ -1208,6 +1210,16 @@ function AdminOrderCard({
   const showNotifyBtn = !isYoutube && order.status === 'ACTIVE' && order.slot;
   const busy = confirming || actionLoading;
 
+  // Expiry computation
+  const daysLeft = order.expiresAt
+    ? Math.ceil((new Date(order.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    : null;
+  const expiryColor =
+    daysLeft === null ? '#8888aa'
+    : daysLeft <= 3   ? '#ff3b3b'
+    : daysLeft <= 7   ? '#f59e0b'
+    : '#00ffaa';
+
   return (
     <div
       style={{
@@ -1255,6 +1267,25 @@ function AdminOrderCard({
               day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
             })}
           </span>
+
+          {/* Expiry chip — affiché pour toutes les commandes ayant une date */}
+          {order.expiresAt && (
+            <span style={{
+              fontSize: '0.7rem', fontWeight: 700,
+              color: expiryColor,
+              background: `${expiryColor}18`,
+              border: `1px solid ${expiryColor}40`,
+              borderRadius: '999px', padding: '2px 9px',
+              fontFamily: 'Syne, sans-serif', whiteSpace: 'nowrap',
+            }}>
+              <i className="fa-solid fa-clock" style={{ marginRight: '4px' }} />
+              {daysLeft !== null && daysLeft > 0
+                ? `J-${daysLeft}`
+                : daysLeft === 0
+                  ? 'Expire aujourd\'hui'
+                  : 'Expiré'}
+            </span>
+          )}
         </div>
 
         {/* Row 2: details */}
