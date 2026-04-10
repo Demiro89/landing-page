@@ -6,8 +6,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ══════════════════════════════════════
@@ -68,6 +69,9 @@ model Slot {
   /// Disponible = pas encore assigné à une commande active
   isAvailable     Boolean @default(true)
 
+  /// Email du client assigné à ce slot (gmail pour YouTube, email du compte pour Disney+)
+  assignedEmail   String?
+
   createdAt DateTime @default(now())
 
   order Order?
@@ -84,7 +88,7 @@ model Order {
   /// Montant en euros
   amount        Float
 
-  /// Méthode : "PAYPAL" | "SOL" | "XRP" | "USDT_TRC20"
+  /// Méthode : "PAYPAL" | "SOL" | "XRP" | "USDT_TRC20" | "STRIPE"
   paymentMethod String
   /// Hash/TxID fourni par le client
   paymentTxId   String?
@@ -99,8 +103,23 @@ model Order {
   slot          Slot?   @relation(fields: [slotId], references: [id])
   slotId        String? @unique
 
+  /// Durée choisie par le client : 1, 3, 6 ou 12 mois
+  durationMonths Int @default(1)
+
+  /// Date à laquelle l'admin a marqué l'invitation YouTube comme envoyée
+  invitationSentAt DateTime?
+
   /// Mois d'abonnement restants (renouvellement mensuel)
   expiresAt     DateTime?
+
+  /// Stripe Subscription ID (abonnements récurrents)
+  stripeSubscriptionId String?
+  /// Stripe Customer ID
+  stripeCustomerId     String?
+  /// true = annulation programmée à fin de période (cancel_at_period_end)
+  cancelAtEnd          Boolean @default(false)
+  /// true = dernier prélèvement a échoué
+  paymentFailed        Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

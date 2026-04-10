@@ -1,55 +1,56 @@
 /**
- * StreamMalin V2 — Algorithme de Dispatch Disney+
+ * StreamMalin V2 — Algorithme de Dispatch des slots
  *
- * Logique : remplir les comptes de 1 à 5 places avant de passer au suivant.
- * → Trouve le premier slot libre sur le premier compte non plein.
+ * dispatchSlot  : réserve le premier slot disponible pour n'importe quel service
+ * dispatchDisneySlot : alias rétro-compat
+ * getAvailableStock  : compte les slots libres (comparaison insensible à la casse)
  */
 
 import { prisma } from './prisma';
 import { notifyLowStock } from './telegram';
 
 /**
- * Trouve et réserve le prochain slot Disney+ disponible.
- * Stratégie FIFO : slot 1 → 5 sur compte 1, puis slot 1 → 5 sur compte 2, etc.
+ * Dispatche le premier slot disponible pour un service donné.
+ * La correspondance se fait sur le DÉBUT du nom de service (insensible à la casse).
+ * Ex : service='DISNEY' matche 'DISNEY', 'Disney+', 'DISNEY+ 4K', etc.
  *
- * @returns Le slot assigné, ou null si aucun slot disponible
+ * @returns Le slot assigné (avec masterAccount inclus) ou null si stock épuisé
  */
-export async function dispatchDisneySlot(orderId: string) {
-  // Transaction pour éviter les race conditions
+export async function dispatchSlot(orderId: string, service: string) {
   return prisma.$transaction(async (tx) => {
-    // Cherche le premier slot disponible sur un compte actif
-    // Ordonnancement : par compte (createdAt ASC), puis par numéro de profil (ASC)
+    // Récupère l'email à assigner au slot
+    const order = await tx.order.findUnique({
+      where: { id: orderId },
+      include: { user: { select: { email: true } } },
+    });
+    if (!order) return null;
+
+    // YouTube → on stocke le gmail ; sinon l'email du compte client
+    const assignedEmail = order.gmail || order.user.email;
+    const serviceUpper = service.toUpperCase();
+
+    // Premier slot libre sur un compte actif dont le service commence par serviceUpper
     const availableSlot = await tx.slot.findFirst({
       where: {
         isAvailable: true,
         masterAccount: {
-          service: 'DISNEY',
+          service: { startsWith: serviceUpper, mode: 'insensitive' },
           active: true,
         },
       },
-      include: {
-        masterAccount: true,
-      },
+      include: { masterAccount: true },
       orderBy: [
-        {
-          masterAccount: {
-            createdAt: 'asc', // Premier compte créé en premier
-          },
-        },
-        {
-          profileNumber: 'asc', // Profil 1 avant profil 2, etc.
-        },
+        { masterAccount: { createdAt: 'asc' } },
+        { profileNumber: 'asc' },
       ],
     });
 
-    if (!availableSlot) {
-      return null; // Plus de stock
-    }
+    if (!availableSlot) return null;
 
-    // Marque le slot comme occupé et lie à la commande
+    // Marque le slot comme occupé et enregistre l'email du client
     const updatedSlot = await tx.slot.update({
       where: { id: availableSlot.id },
-      data: { isAvailable: false },
+      data: { isAvailable: false, assignedEmail },
       include: { masterAccount: true },
     });
 
@@ -59,37 +60,42 @@ export async function dispatchDisneySlot(orderId: string) {
       data: { slotId: availableSlot.id },
     });
 
-    // Vérifie le stock restant (alerte si < 5 slots)
-    const remainingSlots = await tx.slot.count({
+    // Alerte stock faible (< 5 slots restants)
+    const remaining = await tx.slot.count({
       where: {
         isAvailable: true,
-        masterAccount: { service: 'DISNEY', active: true },
+        masterAccount: {
+          service: { startsWith: serviceUpper, mode: 'insensitive' },
+          active: true,
+        },
       },
     });
 
-    if (remainingSlots < 5) {
-      // Notifie l'admin en arrière-plan (ne bloque pas la transaction)
-      notifyLowStock('Disney+', remainingSlots).catch(console.error);
+    if (remaining < 5) {
+      notifyLowStock(service, remaining).catch(console.error);
     }
 
     return updatedSlot;
   });
 }
 
+/** Alias rétro-compatible pour Disney+ */
+export const dispatchDisneySlot = (orderId: string) => dispatchSlot(orderId, 'DISNEY');
+
 /**
- * Vérifie les stocks disponibles pour un service donné
+ * Compte les slots libres pour un service.
+ * Correspondance insensible à la casse sur le début du nom de service.
  */
-export async function getAvailableStock(service: 'YOUTUBE' | 'DISNEY') {
+export async function getAvailableStock(service: string): Promise<number> {
   const count = await prisma.slot.count({
     where: {
       isAvailable: true,
       masterAccount: {
-        service,
+        service: { startsWith: service.toUpperCase(), mode: 'insensitive' },
         active: true,
       },
     },
   });
-
   return count;
 }
 
@@ -107,7 +113,7 @@ export async function releaseSlot(orderId: string) {
   await prisma.$transaction([
     prisma.slot.update({
       where: { id: order.slotId },
-      data: { isAvailable: true },
+      data: { isAvailable: true, assignedEmail: null },
     }),
     prisma.order.update({
       where: { id: orderId },

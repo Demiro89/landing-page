@@ -179,13 +179,16 @@ body::before {
 .modal-backdrop {
   position: fixed;
   inset: 0;
+  /* 100dvh = viewport réel sur Safari iOS (exclut la barre de navigation) */
+  min-height: 100dvh;
   background: rgba(0, 0, 0, 0.85);
   backdrop-filter: blur(8px);
   z-index: 200;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  /* Espace en bas pour la barre home d'iPhone */
+  padding: 20px 20px max(20px, env(safe-area-inset-bottom, 20px)) 20px;
   animation: fadeInUp 0.2s ease;
 }
 
@@ -195,7 +198,7 @@ body::before {
   border-radius: 20px;
   width: 100%;
   max-width: 520px;
-  max-height: 90vh;
+  max-height: calc(100dvh - max(40px, env(safe-area-inset-bottom, 40px)) - 40px);
   overflow-y: auto;
   animation: slideIn 0.25s ease;
 }

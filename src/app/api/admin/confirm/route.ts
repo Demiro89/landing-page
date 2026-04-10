@@ -10,8 +10,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { dispatchDisneySlot } from '@/lib/dispatch';
+import { dispatchSlot } from '@/lib/dispatch';
 import { notifyOrderConfirmed } from '@/lib/telegram';
+import { sendOrderConfirmed } from '@/lib/email';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -72,26 +73,39 @@ export async function GET(req: NextRequest) {
       pinCode?: string;
     } | undefined;
 
-    // ── Dispatch Disney+ slot ──
-    if (order.service === 'DISNEY') {
-      const slot = await dispatchDisneySlot(orderId);
+    // ── Dispatch slot (tous les services) ──
+    // Pour les services avec slots (Disney+, YouTube avec comptes maîtres, etc.)
+    if (!order.slotId) {
+      const slot = await dispatchSlot(orderId, order.service);
 
       if (!slot) {
         return new Response(
           renderHtml(
             '⚠️ Stock épuisé',
-            'Aucun slot Disney+ disponible. Ajoutez de nouveaux comptes maîtres !',
+            `Aucun slot disponible pour ${order.service}. Ajoutez des comptes maîtres !`,
             '#f59e0b'
           ),
           { status: 409, headers: { 'Content-Type': 'text/html' } }
         );
       }
 
+      // slotInfo uniquement pour les services nécessitant des identifiants (Disney+)
+      const isDisney = order.service.toUpperCase().startsWith('DISNEY');
+      if (isDisney) {
+        slotInfo = {
+          masterEmail: slot.masterAccount.email,
+          masterPassword: slot.masterAccount.password ?? '',
+          profileNumber: slot.profileNumber,
+          pinCode: slot.pinCode ?? undefined,
+        };
+      }
+    } else if (order.service.toUpperCase().startsWith('DISNEY') && order.slot) {
+      // Slot déjà assigné — récupérer les infos pour l'email
       slotInfo = {
-        masterEmail: slot.masterAccount.email,
-        masterPassword: slot.masterAccount.password ?? '',
-        profileNumber: slot.profileNumber,
-        pinCode: slot.pinCode ?? undefined,
+        masterEmail: order.slot.masterAccount.email,
+        masterPassword: order.slot.masterAccount.password ?? '',
+        profileNumber: order.slot.profileNumber,
+        pinCode: order.slot.pinCode ?? undefined,
       };
     }
 
@@ -109,10 +123,26 @@ export async function GET(req: NextRequest) {
       slotInfo,
     });
 
-    const successMsg =
-      order.service === 'DISNEY'
-        ? `Slot Disney+ attribué : ${slotInfo?.masterEmail} / Profil ${slotInfo?.profileNumber}`
-        : `Invitation YouTube à envoyer au Gmail : ${order.gmail ?? 'non renseigné'}`;
+    // ── Email confirmation ──
+    await sendOrderConfirmed({
+      to: order.user.email,
+      orderId,
+      service: order.service as 'YOUTUBE' | 'DISNEY',
+      expiresAt: order.expiresAt ?? undefined,
+      disneyAccess: slotInfo
+        ? {
+            email: slotInfo.masterEmail,
+            password: slotInfo.masterPassword,
+            profileNumber: slotInfo.profileNumber,
+            pinCode: slotInfo.pinCode,
+          }
+        : undefined,
+    });
+
+    const isDisney = order.service.toUpperCase().startsWith('DISNEY');
+    const successMsg = isDisney
+      ? `Slot attribué : ${slotInfo?.masterEmail} / Profil ${slotInfo?.profileNumber}`
+      : `Commande ${order.service} activée · Gmail : ${order.gmail ?? 'N/A'}`;
 
     return new Response(
       renderHtml(

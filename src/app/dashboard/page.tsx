@@ -419,7 +419,7 @@ function DashboardContent() {
             </div>
           </div>
           <a
-            href="https://t.me/abonnementpro_bot"
+            href="https://t.me/flexnight9493"
             target="_blank"
             rel="noopener noreferrer"
             style={{
