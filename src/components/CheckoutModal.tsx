@@ -58,6 +58,7 @@ export default function CheckoutModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [copiedKey, setCopiedKey] = useState('');
+  const [showPaypalModal, setShowPaypalModal] = useState(false);
 
   const price = PRICES[service];
   const totalPrice = price * duration;
@@ -678,10 +679,12 @@ export default function CheckoutModal({
                 </button>
               ) : (
                 <button
-                  onClick={() => setStep('declare')}
+                  onClick={() => paymentMethod === 'PAYPAL' ? setShowPaypalModal(true) : setStep('declare')}
                   style={{ ...submitBtnStyle(service), flex: 1 }}
                 >
-                  J'ai payé — Déclarer le paiement
+                  {paymentMethod === 'PAYPAL' ? (
+                    <><i className="fa-brands fa-paypal" style={{ marginRight: '8px' }} />Payer via PayPal</>
+                  ) : 'J\'ai payé — Déclarer le paiement'}
                   <i className="fa-solid fa-arrow-right" style={{ marginLeft: '8px' }} />
                 </button>
               )}
@@ -905,6 +908,109 @@ export default function CheckoutModal({
           </div>
         )}
       </div>
+
+      {/* ── PayPal Instructions Modal ── */}
+      {showPaypalModal && (
+        <div
+          onClick={() => setShowPaypalModal(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 200,
+            background: 'rgba(0,0,0,0.75)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '24px',
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'var(--card)', border: '1px solid var(--border)',
+              borderRadius: '20px', padding: '32px 28px',
+              maxWidth: '420px', width: '100%',
+            }}
+          >
+            {/* Icon */}
+            <div style={{
+              width: '52px', height: '52px', borderRadius: '14px',
+              background: 'rgba(0,156,222,0.12)', color: '#009cde',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '1.5rem', margin: '0 auto 20px',
+            }}>
+              <i className="fa-brands fa-paypal" />
+            </div>
+
+            <h3 style={{
+              fontFamily: 'Syne, sans-serif', fontWeight: 800,
+              fontSize: '1.1rem', textAlign: 'center', marginBottom: '20px',
+            }}>
+              Paiement via PayPal
+            </h3>
+
+            {/* Instructions */}
+            <div style={{
+              background: 'rgba(0,156,222,0.06)', border: '1px solid rgba(0,156,222,0.2)',
+              borderRadius: '12px', padding: '16px', marginBottom: '20px',
+            }}>
+              {[
+                { icon: 'fa-user-group', text: 'Envoyez le montant en mode <strong>"Entre proches"</strong> (sans frais).' },
+                { icon: 'fa-envelope', text: 'Indiquez votre <strong>adresse email</strong> en note du paiement.' },
+                { icon: 'fa-clock', text: 'Activation manuelle sous <strong>12h</strong> après réception.' },
+              ].map(({ icon, text }, i) => (
+                <div key={i} style={{
+                  display: 'flex', alignItems: 'flex-start', gap: '10px',
+                  marginBottom: i < 2 ? '12px' : 0,
+                }}>
+                  <i className={`fa-solid ${icon}`} style={{ color: '#009cde', marginTop: '3px', flexShrink: 0, fontSize: '0.85rem' }} />
+                  <span
+                    style={{ fontSize: '0.84rem', color: 'var(--text)', lineHeight: 1.55 }}
+                    dangerouslySetInnerHTML={{ __html: text }}
+                  />
+                </div>
+              ))}
+            </div>
+
+            {/* Montant */}
+            <div style={{
+              textAlign: 'center', fontSize: '1.6rem', fontWeight: 800,
+              fontFamily: 'Syne, sans-serif', color: '#009cde', marginBottom: '20px',
+            }}>
+              {totalPrice.toFixed(2).replace('.', ',')}€
+            </div>
+
+            {/* CTA PayPal */}
+            <a
+              href={`https://paypal.me/AccesPremium89/${totalPrice.toFixed(2)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '9px',
+                width: '100%', padding: '14px', borderRadius: '11px',
+                background: 'linear-gradient(135deg,#009cde,#0070ba)',
+                color: '#fff', textDecoration: 'none',
+                fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.95rem',
+                marginBottom: '10px', boxSizing: 'border-box' as const,
+              }}
+            >
+              <i className="fa-brands fa-paypal" />
+              Ouvrir mon PayPal
+              <i className="fa-solid fa-arrow-up-right-from-square" style={{ fontSize: '0.7rem' }} />
+            </a>
+
+            {/* Secondary CTA */}
+            <button
+              onClick={() => { setShowPaypalModal(false); setStep('declare'); }}
+              style={{
+                width: '100%', padding: '12px', borderRadius: '11px',
+                border: '1px solid var(--border2)', background: 'rgba(255,255,255,0.04)',
+                color: 'var(--muted)', fontFamily: 'Syne, sans-serif',
+                fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer',
+              }}
+            >
+              <i className="fa-solid fa-check" style={{ marginRight: '7px', color: 'var(--green)' }} />
+              J&apos;ai payé — Déclarer mon paiement
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
