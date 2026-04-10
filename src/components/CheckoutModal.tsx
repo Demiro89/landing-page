@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 type Service = 'YOUTUBE' | 'DISNEY';
@@ -8,10 +8,8 @@ type PaymentMethod = 'PAYPAL' | 'SOL' | 'XRP' | 'USDT_TRC20' | 'STRIPE';
 type Duration = 1 | 3 | 6 | 12;
 type Step = 'info' | 'payment' | 'declare' | 'success';
 
-const PRICES: Record<Service, number> = {
-  YOUTUBE: 5.99,
-  DISNEY: 4.99,
-};
+// Fallback prices used until API settings are loaded
+const PRICE_DEFAULTS: Record<Service, number> = { YOUTUBE: 5.99, DISNEY: 4.99 };
 
 const DURATION_OPTIONS: { months: Duration; label: string; badge?: string }[] = [
   { months: 1,  label: '1 mois' },
@@ -25,10 +23,14 @@ const SERVICE_LABELS: Record<Service, string> = {
   DISNEY: 'Disney+ 4K',
 };
 
-const PAYPAL_BASE =
-  process.env.NEXT_PUBLIC_PAYPAL_ME ??
-  process.env.NEXT_PUBLIC_PAYPAL_ME_BASE ??
-  'https://www.paypal.com/paypalme/AccesPremium89';
+type PublicSettings = {
+  price_youtube: string;
+  price_disney: string;
+  paypal_link: string;
+  paypal_instruction_1: string;
+  paypal_instruction_2: string;
+  paypal_instruction_3: string;
+};
 
 const WALLETS = {
   SOL: process.env.NEXT_PUBLIC_WALLET_SOL ?? '8aUZeioqmxWJMf6Lfa6BCbv3dCQpMU7KxoQHPwT1Mz9e',
@@ -61,8 +63,25 @@ export default function CheckoutModal({
   const [showPaypalModal, setShowPaypalModal] = useState(false);
   const [paypalChecked, setPaypalChecked] = useState(false);
 
-  const price = PRICES[service];
+  // Dynamic settings fetched from DB
+  const [settings, setSettings] = useState<PublicSettings | null>(null);
+  useEffect(() => {
+    fetch('/api/settings')
+      .then((r) => r.json())
+      .then((d: PublicSettings) => setSettings(d))
+      .catch(() => { /* use defaults silently */ });
+  }, []);
+
+  const price = settings
+    ? parseFloat(service === 'YOUTUBE' ? settings.price_youtube : settings.price_disney) || PRICE_DEFAULTS[service]
+    : PRICE_DEFAULTS[service];
   const totalPrice = price * duration;
+  const paypalLink = settings?.paypal_link ?? 'https://paypal.me/AccesPremium89';
+  const paypalInstructions = [
+    settings?.paypal_instruction_1 ?? 'Envoyez en mode "À un proche" — jamais "Biens ou services".',
+    settings?.paypal_instruction_2 ?? 'Indiquez votre adresse email dans la note du paiement.',
+    settings?.paypal_instruction_3 ?? 'Activation sous 12h après réception.',
+  ];
   const label = SERVICE_LABELS[service];
 
   // -- Helpers --
@@ -543,7 +562,7 @@ export default function CheckoutModal({
                 </ul>
 
                 <a
-                  href={`${PAYPAL_BASE}/${totalPrice.toFixed(2)}EUR`}
+                  href={`${paypalLink}/${totalPrice.toFixed(2)}EUR`}
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{
@@ -961,9 +980,9 @@ export default function CheckoutModal({
                 ⚠️ À lire impérativement
               </p>
               {[
-                { icon: 'fa-user-group', color: '#009cde', text: 'Envoyez en mode <strong style="color:#f0f0f5">"À un proche"</strong> — <strong style="color:#ff6b6b">jamais</strong> "Biens ou services".' },
-                { icon: 'fa-envelope',   color: '#009cde', text: 'Indiquez votre <strong style="color:#f0f0f5">adresse email</strong> dans la note du paiement.' },
-                { icon: 'fa-clock',      color: '#00ffaa', text: 'Activation sous <strong style="color:#f0f0f5">12h</strong> après réception.' },
+                { icon: 'fa-user-group', color: '#009cde', text: paypalInstructions[0] },
+                { icon: 'fa-envelope',   color: '#009cde', text: paypalInstructions[1] },
+                { icon: 'fa-clock',      color: '#00ffaa', text: paypalInstructions[2] },
               ].map(({ icon, color, text }, i) => (
                 <div key={i} style={{
                   display: 'flex', alignItems: 'flex-start', gap: '10px',
@@ -1010,7 +1029,7 @@ export default function CheckoutModal({
 
             {/* CTA PayPal */}
             <a
-              href={paypalChecked ? `https://paypal.me/AccesPremium89/${totalPrice.toFixed(2)}` : '#'}
+              href={paypalChecked ? `${paypalLink}/${totalPrice.toFixed(2)}` : '#'}
               target={paypalChecked ? '_blank' : undefined}
               rel="noopener noreferrer"
               onClick={(e) => { if (!paypalChecked) e.preventDefault(); }}

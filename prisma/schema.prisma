@@ -77,7 +77,13 @@ model Slot {
   order Order?
 }
 
-/// Commande client
+/// Paramètres dynamiques de l'application (clé/valeur)
+/// Modifiables depuis l'interface admin sans toucher au code
+model Setting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
 model Order {
   id            String   @id @default(cuid())
   user          User     @relation(fields: [userId], references: [id])

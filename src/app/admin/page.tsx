@@ -86,7 +86,7 @@ export default function AdminPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [inviteConfirm, setInviteConfirm] = useState<string | null>(null);
   const [filter, setFilter] = useState<'ALL' | 'PAYMENT_DECLARED' | 'ACTIVE' | 'PENDING'>('PAYMENT_DECLARED');
-  const [tab, setTab] = useState<'orders' | 'accounts'>('orders');
+  const [tab, setTab] = useState<'orders' | 'accounts' | 'settings'>('orders');
 
   // ── Master accounts state ──
   const [accounts, setAccounts] = useState<MasterAccount[]>([]);
@@ -98,6 +98,15 @@ export default function AdminPage() {
   const [editAcc, setEditAcc] = useState<{ id: string; email: string; password: string } | null>(null);
   const [editSlot, setEditSlot] = useState<{ accId: string; slotId: string; email: string } | null>(null);
   const [slotEmailLoading, setSlotEmailLoading] = useState<string | null>(null);
+
+  // ── Settings state ──
+  type SettingKey = 'price_youtube' | 'price_disney' | 'paypal_link' | 'paypal_admin_email' | 'paypal_instruction_1' | 'paypal_instruction_2' | 'paypal_instruction_3';
+  const [settings, setSettings] = useState<Record<SettingKey, string> | null>(null);
+  const [settingsLoading, setSettingsLoading] = useState(false);
+  const [settingsSaving, setSettingsSaving] = useState<string | null>(null);
+  const [settingsSaved, setSettingsSaved] = useState<string | null>(null);
+  const [settingsError, setSettingsError] = useState('');
+
   const newAccRef = useRef<{ service: string; email: string; password: string; maxSlots: string }>({
     service: '', email: '', password: '', maxSlots: '5',
   });
@@ -234,6 +243,47 @@ export default function AdminPage() {
   useEffect(() => {
     if (tab === 'accounts' && token) fetchAccounts();
   }, [tab, token, fetchAccounts]);
+
+  // ── Settings handlers ──
+  const fetchSettings = useCallback(async () => {
+    setSettingsLoading(true);
+    setSettingsError('');
+    try {
+      const res = await fetch(`/api/admin/settings?token=${token}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Erreur');
+      setSettings(data.settings);
+    } catch (err) {
+      setSettingsError(err instanceof Error ? err.message : 'Erreur');
+    } finally {
+      setSettingsLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    if (tab === 'settings' && token) fetchSettings();
+  }, [tab, token, fetchSettings]);
+
+  const handleSaveSetting = async (key: SettingKey, value: string) => {
+    setSettingsSaving(key);
+    setSettingsSaved(null);
+    try {
+      const res = await fetch('/api/admin/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, key, value }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Erreur');
+      setSettings((prev) => prev ? { ...prev, [key]: value } : prev);
+      setSettingsSaved(key);
+      setTimeout(() => setSettingsSaved(null), 2500);
+    } catch (err) {
+      setSettingsError(err instanceof Error ? err.message : 'Erreur sauvegarde');
+    } finally {
+      setSettingsSaving(null);
+    }
+  };
 
   const handleAddAccount = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -656,10 +706,11 @@ export default function AdminPage() {
       </div>
 
       {/* Main tabs */}
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '24px', borderBottom: '1px solid var(--border)', paddingBottom: '16px' }}>
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '24px', borderBottom: '1px solid var(--border)', paddingBottom: '16px', flexWrap: 'wrap' }}>
         {([
           { key: 'orders', label: '📋 Commandes', count: orders.length },
           { key: 'accounts', label: '🗄️ Comptes Maîtres', count: null },
+          { key: 'settings', label: '⚙️ Paramètres', count: null },
         ] as const).map((t) => (
           <button
             key={t.key}
@@ -1194,6 +1245,193 @@ export default function AdminPage() {
           </div>
         </div>
       )}
+
+      {/* ═══ TAB: PARAMÈTRES ═══ */}
+      {tab === 'settings' && (
+        <div>
+          {settingsError && (
+            <div style={{ background: 'rgba(255,59,59,0.08)', border: '1px solid rgba(255,59,59,0.3)', borderRadius: '10px', padding: '12px', color: '#ff6b6b', fontSize: '0.82rem', marginBottom: '16px' }}>
+              {settingsError}
+            </div>
+          )}
+
+          {settingsLoading || !settings ? (
+            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--muted)' }}>
+              <i className="fa-solid fa-spinner fa-spin" style={{ fontSize: '1.4rem' }} />
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+              {/* ── Section Prix ── */}
+              <SettingsSection title="💰 Prix des services">
+                {([
+                  { key: 'price_youtube' as SettingKey, label: 'YouTube Premium (€/mois)', icon: 'fa-brands fa-youtube', color: '#ff3b3b', type: 'number' },
+                  { key: 'price_disney'  as SettingKey, label: 'Disney+ 4K (€/mois)',       icon: 'fa-solid fa-wand-magic-sparkles', color: '#a78bfa', type: 'number' },
+                ] as const).map(({ key, label, icon, color, type }) => (
+                  <SettingRow
+                    key={key}
+                    label={label}
+                    icon={icon}
+                    iconColor={color}
+                    defaultValue={settings[key]}
+                    inputType={type}
+                    saving={settingsSaving === key}
+                    saved={settingsSaved === key}
+                    onSave={(val) => handleSaveSetting(key, val)}
+                    placeholder="ex: 5.99"
+                  />
+                ))}
+              </SettingsSection>
+
+              {/* ── Section PayPal ── */}
+              <SettingsSection title="💙 PayPal">
+                {([
+                  { key: 'paypal_link'         as SettingKey, label: 'Lien PayPal.Me',            icon: 'fa-brands fa-paypal', color: '#009cde', type: 'url' },
+                  { key: 'paypal_admin_email'  as SettingKey, label: 'Email de réception PayPal', icon: 'fa-solid fa-envelope', color: '#009cde', type: 'email' },
+                  { key: 'paypal_instruction_1' as SettingKey, label: 'Instruction 1 (mode paiement)', icon: 'fa-solid fa-user-group', color: '#f59e0b', type: 'text' },
+                  { key: 'paypal_instruction_2' as SettingKey, label: 'Instruction 2 (note email)',     icon: 'fa-solid fa-envelope', color: '#f59e0b', type: 'text' },
+                  { key: 'paypal_instruction_3' as SettingKey, label: 'Instruction 3 (délai)',          icon: 'fa-solid fa-clock',    color: '#f59e0b', type: 'text' },
+                ] as const).map(({ key, label, icon, color, type }) => (
+                  <SettingRow
+                    key={key}
+                    label={label}
+                    icon={icon}
+                    iconColor={color}
+                    defaultValue={settings[key]}
+                    inputType={type}
+                    saving={settingsSaving === key}
+                    saved={settingsSaved === key}
+                    onSave={(val) => handleSaveSetting(key, val)}
+                  />
+                ))}
+              </SettingsSection>
+
+              {/* ── Section Clés API ── */}
+              <SettingsSection title="🔑 Clés API & Variables d'environnement">
+                <div style={{ background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '10px', padding: '14px 16px' }}>
+                  <p style={{ fontSize: '0.82rem', color: 'var(--muted)', marginBottom: '12px', lineHeight: 1.6 }}>
+                    Pour des raisons de sécurité, les clés API (Stripe, Resend, etc.) ne sont pas stockées en base de données.
+                    Modifie-les directement dans le dashboard Vercel.
+                  </p>
+                  {[
+                    { label: 'STRIPE_SECRET_KEY',       status: true },
+                    { label: 'STRIPE_WEBHOOK_SECRET',   status: true },
+                    { label: 'RESEND_API_KEY',          status: true },
+                    { label: 'ADMIN_PASSWORD',          status: true },
+                    { label: 'CRON_SECRET',             status: true },
+                  ].map(({ label, status }) => (
+                    <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                      <i className={`fa-solid fa-circle-${status ? 'check' : 'xmark'}`} style={{ color: status ? '#00ffaa' : '#ff3b3b', fontSize: '0.75rem' }} />
+                      <code style={{ fontSize: '0.78rem', color: 'var(--text)', fontFamily: 'monospace' }}>{label}</code>
+                      <span style={{ fontSize: '0.72rem', color: status ? '#00ffaa' : '#ff6b6b' }}>{status ? 'configuré' : 'manquant'}</span>
+                    </div>
+                  ))}
+                  <a
+                    href="https://vercel.com/dashboard"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '12px',
+                      background: 'rgba(59,130,246,0.12)', border: '1px solid rgba(59,130,246,0.3)',
+                      color: '#3b82f6', borderRadius: '8px', padding: '8px 14px',
+                      fontSize: '0.8rem', fontWeight: 600, textDecoration: 'none',
+                    }}
+                  >
+                    <i className="fa-solid fa-arrow-up-right-from-square" style={{ fontSize: '0.7rem' }} />
+                    Ouvrir Vercel Dashboard
+                  </a>
+                </div>
+              </SettingsSection>
+
+            </div>
+          )}
+        </div>
+      )}
+
+    </div>
+  );
+}
+
+// ──────────────────────────────────────
+// Settings sub-components
+// ──────────────────────────────────────
+
+function SettingsSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '16px', padding: '20px 22px' }}>
+      <h3 style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.95rem', marginBottom: '18px', color: 'var(--text)' }}>
+        {title}
+      </h3>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function SettingRow({
+  label, icon, iconColor, defaultValue, inputType = 'text',
+  saving, saved, onSave, placeholder,
+}: {
+  label: string; icon: string; iconColor: string;
+  defaultValue: string; inputType?: string;
+  saving: boolean; saved: boolean;
+  onSave: (val: string) => void;
+  placeholder?: string;
+}) {
+  const [val, setVal] = useState(defaultValue);
+
+  // Sync when parent setting is refreshed
+  useEffect(() => { setVal(defaultValue); }, [defaultValue]);
+
+  const dirty = val !== defaultValue && !saved;
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+      <div style={{
+        width: '30px', height: '30px', borderRadius: '8px', flexShrink: 0,
+        background: `${iconColor}18`, color: iconColor,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.82rem',
+      }}>
+        <i className={icon} />
+      </div>
+      <div style={{ flex: 1, minWidth: '180px' }}>
+        <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '4px' }}>{label}</div>
+        <input
+          type={inputType}
+          value={val}
+          onChange={(e) => setVal(e.target.value)}
+          placeholder={placeholder}
+          style={{
+            width: '100%', background: dirty ? 'rgba(245,158,11,0.05)' : 'rgba(255,255,255,0.04)',
+            border: `1px solid ${dirty ? 'rgba(245,158,11,0.4)' : 'var(--border2)'}`,
+            borderRadius: '8px', padding: '8px 12px',
+            fontSize: '0.85rem', color: 'var(--text)', outline: 'none',
+            fontFamily: inputType === 'number' ? 'monospace' : 'DM Sans, sans-serif',
+            boxSizing: 'border-box', transition: 'border-color 0.2s',
+          }}
+          onKeyDown={(e) => e.key === 'Enter' && onSave(val)}
+        />
+      </div>
+      <button
+        onClick={() => onSave(val)}
+        disabled={saving || !dirty}
+        style={{
+          padding: '8px 14px', borderRadius: '8px', border: 'none',
+          background: saved ? 'rgba(0,255,170,0.15)' : saving ? 'rgba(37,99,235,0.3)' : dirty ? 'linear-gradient(135deg,#2563eb,#7c3aed)' : 'rgba(255,255,255,0.05)',
+          color: saved ? '#00ffaa' : dirty ? '#fff' : 'var(--muted)',
+          fontSize: '0.8rem', fontWeight: 700, cursor: (saving || !dirty) ? 'not-allowed' : 'pointer',
+          fontFamily: 'Syne, sans-serif', whiteSpace: 'nowrap', transition: 'all 0.2s',
+          flexShrink: 0,
+        }}
+      >
+        {saving
+          ? <><i className="fa-solid fa-spinner fa-spin" style={{ marginRight: '5px' }} />Sauvegarde...</>
+          : saved
+          ? <><i className="fa-solid fa-check" style={{ marginRight: '5px' }} />Sauvegardé</>
+          : 'Sauvegarder'
+        }
+      </button>
     </div>
   );
 }
