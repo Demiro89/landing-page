@@ -940,19 +940,21 @@ export default function CheckoutModal({
       {showPaypalModal && (
         <div
           onClick={() => { setShowPaypalModal(false); setPaypalChecked(false); }}
+          className="paypal-modal-backdrop"
           style={{
             position: 'fixed', inset: 0, zIndex: 200,
             background: 'rgba(0,0,0,0.82)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            padding: '24px',
+            padding: '20px 16px',
           }}
         >
           <div
             onClick={(e) => e.stopPropagation()}
+            className="paypal-modal-box"
             style={{
               background: 'var(--card)',
               border: '2px solid rgba(255,59,59,0.5)',
-              borderRadius: '20px', padding: '28px 24px',
+              borderRadius: '20px', padding: '24px 20px',
               maxWidth: '420px', width: '100%',
             }}
           >

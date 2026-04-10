@@ -98,7 +98,7 @@ export default function HomePage() {
         <h1
           style={{
             fontFamily: 'Syne, sans-serif',
-            fontSize: 'clamp(2.6rem, 9vw, 5.5rem)',
+            fontSize: 'clamp(2.1rem, 9vw, 5.5rem)',
             fontWeight: 800,
             lineHeight: 1.05,
             letterSpacing: '-0.03em',
@@ -679,6 +679,7 @@ export default function HomePage() {
       {/* == STATS ANIMÉES == */}
       <section
         ref={statsRef}
+        id="stats"
         style={{
           position: 'relative',
           zIndex: 1,
