@@ -78,15 +78,15 @@ async function send(options: {
 export async function sendAdminNewOrder(data: {
   orderId: string;
   customerEmail: string;
-  service: 'YOUTUBE' | 'DISNEY';
+  service: 'YOUTUBE' | 'DISNEY' | 'SURFSHARK';
   amount: number;
   durationMonths?: number;
   paymentMethod: string;
   paymentTxId: string;
   gmail?: string;
 }) {
-  const serviceLabel   = data.service === 'YOUTUBE' ? 'YouTube Premium' : 'Disney+ 4K';
-  const accentColor    = data.service === 'YOUTUBE' ? '#ff3b3b' : '#7c3aed';
+  const serviceLabel   = data.service === 'YOUTUBE' ? 'YouTube Premium' : data.service === 'DISNEY' ? 'Disney+ 4K' : 'Surfshark VPN One';
+  const accentColor    = data.service === 'YOUTUBE' ? '#ff3b3b' : data.service === 'DISNEY' ? '#7c3aed' : '#00c7e0';
   const adminUrl       = `${BASE_URL}/admin`;
   const confirmUrl     = `${BASE_URL}/api/admin/confirm?orderId=${data.orderId}&token=${process.env.ADMIN_SECRET_TOKEN ?? 'TOKEN'}`;
   const isStripe       = data.paymentMethod === 'STRIPE';
@@ -171,13 +171,13 @@ export async function sendAdminNewOrder(data: {
 export async function sendOrderReceived(data: {
   to: string;
   orderId: string;
-  service: 'YOUTUBE' | 'DISNEY';
+  service: 'YOUTUBE' | 'DISNEY' | 'SURFSHARK';
   amount: number;
   durationMonths?: number;
   paymentMethod: string;
 }) {
   const isYoutube      = data.service === 'YOUTUBE';
-  const serviceLabel   = isYoutube ? 'YouTube Premium' : 'Disney+ 4K';
+  const serviceLabel   = data.service === 'YOUTUBE' ? 'YouTube Premium' : data.service === 'DISNEY' ? 'Disney+ 4K' : 'Surfshark VPN One';
   const accentColor    = isYoutube ? '#ff3b3b' : '#7c3aed';
   const dashboardUrl   = `${BASE_URL}/dashboard?email=${encodeURIComponent(data.to)}`;
   const durationMonths = data.durationMonths ?? 1;
@@ -230,7 +230,7 @@ export async function sendOrderReceived(data: {
 export async function sendOrderConfirmed(data: {
   to: string;
   orderId: string;
-  service: 'YOUTUBE' | 'DISNEY';
+  service: 'YOUTUBE' | 'DISNEY' | 'SURFSHARK';
   expiresAt?: Date;
   disneyAccess?: {
     email: string;
@@ -240,7 +240,7 @@ export async function sendOrderConfirmed(data: {
   };
 }) {
   const isYoutube    = data.service === 'YOUTUBE';
-  const serviceLabel = isYoutube ? 'YouTube Premium' : 'Disney+ 4K';
+  const serviceLabel = data.service === 'YOUTUBE' ? 'YouTube Premium' : data.service === 'DISNEY' ? 'Disney+ 4K' : 'Surfshark VPN One';
   const accentColor  = isYoutube ? '#ff3b3b' : '#7c3aed';
   const dashboardUrl = `${BASE_URL}/dashboard?email=${encodeURIComponent(data.to)}`;
 
@@ -350,7 +350,7 @@ export async function sendYouTubeInvitationSent(data: {
 export async function sendAccessUpdated(data: {
   to: string;
   orderId: string;
-  service: 'YOUTUBE' | 'DISNEY';
+  service: 'YOUTUBE' | 'DISNEY' | 'SURFSHARK';
   disneyAccess?: {
     email: string;
     password: string;
@@ -359,7 +359,7 @@ export async function sendAccessUpdated(data: {
   };
 }) {
   const isYoutube    = data.service === 'YOUTUBE';
-  const serviceLabel = isYoutube ? 'YouTube Premium' : 'Disney+ 4K';
+  const serviceLabel = data.service === 'YOUTUBE' ? 'YouTube Premium' : data.service === 'DISNEY' ? 'Disney+ 4K' : 'Surfshark VPN One';
   const accentColor  = isYoutube ? '#ff3b3b' : '#7c3aed';
 
   const accessBlock = data.disneyAccess
@@ -406,12 +406,12 @@ export async function sendAccessUpdated(data: {
 // ══════════════════════════════════════
 export async function sendExpiryReminder(data: {
   to: string;
-  service: 'YOUTUBE' | 'DISNEY';
+  service: 'YOUTUBE' | 'DISNEY' | 'SURFSHARK';
   expiresAt: Date;
   daysLeft: number;
 }) {
   const isYoutube    = data.service === 'YOUTUBE';
-  const serviceLabel = isYoutube ? 'YouTube Premium' : 'Disney+ 4K';
+  const serviceLabel = data.service === 'YOUTUBE' ? 'YouTube Premium' : data.service === 'DISNEY' ? 'Disney+ 4K' : 'Surfshark VPN One';
   const price        = isYoutube ? '5,99€' : '4,99€';
   const dashboardUrl = `${BASE_URL}/dashboard?email=${encodeURIComponent(data.to)}`;
 
@@ -446,10 +446,10 @@ export async function sendExpiryReminder(data: {
 // ══════════════════════════════════════
 export async function sendExpiryNotice(data: {
   to: string;
-  service: 'YOUTUBE' | 'DISNEY';
+  service: 'YOUTUBE' | 'DISNEY' | 'SURFSHARK';
 }) {
   const isYoutube    = data.service === 'YOUTUBE';
-  const serviceLabel = isYoutube ? 'YouTube Premium' : 'Disney+ 4K';
+  const serviceLabel = data.service === 'YOUTUBE' ? 'YouTube Premium' : data.service === 'DISNEY' ? 'Disney+ 4K' : 'Surfshark VPN One';
   const price        = isYoutube ? '5,99€' : '4,99€';
 
   const html = baseTemplate({
@@ -479,12 +479,12 @@ export async function sendExpiryNotice(data: {
 // ══════════════════════════════════════
 export async function sendPaymentFailed(data: {
   to: string;
-  service: 'YOUTUBE' | 'DISNEY';
+  service: 'YOUTUBE' | 'DISNEY' | 'SURFSHARK';
   orderId: string;
   stripeCustomerId?: string;
 }) {
   const isYoutube    = data.service === 'YOUTUBE';
-  const serviceLabel = isYoutube ? 'YouTube Premium' : 'Disney+ 4K';
+  const serviceLabel = data.service === 'YOUTUBE' ? 'YouTube Premium' : data.service === 'DISNEY' ? 'Disney+ 4K' : 'Surfshark VPN One';
   const portalUrl    = `${BASE_URL}/track-order?email=${encodeURIComponent(data.to)}`;
 
   const html = baseTemplate({
@@ -527,10 +527,10 @@ export async function sendPaymentFailed(data: {
 export async function sendAdminPaymentFailed(data: {
   orderId: string;
   customerEmail: string;
-  service: 'YOUTUBE' | 'DISNEY';
+  service: 'YOUTUBE' | 'DISNEY' | 'SURFSHARK';
 }) {
-  const serviceLabel = data.service === 'YOUTUBE' ? 'YouTube Premium' : 'Disney+ 4K';
-  const accentColor  = data.service === 'YOUTUBE' ? '#ff3b3b' : '#7c3aed';
+  const serviceLabel = data.service === 'YOUTUBE' ? 'YouTube Premium' : data.service === 'DISNEY' ? 'Disney+ 4K' : 'Surfshark VPN One';
+  const accentColor  = data.service === 'YOUTUBE' ? '#ff3b3b' : data.service === 'DISNEY' ? '#7c3aed' : '#00c7e0';
 
   const html = baseTemplate({
     title: `🔴 Échec paiement — ${serviceLabel}`,

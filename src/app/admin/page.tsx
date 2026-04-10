@@ -100,7 +100,7 @@ export default function AdminPage() {
   const [slotEmailLoading, setSlotEmailLoading] = useState<string | null>(null);
 
   // ── Settings state ──
-  type SettingKey = 'price_youtube' | 'price_disney' | 'paypal_link' | 'paypal_admin_email' | 'paypal_instruction_1' | 'paypal_instruction_2' | 'paypal_instruction_3';
+  type SettingKey = 'price_youtube' | 'price_disney' | 'price_surfshark' | 'paypal_link' | 'paypal_admin_email' | 'paypal_instruction_1' | 'paypal_instruction_2' | 'paypal_instruction_3';
   const [settings, setSettings] = useState<Record<SettingKey, string> | null>(null);
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [settingsSaving, setSettingsSaving] = useState<string | null>(null);
@@ -1265,8 +1265,9 @@ export default function AdminPage() {
               {/* ── Section Prix ── */}
               <SettingsSection title="💰 Prix des services">
                 {([
-                  { key: 'price_youtube' as SettingKey, label: 'YouTube Premium (€/mois)', icon: 'fa-brands fa-youtube', color: '#ff3b3b', type: 'number' },
-                  { key: 'price_disney'  as SettingKey, label: 'Disney+ 4K (€/mois)',       icon: 'fa-solid fa-wand-magic-sparkles', color: '#a78bfa', type: 'number' },
+                  { key: 'price_youtube'   as SettingKey, label: 'YouTube Premium (€/mois)',  icon: 'fa-brands fa-youtube',             color: '#ff3b3b', type: 'number' },
+                  { key: 'price_disney'    as SettingKey, label: 'Disney+ 4K (€/mois)',        icon: 'fa-solid fa-wand-magic-sparkles',   color: '#a78bfa', type: 'number' },
+                  { key: 'price_surfshark' as SettingKey, label: 'Surfshark VPN One (€/mois)', icon: 'fa-solid fa-shield-halved',         color: '#00c7e0', type: 'number' },
                 ] as const).map(({ key, label, icon, color, type }) => (
                   <SettingRow
                     key={key}

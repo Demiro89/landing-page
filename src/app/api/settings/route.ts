@@ -13,6 +13,7 @@ export async function GET() {
   return NextResponse.json({
     price_youtube:        s.price_youtube,
     price_disney:         s.price_disney,
+    price_surfshark:      s.price_surfshark,
     paypal_link:          s.paypal_link,
     paypal_instruction_1: s.paypal_instruction_1,
     paypal_instruction_2: s.paypal_instruction_2,

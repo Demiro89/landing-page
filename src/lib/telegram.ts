@@ -61,13 +61,13 @@ async function sendTelegramMessage(text: string): Promise<boolean> {
 export async function notifyPaymentDeclared(data: {
   orderId: string;
   email: string;
-  service: 'YOUTUBE' | 'DISNEY';
+  service: 'YOUTUBE' | 'DISNEY' | 'SURFSHARK';
   amount: number;
   paymentMethod: string;
   paymentTxId: string;
   gmail?: string;
 }) {
-  const serviceEmoji = data.service === 'YOUTUBE' ? '🔴 YouTube Premium' : '🟣 Disney+ 4K';
+  const serviceEmoji = data.service === 'YOUTUBE' ? '🔴 YouTube Premium' : data.service === 'DISNEY' ? '🟣 Disney+ 4K' : '🔵 Surfshark VPN One';
   const methodLabel: Record<string, string> = {
     PAYPAL: '💙 PayPal',
     SOL: '🌐 Solana (SOL)',
