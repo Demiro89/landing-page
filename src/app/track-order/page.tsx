@@ -236,6 +236,22 @@ function TrackOrderContent() {
           )}
         </form>
 
+        {/* Info résiliation */}
+        <div
+          style={{
+            marginTop: '16px',
+            padding: '12px 16px',
+            background: 'rgba(255,255,255,0.03)',
+            border: '1px solid var(--border)',
+            borderRadius: '10px',
+            fontSize: '0.78rem',
+            color: 'var(--muted)',
+            lineHeight: 1.6,
+          }}
+        >
+          💡 <strong style={{ color: 'var(--text)' }}>Info résiliation :</strong> Pour les abonnements par carte, un bouton "Gérer mon abonnement" apparaîtra une fois votre email validé. Pour PayPal, il n'y a aucun prélèvement automatique, votre accès s'arrêtera simplement à la fin de la période payée si vous ne renouvelez pas.
+        </div>
+
         {/* Results */}
         {searched && !loading && (
           orders.length === 0 ? (
