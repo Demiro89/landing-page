@@ -475,6 +475,100 @@ export async function sendExpiryNotice(data: {
 }
 
 // ══════════════════════════════════════
+// 9. ÉCHEC DE PRÉLÈVEMENT — Client
+// ══════════════════════════════════════
+export async function sendPaymentFailed(data: {
+  to: string;
+  service: 'YOUTUBE' | 'DISNEY';
+  orderId: string;
+  stripeCustomerId?: string;
+}) {
+  const isYoutube    = data.service === 'YOUTUBE';
+  const serviceLabel = isYoutube ? 'YouTube Premium' : 'Disney+ 4K';
+  const portalUrl    = `${BASE_URL}/track-order?email=${encodeURIComponent(data.to)}`;
+
+  const html = baseTemplate({
+    title: `⚠️ Échec de prélèvement — ${serviceLabel}`,
+    accentColor: '#f59e0b',
+    body: `
+      <p style="margin:0 0 14px;font-size:15px;color:#f0f0f5;">
+        Le prélèvement automatique pour votre abonnement <strong>${serviceLabel}</strong> a <strong style="color:#f59e0b;">échoué</strong>.
+      </p>
+      <div style="background:#1e1800;border:1px solid rgba(245,158,11,0.4);border-radius:10px;padding:14px 16px;margin:0 0 20px;">
+        <p style="margin:0 0 8px;font-size:14px;color:#f59e0b;font-weight:700;">⚠️ Action requise</p>
+        <p style="margin:0;font-size:14px;color:#f0f0f5;line-height:1.6;">
+          Votre accès sera <strong>coupé dès demain</strong> si aucune action n'est prise.<br>
+          Mettez à jour votre carte bancaire pour éviter toute interruption de service.
+        </p>
+      </div>
+      <p style="margin:0 0 16px;font-size:13px;color:#8888aa;line-height:1.6;">
+        Stripe effectuera automatiquement de nouvelles tentatives de prélèvement.
+        Si toutes les tentatives échouent, votre abonnement sera résilié.
+      </p>
+      <a href="${portalUrl}" style="display:inline-block;margin:0 0 16px;padding:13px 28px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#000;text-decoration:none;border-radius:10px;font-weight:700;font-size:14px;">
+        💳 Mettre à jour ma carte bancaire
+      </a>
+      <p style="margin:0;font-size:13px;color:#8888aa;">
+        Commande #${data.orderId.slice(0, 12).toUpperCase()} ·
+        <a href="https://t.me/flexnight9493" style="color:#3b82f6;">Support Telegram</a>
+      </p>`,
+  });
+
+  return send({
+    to: data.to,
+    subject: `⚠️ Échec de prélèvement — Mettez à jour votre CB pour conserver votre accès`,
+    html,
+  });
+}
+
+// ══════════════════════════════════════
+// 10. ÉCHEC DE PRÉLÈVEMENT — Admin
+// ══════════════════════════════════════
+export async function sendAdminPaymentFailed(data: {
+  orderId: string;
+  customerEmail: string;
+  service: 'YOUTUBE' | 'DISNEY';
+}) {
+  const serviceLabel = data.service === 'YOUTUBE' ? 'YouTube Premium' : 'Disney+ 4K';
+  const accentColor  = data.service === 'YOUTUBE' ? '#ff3b3b' : '#7c3aed';
+
+  const html = baseTemplate({
+    title: `🔴 Échec paiement — ${serviceLabel}`,
+    accentColor: '#f59e0b',
+    adminOnly: true,
+    body: `
+      <p style="margin:0 0 16px;font-size:15px;color:#f0f0f5;">
+        Le prélèvement Stripe a <strong style="color:#f59e0b;">échoué</strong> pour la commande ci-dessous.
+        Stripe retentera automatiquement. Si toutes les tentatives échouent, l'abonnement sera annulé.
+      </p>
+      <table style="width:100%;border-collapse:collapse;margin:0 0 20px;">
+        <tr style="border-bottom:1px solid #1e1e2e;">
+          <td style="padding:8px 0;font-size:13px;color:#8888aa;width:140px;">Commande</td>
+          <td style="padding:8px 0;font-size:13px;color:#f0f0f5;font-family:monospace;">#${data.orderId.slice(0, 12).toUpperCase()}</td>
+        </tr>
+        <tr style="border-bottom:1px solid #1e1e2e;">
+          <td style="padding:8px 0;font-size:13px;color:#8888aa;">Client</td>
+          <td style="padding:8px 0;font-size:13px;color:#f0f0f5;">${data.customerEmail}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0;font-size:13px;color:#8888aa;">Service</td>
+          <td style="padding:8px 0;font-size:13px;color:${accentColor};font-weight:700;">${serviceLabel}</td>
+        </tr>
+      </table>
+      <a href="${BASE_URL}/admin" style="display:inline-block;padding:13px 22px;background:#2563eb;color:#fff;text-decoration:none;border-radius:10px;font-weight:700;font-size:14px;">
+        🔧 Ouvrir /admin
+      </a>`,
+  });
+
+  return send({
+    to: ADMIN_EMAIL,
+    subject: `🔴 [StreamMalin] Échec paiement ${serviceLabel} — #${data.orderId.slice(0, 8).toUpperCase()}`,
+    html,
+    adminOnly: true,
+  });
+}
+
+// ══════════════════════════════════════
 // Template HTML de base (simplifié, anti-spam)
 // ══════════════════════════════════════
 function baseTemplate({

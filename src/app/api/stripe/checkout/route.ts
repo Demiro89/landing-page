@@ -1,7 +1,7 @@
 /**
  * POST /api/stripe/checkout
  *
- * Crée une session Stripe Checkout.
+ * Crée une session Stripe Checkout en mode "subscription" (prélèvement mensuel automatique).
  * Variables requises : STRIPE_SECRET_KEY, NEXT_PUBLIC_BASE_URL
  */
 
@@ -14,11 +14,10 @@ const LABELS: Record<string, string> = { YOUTUBE: 'YouTube Premium', DISNEY: 'Di
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
-  const { email, service, gmail, durationMonths = 1 } = body as {
+  const { email, service, gmail } = body as {
     email: string;
     service: string;
     gmail?: string;
-    durationMonths: number;
   };
 
   if (!email?.includes('@')) {
@@ -27,14 +26,10 @@ export async function POST(req: NextRequest) {
   if (!['YOUTUBE', 'DISNEY'].includes(service)) {
     return NextResponse.json({ error: 'Service invalide.' }, { status: 400 });
   }
-  if (![1, 3, 6, 12].includes(durationMonths)) {
-    return NextResponse.json({ error: 'Durée invalide.' }, { status: 400 });
-  }
   if (service === 'YOUTUBE' && !gmail?.includes('@')) {
     return NextResponse.json({ error: 'Gmail requis pour YouTube.' }, { status: 400 });
   }
 
-  // Check stock for Disney+
   if (service === 'DISNEY') {
     const stock = await getAvailableStock('DISNEY');
     if (stock === 0) {
@@ -51,37 +46,39 @@ export async function POST(req: NextRequest) {
   }
 
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://streammalin.fr';
-  const unitPrice = PRICES[service];
-  const totalCents = Math.round(unitPrice * durationMonths * 100);
-
+  const unitAmountCents = Math.round(PRICES[service] * 100);
   const stripe = new Stripe(stripeKey);
 
   try {
     const session = await stripe.checkout.sessions.create({
-      mode: 'payment',
+      mode: 'subscription',
       customer_email: email,
       payment_method_types: ['card'],
-      payment_intent_data: {
-        statement_descriptor: 'STREAMMALIN',
-      },
       line_items: [
         {
           price_data: {
             currency: 'eur',
             product_data: {
-              name: `${LABELS[service]} — ${durationMonths} mois`,
-              description: `Abonnement StreamMalin ${durationMonths} mois · ${(unitPrice * durationMonths).toFixed(2).replace('.', ',')}€`,
+              name: `${LABELS[service]} — Mensuel`,
+              description: `Abonnement StreamMalin · ${PRICES[service].toFixed(2).replace('.', ',')}€/mois · Résiliable à tout moment`,
             },
-            unit_amount: totalCents,
+            unit_amount: unitAmountCents,
+            recurring: { interval: 'month' },
           },
           quantity: 1,
         },
       ],
+      subscription_data: {
+        metadata: {
+          email: email.toLowerCase().trim(),
+          service,
+          gmail: gmail ?? '',
+        },
+      },
       metadata: {
         email: email.toLowerCase().trim(),
         service,
         gmail: gmail ?? '',
-        durationMonths: String(durationMonths),
       },
       success_url: `${baseUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${baseUrl}/?checkout=cancelled`,

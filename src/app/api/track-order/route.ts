@@ -40,6 +40,9 @@ export async function GET(req: NextRequest) {
       invitationSentAt: true,
       createdAt: true,
       expiresAt: true,
+      stripeSubscriptionId: true,
+      cancelAtEnd: true,
+      paymentFailed: true,
     },
   });
 

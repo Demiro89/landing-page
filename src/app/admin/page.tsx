@@ -45,6 +45,9 @@ interface Order {
   expiresAt?: string | null;
   durationMonths?: number;
   createdAt: string;
+  cancelAtEnd?: boolean;
+  paymentFailed?: boolean;
+  stripeSubscriptionId?: string | null;
   user: { email: string };
   slot?: {
     profileNumber: number;
@@ -1284,6 +1287,34 @@ function AdminOrderCard({
                 : daysLeft === 0
                   ? 'Expire aujourd\'hui'
                   : 'Expiré'}
+            </span>
+          )}
+
+          {/* Badge échec paiement */}
+          {order.paymentFailed && (
+            <span style={{
+              fontSize: '0.7rem', fontWeight: 700,
+              color: '#f59e0b', background: 'rgba(245,158,11,0.12)',
+              border: '1px solid rgba(245,158,11,0.4)',
+              borderRadius: '999px', padding: '2px 9px',
+              fontFamily: 'Syne, sans-serif', whiteSpace: 'nowrap',
+            }}>
+              <i className="fa-solid fa-credit-card" style={{ marginRight: '4px' }} />
+              ÉCHEC PAIEMENT
+            </span>
+          )}
+
+          {/* Badge résiliation programmée */}
+          {order.cancelAtEnd && order.status === 'ACTIVE' && (
+            <span style={{
+              fontSize: '0.7rem', fontWeight: 700,
+              color: '#ff6b6b', background: 'rgba(255,59,59,0.1)',
+              border: '1px solid rgba(255,59,59,0.3)',
+              borderRadius: '999px', padding: '2px 9px',
+              fontFamily: 'Syne, sans-serif', whiteSpace: 'nowrap',
+            }}>
+              <i className="fa-solid fa-ban" style={{ marginRight: '4px' }} />
+              RÉSILIÉ FIN PÉRIODE
             </span>
           )}
         </div>

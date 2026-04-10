@@ -112,6 +112,15 @@ model Order {
   /// Mois d'abonnement restants (renouvellement mensuel)
   expiresAt     DateTime?
 
+  /// Stripe Subscription ID (abonnements récurrents)
+  stripeSubscriptionId String?
+  /// Stripe Customer ID
+  stripeCustomerId     String?
+  /// true = annulation programmée à fin de période (cancel_at_period_end)
+  cancelAtEnd          Boolean @default(false)
+  /// true = dernier prélèvement a échoué
+  paymentFailed        Boolean @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

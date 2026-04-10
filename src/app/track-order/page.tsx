@@ -15,6 +15,9 @@ type Order = {
   invitationSentAt: string | null;
   createdAt: string;
   expiresAt: string | null;
+  stripeSubscriptionId: string | null;
+  cancelAtEnd: boolean;
+  paymentFailed: boolean;
 };
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: string }> = {
@@ -45,6 +48,14 @@ function TrackOrderContent() {
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [error, setError] = useState('');
+
+  // Cancel subscription state
+  const [cancelConfirmId, setCancelConfirmId] = useState<string | null>(null);
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [cancelledOrders, setCancelledOrders] = useState<Set<string>>(new Set());
+
+  // Portal (update card) state
+  const [portalLoading, setPortalLoading] = useState<string | null>(null);
 
   // Pre-fill email from URL param or localStorage
   useEffect(() => {
@@ -98,6 +109,47 @@ function TrackOrderContent() {
   function daysLeft(iso: string) {
     const diff = new Date(iso).getTime() - Date.now();
     return Math.ceil(diff / (1000 * 60 * 60 * 24));
+  }
+
+  async function handleCancelSubscription(orderId: string) {
+    setCancelLoading(true);
+    try {
+      const res = await fetch('/api/stripe/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId, email }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Erreur lors de la résiliation.');
+      setCancelledOrders((prev) => new Set(prev).add(orderId));
+      // Update local order state
+      setOrders((prev) =>
+        prev.map((o) => (o.id === orderId ? { ...o, cancelAtEnd: true } : o))
+      );
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Erreur résiliation.');
+    } finally {
+      setCancelLoading(false);
+      setCancelConfirmId(null);
+    }
+  }
+
+  async function handleOpenPortal(orderId: string) {
+    setPortalLoading(orderId);
+    try {
+      const res = await fetch('/api/stripe/portal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId, email }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Erreur portail.');
+      window.location.href = data.url;
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Impossible d\'ouvrir le portail Stripe.');
+    } finally {
+      setPortalLoading(null);
+    }
   }
 
   return (
@@ -209,11 +261,12 @@ function TrackOrderContent() {
                 const isActive = order.status === 'ACTIVE';
                 const days = order.expiresAt ? daysLeft(order.expiresAt) : null;
                 const urgent = days !== null && days <= 5;
-                // Considérer comme expiré si statut EXPIRED ou si ACTIVE avec expiresAt dépassée
                 const isExpired =
                   order.status === 'EXPIRED' ||
                   order.status === 'CANCELLED' ||
                   (isActive && days !== null && days <= 0);
+                const isCancelledAtEnd = order.cancelAtEnd || cancelledOrders.has(order.id);
+                const hasStripe = Boolean(order.stripeSubscriptionId);
 
                 return (
                   <div
@@ -319,6 +372,65 @@ function TrackOrderContent() {
                       </div>
                     )}
 
+                    {/* Bannière échec de prélèvement */}
+                    {order.paymentFailed && isActive && (
+                      <div style={{
+                        background: 'rgba(245,158,11,0.08)',
+                        border: '1px solid rgba(245,158,11,0.45)',
+                        borderRadius: '10px', padding: '14px 16px',
+                        marginBottom: '10px',
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '10px' }}>
+                          <i className="fa-solid fa-triangle-exclamation" style={{ color: '#f59e0b', fontSize: '1.1rem', marginTop: '2px', flexShrink: 0 }} />
+                          <div>
+                            <p style={{ color: '#f59e0b', fontWeight: 700, fontSize: '0.86rem', margin: '0 0 4px' }}>
+                              Échec de prélèvement
+                            </p>
+                            <p style={{ color: 'var(--muted)', fontSize: '0.79rem', margin: 0, lineHeight: 1.5 }}>
+                              Votre paiement a échoué. Mettez à jour votre carte bancaire pour conserver votre accès.
+                            </p>
+                          </div>
+                        </div>
+                        {hasStripe && (
+                          <button
+                            onClick={() => handleOpenPortal(order.id)}
+                            disabled={portalLoading === order.id}
+                            style={{
+                              width: '100%', padding: '10px', borderRadius: '8px',
+                              background: 'linear-gradient(135deg,#f59e0b,#d97706)',
+                              color: '#000', border: 'none', fontFamily: 'Syne, sans-serif',
+                              fontWeight: 700, fontSize: '0.83rem', cursor: portalLoading === order.id ? 'not-allowed' : 'pointer',
+                              opacity: portalLoading === order.id ? 0.7 : 1,
+                            }}
+                          >
+                            {portalLoading === order.id
+                              ? <><i className="fa-solid fa-spinner fa-spin" style={{ marginRight: '7px' }} />Chargement...</>
+                              : <><i className="fa-solid fa-credit-card" style={{ marginRight: '7px' }} />Mettre à jour ma carte bancaire</>
+                            }
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Résiliation programmée */}
+                    {isActive && isCancelledAtEnd && !isExpired && (
+                      <div style={{
+                        background: 'rgba(255,59,59,0.06)',
+                        border: '1px solid rgba(255,59,59,0.25)',
+                        borderRadius: '8px', padding: '10px 14px',
+                        display: 'flex', alignItems: 'flex-start', gap: '10px',
+                        marginBottom: '10px', fontSize: '0.82rem',
+                      }}>
+                        <i className="fa-solid fa-calendar-xmark" style={{ color: '#ff6b6b', marginTop: '2px', flexShrink: 0 }} />
+                        <span style={{ color: '#ff6b6b', lineHeight: 1.5 }}>
+                          <strong>Résiliation enregistrée.</strong> Aucun futur prélèvement.
+                          {order.expiresAt && (
+                            <> Votre accès reste actif jusqu&apos;au <strong>{formatDate(order.expiresAt)}</strong>.</>
+                          )}
+                        </span>
+                      </div>
+                    )}
+
                     {/* Alerte urgence (≤ 5 jours) */}
                     {isActive && urgent && days !== null && days > 0 && (
                       <div style={{
@@ -385,6 +497,24 @@ function TrackOrderContent() {
                       </a>
                     )}
 
+                    {/* Bouton résilier abonnement */}
+                    {isActive && hasStripe && !isCancelledAtEnd && !isExpired && (
+                      <button
+                        onClick={() => setCancelConfirmId(order.id)}
+                        style={{
+                          width: '100%', padding: '9px', borderRadius: '9px',
+                          border: '1px solid rgba(255,59,59,0.3)',
+                          background: 'rgba(255,59,59,0.05)',
+                          color: '#ff6b6b', fontSize: '0.79rem', fontWeight: 600,
+                          cursor: 'pointer', fontFamily: 'Syne, sans-serif',
+                          marginBottom: '6px',
+                        }}
+                      >
+                        <i className="fa-solid fa-ban" style={{ marginRight: '6px' }} />
+                        Résilier l&apos;abonnement
+                      </button>
+                    )}
+
                     {/* CTA espace client */}
                     {!isExpired && (
                       <button
@@ -414,6 +544,74 @@ function TrackOrderContent() {
               })}
             </div>
           )
+        )}
+
+        {/* Modal confirmation résiliation */}
+        {cancelConfirmId && (
+          <div
+            onClick={() => !cancelLoading && setCancelConfirmId(null)}
+            style={{
+              position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              zIndex: 1000, padding: '24px',
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                background: 'var(--card)', border: '1px solid var(--border)',
+                borderRadius: '18px', padding: '32px 28px',
+                maxWidth: '400px', width: '100%', textAlign: 'center',
+              }}
+            >
+              <div style={{
+                width: '52px', height: '52px', borderRadius: '12px',
+                background: 'rgba(255,59,59,0.12)', color: '#ff6b6b',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '1.4rem', margin: '0 auto 20px',
+              }}>
+                <i className="fa-solid fa-ban" />
+              </div>
+              <h3 style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '1.1rem', marginBottom: '10px' }}>
+                Résilier l&apos;abonnement ?
+              </h3>
+              <p style={{ color: 'var(--muted)', fontSize: '0.85rem', lineHeight: 1.6, marginBottom: '22px' }}>
+                Votre accès restera actif jusqu&apos;à la fin de la période en cours.
+                Aucun prélèvement futur ne sera effectué.
+              </p>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  onClick={() => setCancelConfirmId(null)}
+                  disabled={cancelLoading}
+                  style={{
+                    flex: 1, padding: '12px', borderRadius: '9px',
+                    border: '1px solid var(--border2)', background: 'rgba(255,255,255,0.04)',
+                    color: 'var(--muted)', fontFamily: 'Syne, sans-serif',
+                    fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer',
+                  }}
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={() => handleCancelSubscription(cancelConfirmId)}
+                  disabled={cancelLoading}
+                  style={{
+                    flex: 1, padding: '12px', borderRadius: '9px',
+                    background: cancelLoading ? 'rgba(255,59,59,0.4)' : 'rgba(255,59,59,0.15)',
+                    border: '1px solid rgba(255,59,59,0.4)',
+                    color: '#ff6b6b', fontFamily: 'Syne, sans-serif',
+                    fontWeight: 700, fontSize: '0.85rem',
+                    cursor: cancelLoading ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  {cancelLoading
+                    ? <><i className="fa-solid fa-spinner fa-spin" style={{ marginRight: '6px' }} />Traitement...</>
+                    : 'Confirmer la résiliation'
+                  }
+                </button>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Telegram support */}
