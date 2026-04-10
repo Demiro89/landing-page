@@ -10,7 +10,7 @@ import Stripe from 'stripe';
 import { getAvailableStock } from '@/lib/dispatch';
 import { getSetting } from '@/lib/settings';
 
-const LABELS: Record<string, string> = { YOUTUBE: 'YouTube Premium', DISNEY: 'Disney+ 4K' };
+const LABELS: Record<string, string> = { YOUTUBE: 'YouTube Premium', DISNEY: 'Disney+ 4K', SURFSHARK: 'Surfshark VPN One' };
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
   if (!email?.includes('@')) {
     return NextResponse.json({ error: 'Email invalide.' }, { status: 400 });
   }
-  if (!['YOUTUBE', 'DISNEY'].includes(service)) {
+  if (!['YOUTUBE', 'DISNEY', 'SURFSHARK'].includes(service)) {
     return NextResponse.json({ error: 'Service invalide.' }, { status: 400 });
   }
   if (service === 'YOUTUBE' && !gmail?.includes('@')) {
@@ -46,8 +46,9 @@ export async function POST(req: NextRequest) {
   }
 
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://streammalin.fr';
-  const priceKey = service === 'YOUTUBE' ? 'price_youtube' : 'price_disney';
-  const unitPrice = parseFloat(await getSetting(priceKey)) || (service === 'YOUTUBE' ? 5.99 : 4.99);
+  const priceKey = service === 'YOUTUBE' ? 'price_youtube' : service === 'DISNEY' ? 'price_disney' : 'price_surfshark';
+  const fallbackPrice = service === 'YOUTUBE' ? 5.99 : service === 'DISNEY' ? 4.99 : 2.49;
+  const unitPrice = parseFloat(await getSetting(priceKey)) || fallbackPrice;
   const unitAmountCents = Math.round(unitPrice * 100);
   const stripe = new Stripe(stripeKey);
 

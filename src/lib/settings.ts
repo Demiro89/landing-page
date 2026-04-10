@@ -10,6 +10,7 @@ import { prisma } from '@/lib/prisma';
 export const SETTING_KEYS = [
   'price_youtube',
   'price_disney',
+  'price_surfshark',
   'paypal_link',
   'paypal_admin_email',
   'paypal_instruction_1',
@@ -22,6 +23,7 @@ export type SettingKey = (typeof SETTING_KEYS)[number];
 export const SETTING_DEFAULTS: Record<SettingKey, string> = {
   price_youtube:        '5.99',
   price_disney:         '4.99',
+  price_surfshark:      '2.49',
   paypal_link:          'https://paypal.me/AccesPremium89',
   paypal_admin_email:   'oub9493@gmail.com',
   paypal_instruction_1: 'Envoyez en mode "À un proche" — jamais "Biens ou services".',

@@ -8,7 +8,7 @@ import Footer from '@/components/Footer';
 // --------------------------------------
 // Types
 // --------------------------------------
-type Service = 'YOUTUBE' | 'DISNEY';
+type Service = 'YOUTUBE' | 'DISNEY' | 'SURFSHARK';
 
 // --------------------------------------
 // Main Landing Page
@@ -227,7 +227,7 @@ export default function HomePage() {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
             gap: '20px',
           }}
         >
@@ -272,6 +272,27 @@ export default function HomePage() {
             ]}
             onSubscribe={() => setCheckoutService('DISNEY')}
             delay="d1"
+          />
+
+          {/* Surfshark VPN Card */}
+          <ProductCard
+            service="SURFSHARK"
+            title="Surfshark VPN One"
+            price="2,49€"
+            originalPrice="10,99€/mois"
+            savings="-77% d'économie"
+            icon="fa-solid fa-shield-halved"
+            accentColor="#00c7e0"
+            glowColor="rgba(0,199,224,0.12)"
+            borderColor="#00c7e0"
+            features={[
+              'VPN illimité + antivirus inclus',
+              'Appareils illimités simultanés',
+              'Alert & Search inclus',
+              'Pas de logs — confidentialité totale',
+            ]}
+            onSubscribe={() => setCheckoutService('SURFSHARK')}
+            delay="d2"
           />
         </div>
 
@@ -940,7 +961,9 @@ function ProductCard({
           background:
             service === 'YOUTUBE'
               ? 'var(--yt)'
-              : 'linear-gradient(135deg, #2563eb, #7c3aed)',
+              : service === 'DISNEY'
+              ? 'linear-gradient(135deg, #2563eb, #7c3aed)'
+              : 'linear-gradient(135deg, #0891b2, #00c7e0)',
           color: '#fff',
           transition: 'opacity 0.2s, transform 0.2s',
         }}

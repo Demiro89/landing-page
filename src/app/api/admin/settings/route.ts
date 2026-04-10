@@ -44,7 +44,7 @@ export async function PATCH(req: NextRequest) {
   }
 
   // Extra validation for prices
-  if (key === 'price_youtube' || key === 'price_disney') {
+  if (key === 'price_youtube' || key === 'price_disney' || key === 'price_surfshark') {
     const n = parseFloat(value);
     if (isNaN(n) || n <= 0 || n > 999) {
       return NextResponse.json({ error: 'Prix invalide (ex: 5.99).' }, { status: 400 });

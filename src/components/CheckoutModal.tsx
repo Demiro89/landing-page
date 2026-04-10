@@ -3,13 +3,13 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
-type Service = 'YOUTUBE' | 'DISNEY';
+type Service = 'YOUTUBE' | 'DISNEY' | 'SURFSHARK';
 type PaymentMethod = 'PAYPAL' | 'SOL' | 'XRP' | 'USDT_TRC20' | 'STRIPE';
 type Duration = 1 | 3 | 6 | 12;
 type Step = 'info' | 'payment' | 'declare' | 'success';
 
 // Fallback prices used until API settings are loaded
-const PRICE_DEFAULTS: Record<Service, number> = { YOUTUBE: 5.99, DISNEY: 4.99 };
+const PRICE_DEFAULTS: Record<Service, number> = { YOUTUBE: 5.99, DISNEY: 4.99, SURFSHARK: 2.49 };
 
 const DURATION_OPTIONS: { months: Duration; label: string; badge?: string }[] = [
   { months: 1,  label: '1 mois' },
@@ -21,11 +21,13 @@ const DURATION_OPTIONS: { months: Duration; label: string; badge?: string }[] = 
 const SERVICE_LABELS: Record<Service, string> = {
   YOUTUBE: 'YouTube Premium',
   DISNEY: 'Disney+ 4K',
+  SURFSHARK: 'Surfshark VPN One',
 };
 
 type PublicSettings = {
   price_youtube: string;
   price_disney: string;
+  price_surfshark: string;
   paypal_link: string;
   paypal_instruction_1: string;
   paypal_instruction_2: string;
@@ -72,9 +74,12 @@ export default function CheckoutModal({
       .catch(() => { /* use defaults silently */ });
   }, []);
 
-  const price = settings
-    ? parseFloat(service === 'YOUTUBE' ? settings.price_youtube : settings.price_disney) || PRICE_DEFAULTS[service]
-    : PRICE_DEFAULTS[service];
+  const rawPriceSetting = settings
+    ? service === 'YOUTUBE' ? settings.price_youtube
+    : service === 'DISNEY' ? settings.price_disney
+    : settings.price_surfshark
+    : null;
+  const price = rawPriceSetting ? parseFloat(rawPriceSetting) || PRICE_DEFAULTS[service] : PRICE_DEFAULTS[service];
   const totalPrice = price * duration;
   const paypalLink = settings?.paypal_link ?? 'https://paypal.me/AccesPremium89';
   const paypalInstructions = [
@@ -208,8 +213,8 @@ export default function CheckoutModal({
                 height: '38px',
                 borderRadius: '10px',
                 background:
-                  service === 'YOUTUBE' ? 'rgba(255,59,59,0.15)' : 'rgba(124,58,237,0.15)',
-                color: service === 'YOUTUBE' ? 'var(--yt)' : '#a78bfa',
+                  service === 'YOUTUBE' ? 'rgba(255,59,59,0.15)' : service === 'DISNEY' ? 'rgba(124,58,237,0.15)' : 'rgba(0,199,224,0.15)',
+                color: service === 'YOUTUBE' ? 'var(--yt)' : service === 'DISNEY' ? '#a78bfa' : '#00c7e0',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -218,7 +223,7 @@ export default function CheckoutModal({
             >
               <i
                 className={
-                  service === 'YOUTUBE' ? 'fa-brands fa-youtube' : 'fa-solid fa-wand-magic-sparkles'
+                  service === 'YOUTUBE' ? 'fa-brands fa-youtube' : service === 'DISNEY' ? 'fa-solid fa-wand-magic-sparkles' : 'fa-solid fa-shield-halved'
                 }
               />
             </div>
@@ -293,7 +298,7 @@ export default function CheckoutModal({
                     step === s
                       ? service === 'YOUTUBE'
                         ? 'var(--yt)'
-                        : 'var(--dis)'
+                        : service === 'DISNEY' ? 'var(--dis)' : '#00c7e0'
                       : ['info', 'payment', 'declare', 'success'].indexOf(step) > i
                       ? 'var(--green)'
                       : 'var(--border2)',
@@ -385,10 +390,10 @@ export default function CheckoutModal({
                       padding: '10px 6px',
                       borderRadius: '9px',
                       border: duration === months
-                        ? `1px solid ${service === 'YOUTUBE' ? 'var(--yt)' : '#7c3aed'}`
+                        ? `1px solid ${service === 'YOUTUBE' ? 'var(--yt)' : service === 'DISNEY' ? '#7c3aed' : '#00c7e0'}`
                         : '1px solid var(--border)',
                       background: duration === months
-                        ? service === 'YOUTUBE' ? 'rgba(255,59,59,0.1)' : 'rgba(124,58,237,0.1)'
+                        ? service === 'YOUTUBE' ? 'rgba(255,59,59,0.1)' : service === 'DISNEY' ? 'rgba(124,58,237,0.1)' : 'rgba(0,199,224,0.1)'
                         : 'rgba(255,255,255,0.02)',
                       color: duration === months ? 'var(--text)' : 'var(--muted)',
                       fontFamily: 'Syne, sans-serif',
@@ -756,7 +761,7 @@ export default function CheckoutModal({
                   fontSize: '0.8rem',
                   fontFamily: 'Syne, sans-serif',
                   fontWeight: 700,
-                  color: service === 'YOUTUBE' ? 'var(--yt)' : '#a78bfa',
+                  color: service === 'YOUTUBE' ? 'var(--yt)' : service === 'DISNEY' ? '#a78bfa' : '#00c7e0',
                 }}
               >
                 {label} · {duration} mois · {totalPrice.toFixed(2).replace('.', ',')}€
@@ -873,6 +878,8 @@ export default function CheckoutModal({
               Notre équipe va vérifier votre paiement sous peu.
               {service === 'DISNEY'
                 ? ' Votre slot Disney+ sera attribué automatiquement.'
+                : service === 'SURFSHARK'
+                ? ' Vos accès Surfshark VPN One vous seront envoyés par email.'
                 : ' Votre invitation YouTube Premium sera envoyée à votre Gmail.'}
               <br />
               <br />
@@ -1290,7 +1297,7 @@ const submitBtnStyle = (service: Service): React.CSSProperties => ({
   cursor: 'pointer',
   border: 'none',
   background:
-    service === 'YOUTUBE' ? 'var(--yt)' : 'linear-gradient(135deg, #2563eb, #7c3aed)',
+    service === 'YOUTUBE' ? 'var(--yt)' : service === 'DISNEY' ? 'linear-gradient(135deg, #2563eb, #7c3aed)' : 'linear-gradient(135deg, #0891b2, #00c7e0)',
   color: '#fff',
   transition: 'opacity 0.2s',
 });

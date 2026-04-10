@@ -13,7 +13,7 @@ import { notifyPaymentDeclared } from '@/lib/telegram';
 import { getAvailableStock } from '@/lib/dispatch';
 import { sendAdminNewOrder, sendOrderReceived } from '@/lib/email';
 
-const VALID_SERVICES = ['YOUTUBE', 'DISNEY'] as const;
+const VALID_SERVICES = ['YOUTUBE', 'DISNEY', 'SURFSHARK'] as const;
 const VALID_METHODS = ['PAYPAL', 'SOL', 'XRP', 'USDT_TRC20'] as const;
 const VALID_DURATIONS = [1, 3, 6, 12] as const;
 
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'ID de transaction requis.' }, { status: 400 });
     }
 
-    const basePrice = service === 'YOUTUBE' ? 5.99 : 4.99;
+    const basePrice = service === 'YOUTUBE' ? 5.99 : service === 'DISNEY' ? 4.99 : 2.49;
     const expectedAmount = Math.round(basePrice * durationMonths * 100) / 100;
     if (typeof amount !== 'number' || Math.abs(amount - expectedAmount) > 0.05) {
       return NextResponse.json({ error: 'Montant invalide.' }, { status: 400 });
