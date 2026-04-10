@@ -8,8 +8,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { getAvailableStock } from '@/lib/dispatch';
+import { getSetting } from '@/lib/settings';
 
-const PRICES: Record<string, number> = { YOUTUBE: 5.99, DISNEY: 4.99 };
 const LABELS: Record<string, string> = { YOUTUBE: 'YouTube Premium', DISNEY: 'Disney+ 4K' };
 
 export async function POST(req: NextRequest) {
@@ -46,7 +46,9 @@ export async function POST(req: NextRequest) {
   }
 
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://streammalin.fr';
-  const unitAmountCents = Math.round(PRICES[service] * 100);
+  const priceKey = service === 'YOUTUBE' ? 'price_youtube' : 'price_disney';
+  const unitPrice = parseFloat(await getSetting(priceKey)) || (service === 'YOUTUBE' ? 5.99 : 4.99);
+  const unitAmountCents = Math.round(unitPrice * 100);
   const stripe = new Stripe(stripeKey);
 
   try {
@@ -60,7 +62,7 @@ export async function POST(req: NextRequest) {
             currency: 'eur',
             product_data: {
               name: `${LABELS[service]} — Mensuel`,
-              description: `Abonnement StreamMalin · ${PRICES[service].toFixed(2).replace('.', ',')}€/mois · Résiliable à tout moment`,
+              description: `Abonnement StreamMalin · ${unitPrice.toFixed(2).replace('.', ',')}€/mois · Résiliable à tout moment`,
             },
             unit_amount: unitAmountCents,
             recurring: { interval: 'month' },
