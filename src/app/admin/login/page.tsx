@@ -1,10 +1,8 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { useRouter } from 'next/navigation';
 
 export default function AdminLoginPage() {
-  const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState('');
@@ -27,8 +25,14 @@ export default function AdminLoginPage() {
 
       if (!res.ok) throw new Error(data.error ?? 'Erreur');
 
-      // Cookie posé — on redirige vers l'admin
-      router.replace('/admin');
+      // ── Diagnostic cookie (console navigateur) ──────────────────────────
+      console.log('[login] ✅ Réponse serveur ok:', data);
+      console.log('[login] Cookies après login :', document.cookie);
+      console.log('[login] sm_admin_auth présent :', document.cookie.includes('sm_admin_auth'));
+      // ────────────────────────────────────────────────────────────────────
+
+      // Redirection forcée (recharge complète, lit le cookie immédiatement)
+      window.location.href = '/admin';
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur');
       if (inputRef.current) {

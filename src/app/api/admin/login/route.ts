@@ -7,10 +7,10 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const COOKIE_NAME = 'sm_admin_auth';
 const COOKIE_OPTIONS = {
-  httpOnly: false,          // doit être lisible par le JS de la page admin
+  httpOnly: false,    // doit être lisible par le JS de la page admin (readCookie)
   secure: process.env.NODE_ENV === 'production',
-  sameSite: 'strict' as const,
-  maxAge: 60 * 60 * 24 * 7, // 7 jours
+  sameSite: 'lax' as const,  // 'strict' peut bloquer le cookie sur certains navigateurs
+  maxAge: 60 * 60 * 24 * 7,  // 7 jours
   path: '/',
 };
 
@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
   const adminPassword = process.env.ADMIN_PASSWORD;
   const adminToken    = process.env.ADMIN_SECRET_TOKEN;
 
-  // ── LOGS DIAGNOSTIC TEMPORAIRES ──────────────────────────────────────────
+  // ── LOGS DIAGNOSTIC (à retirer une fois stable) ──────────────────────────
   console.log('[login] ADMIN_PASSWORD     présent :', Boolean(adminPassword),
     '| longueur :', adminPassword?.length ?? 0);
   console.log('[login] ADMIN_SECRET_TOKEN présent :', Boolean(adminToken),
@@ -38,13 +38,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'ADMIN_SECRET_TOKEN non configuré.' }, { status: 500 });
   }
   if (!password || password !== adminPassword) {
-    // Délai minimal pour limiter le brute-force
     await new Promise((r) => setTimeout(r, 300));
     return NextResponse.json({ error: 'Mot de passe incorrect.' }, { status: 401 });
   }
 
-  const res = NextResponse.json({ ok: true });
+  // Cookie posé avec les options permissives
+  const res = NextResponse.json({ ok: true, token: adminToken });
   res.cookies.set(COOKIE_NAME, adminToken, COOKIE_OPTIONS);
+  console.log('[login] ✅ Cookie posé — nom:', COOKIE_NAME, '| SameSite: lax | Path: /');
   return res;
 }
 
