@@ -9,6 +9,7 @@ import Footer from '@/components/Footer';
 // Types
 // --------------------------------------
 type Service = 'YOUTUBE' | 'DISNEY' | 'SURFSHARK';
+type StockInfo = { available: number; total: number };
 
 // --------------------------------------
 // Main Landing Page
@@ -16,7 +17,16 @@ type Service = 'YOUTUBE' | 'DISNEY' | 'SURFSHARK';
 export default function HomePage() {
   const [checkoutService, setCheckoutService] = useState<Service | null>(null);
   const [memberCount, setMemberCount] = useState(0);
+  const [stocks, setStocks] = useState<Record<Service, StockInfo> | null>(null);
   const statsRef = useRef<HTMLDivElement>(null);
+
+  // Fetch available stock
+  useEffect(() => {
+    fetch('/api/stock')
+      .then((r) => r.json())
+      .then((d) => setStocks(d))
+      .catch(() => { /* silently ignore — badges just won't show */ });
+  }, []);
 
   // Animated counter
   useEffect(() => {
@@ -249,6 +259,7 @@ export default function HomePage() {
               'Lecture en arrière-plan',
             ]}
             popular
+            stock={stocks?.['YOUTUBE'] ?? null}
             onSubscribe={() => setCheckoutService('YOUTUBE')}
             delay="d0"
           />
@@ -270,6 +281,7 @@ export default function HomePage() {
               'Profil personnel & privé',
               'Résiliation à tout moment',
             ]}
+            stock={stocks?.['DISNEY'] ?? null}
             onSubscribe={() => setCheckoutService('DISNEY')}
             delay="d1"
           />
@@ -291,6 +303,7 @@ export default function HomePage() {
               'Alert & Search inclus',
               'Pas de logs — confidentialité totale',
             ]}
+            stock={stocks?.['SURFSHARK'] ?? null}
             onSubscribe={() => setCheckoutService('SURFSHARK')}
             delay="d2"
           />
@@ -779,6 +792,7 @@ function ProductCard({
   borderColor,
   features,
   popular,
+  stock,
   onSubscribe,
   delay,
 }: {
@@ -793,23 +807,32 @@ function ProductCard({
   borderColor: string;
   features: string[];
   popular?: boolean;
+  stock: StockInfo | null;
   onSubscribe: () => void;
   delay: string;
 }) {
+  // stock=null  → data not loaded yet, show nothing
+  // total=0     → service has no master accounts, hide badge
+  // available=0 → COMPLET
+  const isFull = stock !== null && stock.total > 0 && stock.available === 0;
+  const showBadge = stock !== null && stock.total > 0 && stock.available > 0;
+  const isLast = showBadge && stock.available === 1;
+
   return (
     <div
       className={`reveal ${delay}`}
       style={{
         background: 'var(--card)',
         border: `1px solid var(--border)`,
-        borderTop: `2px solid ${borderColor}`,
+        borderTop: `2px solid ${isFull ? '#ff3b3b55' : borderColor}`,
         borderRadius: '20px',
         padding: '28px 24px',
         position: 'relative',
         overflow: 'hidden',
         transition: 'transform 0.25s, border-color 0.25s',
+        opacity: isFull ? 0.75 : 1,
       }}
-      onMouseEnter={(e) => ((e.currentTarget as HTMLDivElement).style.transform = 'translateY(-6px)')}
+      onMouseEnter={(e) => !isFull && ((e.currentTarget as HTMLDivElement).style.transform = 'translateY(-6px)')}
       onMouseLeave={(e) => ((e.currentTarget as HTMLDivElement).style.transform = '')}
     >
       {/* Glow top */}
@@ -825,7 +848,46 @@ function ProductCard({
         }}
       />
 
-      {popular && (
+      {/* Stock badge — top right (replaces "Le plus populaire" when full) */}
+      {isFull ? (
+        <span
+          style={{
+            position: 'absolute',
+            top: '16px',
+            right: '16px',
+            background: 'rgba(255,59,59,0.15)',
+            color: '#ff3b3b',
+            border: '1px solid rgba(255,59,59,0.35)',
+            fontSize: '0.62rem',
+            fontWeight: 800,
+            letterSpacing: '0.06em',
+            textTransform: 'uppercase',
+            padding: '4px 11px',
+            borderRadius: '999px',
+          }}
+        >
+          ● COMPLET
+        </span>
+      ) : showBadge ? (
+        <span
+          style={{
+            position: 'absolute',
+            top: '16px',
+            right: '16px',
+            background: isLast ? 'rgba(251,146,60,0.15)' : 'rgba(0,255,170,0.12)',
+            color: isLast ? '#fb923c' : 'var(--green)',
+            border: `1px solid ${isLast ? 'rgba(251,146,60,0.35)' : 'rgba(0,255,170,0.3)'}`,
+            fontSize: '0.62rem',
+            fontWeight: 800,
+            letterSpacing: '0.06em',
+            textTransform: 'uppercase',
+            padding: '4px 11px',
+            borderRadius: '999px',
+          }}
+        >
+          ● {stock.available} PLACE{stock.available > 1 ? 'S' : ''} DISPO
+        </span>
+      ) : popular ? (
         <span
           style={{
             position: 'absolute',
@@ -842,7 +904,7 @@ function ProductCard({
         >
           ⭐ Le plus populaire
         </span>
-      )}
+      ) : null}
 
       <div
         style={{
@@ -947,7 +1009,8 @@ function ProductCard({
       </ul>
 
       <button
-        onClick={onSubscribe}
+        onClick={isFull ? undefined : onSubscribe}
+        disabled={isFull}
         style={{
           display: 'block',
           width: '100%',
@@ -957,18 +1020,21 @@ function ProductCard({
           fontSize: '0.92rem',
           padding: '13px',
           borderRadius: '11px',
-          cursor: 'pointer',
+          cursor: isFull ? 'not-allowed' : 'pointer',
           border: 'none',
-          background:
-            service === 'YOUTUBE'
-              ? 'var(--yt)'
-              : service === 'DISNEY'
-              ? 'linear-gradient(135deg, #2563eb, #7c3aed)'
-              : 'linear-gradient(135deg, #0891b2, #00c7e0)',
-          color: '#fff',
+          background: isFull
+            ? 'rgba(255,59,59,0.15)'
+            : service === 'YOUTUBE'
+            ? 'var(--yt)'
+            : service === 'DISNEY'
+            ? 'linear-gradient(135deg, #2563eb, #7c3aed)'
+            : 'linear-gradient(135deg, #0891b2, #00c7e0)',
+          color: isFull ? '#ff6b6b' : '#fff',
           transition: 'opacity 0.2s, transform 0.2s',
+          outline: isFull ? '1px solid rgba(255,59,59,0.3)' : 'none',
         }}
         onMouseEnter={(e) => {
+          if (isFull) return;
           (e.currentTarget as HTMLButtonElement).style.opacity = '0.85';
           (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)';
         }}
@@ -977,8 +1043,17 @@ function ProductCard({
           (e.currentTarget as HTMLButtonElement).style.transform = '';
         }}
       >
-        <i className="fa-solid fa-bolt" style={{ marginRight: '8px' }} />
-        S'abonner maintenant
+        {isFull ? (
+          <>
+            <i className="fa-solid fa-lock" style={{ marginRight: '8px' }} />
+            COMPLET
+          </>
+        ) : (
+          <>
+            <i className="fa-solid fa-bolt" style={{ marginRight: '8px' }} />
+            S&apos;abonner maintenant
+          </>
+        )}
       </button>
     </div>
   );
