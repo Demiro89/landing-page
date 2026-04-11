@@ -21,6 +21,16 @@ export async function POST(req: NextRequest) {
   const adminPassword = process.env.ADMIN_PASSWORD;
   const adminToken    = process.env.ADMIN_SECRET_TOKEN;
 
+  // ── LOGS DIAGNOSTIC TEMPORAIRES ──────────────────────────────────────────
+  console.log('[login] ADMIN_PASSWORD     présent :', Boolean(adminPassword),
+    '| longueur :', adminPassword?.length ?? 0);
+  console.log('[login] ADMIN_SECRET_TOKEN présent :', Boolean(adminToken),
+    '| longueur :', adminToken?.length ?? 0);
+  console.log('[login] Mot de passe reçu  présent :', Boolean(password),
+    '| longueur :', password?.length ?? 0);
+  console.log('[login] Match password :', password === adminPassword);
+  // ─────────────────────────────────────────────────────────────────────────
+
   if (!adminPassword) {
     return NextResponse.json({ error: 'ADMIN_PASSWORD non configuré.' }, { status: 500 });
   }
