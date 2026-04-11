@@ -569,6 +569,53 @@ export async function sendAdminPaymentFailed(data: {
 }
 
 // ══════════════════════════════════════
+// 11. CODE DE VÉRIFICATION OTP — Suivi de commande
+// ══════════════════════════════════════
+export async function sendVerificationCode(data: { to: string; code: string }) {
+  const html = baseTemplate({
+    title: '🔐 Votre code de vérification',
+    accentColor: '#6366f1',
+    body: `
+      <p style="margin:0 0 20px;font-size:15px;color:#f0f0f5;line-height:1.6;">
+        Voici votre code pour accéder à votre suivi de commande StreamMalin.
+        Il est valable <strong style="color:#f0f0f5;">15 minutes</strong>.
+      </p>
+
+      <div style="text-align:center;margin:0 0 24px;">
+        <div style="
+          display:inline-block;
+          background:#1a1a2e;
+          border:2px solid #6366f1;
+          border-radius:16px;
+          padding:20px 40px;
+        ">
+          <div style="font-family:'Courier New',monospace;font-size:40px;font-weight:800;letter-spacing:10px;color:#a5b4fc;">
+            ${data.code}
+          </div>
+        </div>
+      </div>
+
+      <p style="margin:0 0 16px;font-size:13px;color:#8888aa;line-height:1.6;text-align:center;">
+        Entrez ce code sur la page de suivi de commande.<br/>
+        Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.
+      </p>
+
+      <div style="background:rgba(255,59,59,0.06);border:1px solid rgba(255,59,59,0.2);border-radius:8px;padding:10px 14px;margin:0 0 8px;">
+        <p style="margin:0;font-size:12px;color:#ff9999;">
+          ⚠️ Ne communiquez jamais ce code à quelqu'un d'autre. StreamMalin ne vous demandera jamais votre code par téléphone ou par email.
+        </p>
+      </div>
+    `,
+  });
+
+  return send({
+    to: data.to,
+    subject: `${data.code} — Votre code StreamMalin`,
+    html,
+  });
+}
+
+// ══════════════════════════════════════
 // Template HTML de base (simplifié, anti-spam)
 // ══════════════════════════════════════
 function baseTemplate({

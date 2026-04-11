@@ -130,3 +130,15 @@ model Order {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+/// Code OTP à 6 chiffres pour la vérification d'identité sur la page suivi
+model VerificationCode {
+  id        String   @id @default(cuid())
+  email     String
+  codeHash  String   // SHA-256 du code
+  expiresAt DateTime // 15 minutes après création
+  attempts  Int      @default(0) // max 3
+  createdAt DateTime @default(now())
+
+  @@index([email])
+}

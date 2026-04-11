@@ -7,7 +7,7 @@ import Footer from '@/components/Footer';
 
 type Order = {
   id: string;
-  service: 'YOUTUBE' | 'DISNEY';
+  service: 'YOUTUBE' | 'DISNEY' | 'SURFSHARK';
   status: string;
   amount: number;
   paymentMethod: string;
@@ -46,8 +46,16 @@ function TrackOrderContent() {
   const [email, setEmail] = useState('');
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(false);
-  const [searched, setSearched] = useState(false);
   const [error, setError] = useState('');
+
+  // OTP flow
+  type Step = 'email' | 'otp' | 'results';
+  const [step, setStep] = useState<Step>('email');
+  const [otpCode, setOtpCode] = useState('');
+  const [otpError, setOtpError] = useState('');
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const otpRef = useRef<HTMLInputElement>(null);
 
   // Cancel subscription state
   const [cancelConfirmId, setCancelConfirmId] = useState<string | null>(null);
@@ -57,13 +65,11 @@ function TrackOrderContent() {
   // Portal (update card) state
   const [portalLoading, setPortalLoading] = useState<string | null>(null);
 
-  // Pre-fill email from URL param or localStorage
+  // Pre-fill email from URL param or localStorage (no auto-send)
   useEffect(() => {
     const urlEmail = searchParams.get('email');
     if (urlEmail) {
       setEmail(urlEmail);
-      // Auto-search if email comes from URL
-      handleSearch(urlEmail);
     } else {
       try {
         const stored = localStorage.getItem('sm_last_order');
@@ -71,16 +77,21 @@ function TrackOrderContent() {
           const { email: storedEmail } = JSON.parse(stored);
           if (storedEmail) setEmail(storedEmail);
         }
-      } catch {
-        // ignore
-      }
+      } catch { /* ignore */ }
     }
     inputRef.current?.focus();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function handleSearch(emailToSearch?: string) {
-    const target = (emailToSearch ?? email).toLowerCase().trim();
+  // Cooldown countdown for resend button
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const t = setTimeout(() => setResendCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendCooldown]);
+
+  async function handleSendCode() {
+    const target = email.toLowerCase().trim();
     setError('');
     if (!target.includes('@')) {
       setError('Veuillez saisir une adresse email valide.');
@@ -88,15 +99,46 @@ function TrackOrderContent() {
     }
     setLoading(true);
     try {
-      const res = await fetch(`/api/track-order?email=${encodeURIComponent(target)}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? 'Erreur serveur.');
-      setOrders(data.orders ?? []);
-      setSearched(true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Une erreur est survenue.');
+      await fetch('/api/verify/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: target }),
+      });
+      // Always transition to OTP step (even if email not found — anti-enumeration)
+      setStep('otp');
+      setResendCooldown(60);
+      setTimeout(() => otpRef.current?.focus(), 100);
+    } catch {
+      setError('Erreur réseau. Veuillez réessayer.');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleVerifyCode(e: React.FormEvent) {
+    e.preventDefault();
+    setOtpError('');
+    if (otpCode.length !== 6) {
+      setOtpError('Entrez le code à 6 chiffres reçu par email.');
+      return;
+    }
+    setOtpLoading(true);
+    try {
+      const res = await fetch('/api/verify/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.toLowerCase().trim(), code: otpCode }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Code invalide.');
+      setOrders(data.orders ?? []);
+      setStep('results');
+    } catch (err) {
+      setOtpError(err instanceof Error ? err.message : 'Code invalide.');
+      setOtpCode('');
+      otpRef.current?.focus();
+    } finally {
+      setOtpLoading(false);
     }
   }
 
@@ -180,80 +222,195 @@ function TrackOrderContent() {
           </p>
         </div>
 
-        {/* Search form */}
-        <form
-          onSubmit={(e) => { e.preventDefault(); handleSearch(); }}
-          style={{
-            background: 'var(--card)', border: '1px solid var(--border)',
-            borderRadius: '16px', padding: '24px', marginBottom: '28px',
-          }}
-        >
-          <label style={{ display: 'flex', flexDirection: 'column' as const, gap: '8px', fontSize: '0.85rem', fontWeight: 600 }}>
-            Votre adresse email
-            <div style={{ display: 'flex', gap: '10px' }}>
+        {/* ── ÉTAPE 1 : Saisie email ── */}
+        {step === 'email' && (
+          <form
+            onSubmit={(e) => { e.preventDefault(); handleSendCode(); }}
+            style={{
+              background: 'var(--card)', border: '1px solid var(--border)',
+              borderRadius: '16px', padding: '24px', marginBottom: '16px',
+            }}
+          >
+            <label style={{ display: 'flex', flexDirection: 'column' as const, gap: '8px', fontSize: '0.85rem', fontWeight: 600 }}>
+              Votre adresse email
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <input
+                  ref={inputRef}
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="exemple@email.com"
+                  required
+                  style={{
+                    flex: 1, background: 'rgba(255,255,255,0.04)',
+                    border: '1px solid var(--border2)', borderRadius: '9px',
+                    padding: '11px 14px', fontSize: '0.88rem', color: 'var(--text)',
+                    outline: 'none', fontFamily: 'DM Sans, sans-serif',
+                  }}
+                />
+                <button
+                  type="submit"
+                  disabled={loading}
+                  style={{
+                    background: 'linear-gradient(135deg,#2563eb,#7c3aed)',
+                    color: '#fff', border: 'none', borderRadius: '9px',
+                    padding: '11px 20px', fontFamily: 'Syne, sans-serif',
+                    fontWeight: 700, fontSize: '0.88rem', cursor: loading ? 'not-allowed' : 'pointer',
+                    opacity: loading ? 0.7 : 1, whiteSpace: 'nowrap' as const,
+                  }}
+                >
+                  {loading
+                    ? <><i className="fa-solid fa-spinner fa-spin" style={{ marginRight: '6px' }} />Envoi...</>
+                    : <><i className="fa-solid fa-paper-plane" style={{ marginRight: '6px' }} />Recevoir le code</>
+                  }
+                </button>
+              </div>
+            </label>
+            {error && (
+              <div style={{
+                marginTop: '12px', background: 'rgba(255,59,59,0.08)',
+                border: '1px solid rgba(255,59,59,0.25)', borderRadius: '8px',
+                padding: '10px 14px', fontSize: '0.82rem', color: '#ff6b6b',
+              }}>
+                <i className="fa-solid fa-triangle-exclamation" style={{ marginRight: '6px' }} />
+                {error}
+              </div>
+            )}
+          </form>
+        )}
+
+        {/* ── ÉTAPE 2 : Saisie OTP ── */}
+        {step === 'otp' && (
+          <form
+            onSubmit={handleVerifyCode}
+            style={{
+              background: 'var(--card)', border: '1px solid var(--border)',
+              borderRadius: '16px', padding: '28px 24px', marginBottom: '16px',
+            }}
+          >
+            {/* Icône + titre */}
+            <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+              <div style={{
+                width: '52px', height: '52px', borderRadius: '14px',
+                background: 'rgba(99,102,241,0.12)', color: '#a5b4fc',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '1.4rem', margin: '0 auto 14px',
+              }}>
+                <i className="fa-solid fa-envelope-open-text" />
+              </div>
+              <p style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '1rem', marginBottom: '6px' }}>
+                Vérification de votre identité
+              </p>
+              <p style={{ color: 'var(--muted)', fontSize: '0.82rem', lineHeight: 1.5 }}>
+                Un code à 6 chiffres a été envoyé à{' '}
+                <strong style={{ color: 'var(--text)' }}>{email}</strong>.<br/>
+                Valable 15 minutes.
+              </p>
+            </div>
+
+            {/* Input OTP */}
+            <div style={{ display: 'flex', flexDirection: 'column' as const, gap: '10px', marginBottom: '16px' }}>
               <input
-                ref={inputRef}
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="exemple@email.com"
-                required
+                ref={otpRef}
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={6}
+                value={otpCode}
+                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="000000"
+                autoComplete="one-time-code"
                 style={{
-                  flex: 1, background: 'rgba(255,255,255,0.04)',
-                  border: '1px solid var(--border2)', borderRadius: '9px',
-                  padding: '11px 14px', fontSize: '0.88rem', color: 'var(--text)',
-                  outline: 'none', fontFamily: 'DM Sans, sans-serif',
+                  textAlign: 'center', letterSpacing: '0.4em',
+                  fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '2rem',
+                  background: 'rgba(255,255,255,0.04)',
+                  border: `1px solid ${otpError ? 'rgba(255,59,59,0.5)' : 'rgba(99,102,241,0.4)'}`,
+                  borderRadius: '12px', padding: '16px',
+                  color: 'var(--text)', outline: 'none', width: '100%',
+                  boxSizing: 'border-box' as const,
+                  transition: 'border-color 0.2s',
                 }}
               />
               <button
                 type="submit"
-                disabled={loading}
+                disabled={otpLoading || otpCode.length !== 6}
                 style={{
-                  background: 'linear-gradient(135deg,#2563eb,#7c3aed)',
-                  color: '#fff', border: 'none', borderRadius: '9px',
-                  padding: '11px 20px', fontFamily: 'Syne, sans-serif',
-                  fontWeight: 700, fontSize: '0.88rem', cursor: loading ? 'not-allowed' : 'pointer',
-                  opacity: loading ? 0.7 : 1, whiteSpace: 'nowrap' as const,
+                  background: otpCode.length === 6
+                    ? 'linear-gradient(135deg,#4f46e5,#7c3aed)'
+                    : 'rgba(255,255,255,0.06)',
+                  color: otpCode.length === 6 ? '#fff' : 'var(--muted)',
+                  border: 'none', borderRadius: '10px',
+                  padding: '13px', fontFamily: 'Syne, sans-serif',
+                  fontWeight: 700, fontSize: '0.92rem',
+                  cursor: otpLoading || otpCode.length !== 6 ? 'not-allowed' : 'pointer',
+                  transition: 'background 0.2s, color 0.2s',
                 }}
               >
-                {loading
-                  ? <><i className="fa-solid fa-spinner fa-spin" style={{ marginRight: '6px' }} />Recherche...</>
-                  : <><i className="fa-solid fa-magnifying-glass" style={{ marginRight: '6px' }} />Rechercher</>
+                {otpLoading
+                  ? <><i className="fa-solid fa-spinner fa-spin" style={{ marginRight: '7px' }} />Vérification...</>
+                  : <><i className="fa-solid fa-unlock" style={{ marginRight: '7px' }} />Accéder à mes commandes</>
                 }
               </button>
             </div>
-          </label>
 
-          {error && (
-            <div style={{
-              marginTop: '12px', background: 'rgba(255,59,59,0.08)',
-              border: '1px solid rgba(255,59,59,0.25)', borderRadius: '8px',
-              padding: '10px 14px', fontSize: '0.82rem', color: '#ff6b6b',
-            }}>
-              <i className="fa-solid fa-triangle-exclamation" style={{ marginRight: '6px' }} />
-              {error}
+            {otpError && (
+              <div style={{
+                background: 'rgba(255,59,59,0.08)', border: '1px solid rgba(255,59,59,0.25)',
+                borderRadius: '8px', padding: '10px 14px',
+                fontSize: '0.82rem', color: '#ff6b6b', marginBottom: '12px',
+              }}>
+                <i className="fa-solid fa-triangle-exclamation" style={{ marginRight: '6px' }} />
+                {otpError}
+              </div>
+            )}
+
+            {/* Renvoyer / changer d'email */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' as const, gap: '8px' }}>
+              <button
+                type="button"
+                disabled={resendCooldown > 0 || loading}
+                onClick={() => { setOtpCode(''); setOtpError(''); handleSendCode(); }}
+                style={{
+                  background: 'none', border: 'none', padding: 0,
+                  color: resendCooldown > 0 ? 'var(--muted)' : '#6366f1',
+                  fontSize: '0.79rem', cursor: resendCooldown > 0 ? 'default' : 'pointer',
+                  fontFamily: 'DM Sans, sans-serif',
+                }}
+              >
+                <i className="fa-solid fa-rotate-right" style={{ marginRight: '5px' }} />
+                {resendCooldown > 0 ? `Renvoyer dans ${resendCooldown}s` : loading ? 'Envoi...' : 'Renvoyer le code'}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setStep('email'); setOtpCode(''); setOtpError(''); setError(''); }}
+                style={{
+                  background: 'none', border: 'none', padding: 0,
+                  color: 'var(--muted)', fontSize: '0.79rem', cursor: 'pointer',
+                  fontFamily: 'DM Sans, sans-serif',
+                }}
+              >
+                <i className="fa-solid fa-arrow-left" style={{ marginRight: '5px' }} />
+                Changer d&apos;email
+              </button>
             </div>
-          )}
-        </form>
+          </form>
+        )}
 
-        {/* Info résiliation */}
-        <div
-          style={{
-            marginTop: '16px',
-            padding: '12px 16px',
+        {/* Info résiliation — visible sur les étapes email & otp */}
+        {step !== 'results' && (
+          <div style={{
+            marginBottom: '28px', padding: '12px 16px',
             background: 'rgba(255,255,255,0.03)',
             border: '1px solid var(--border)',
-            borderRadius: '10px',
-            fontSize: '0.78rem',
-            color: 'var(--muted)',
-            lineHeight: 1.6,
-          }}
-        >
-          💡 <strong style={{ color: 'var(--text)' }}>Info résiliation :</strong> Pour les abonnements par carte, un bouton "Gérer mon abonnement" apparaîtra une fois votre email validé. Pour PayPal, il n'y a aucun prélèvement automatique, votre accès s'arrêtera simplement à la fin de la période payée si vous ne renouvelez pas.
-        </div>
+            borderRadius: '10px', fontSize: '0.78rem',
+            color: 'var(--muted)', lineHeight: 1.6,
+          }}>
+            💡 <strong style={{ color: 'var(--text)' }}>Info résiliation :</strong> Pour les abonnements par carte, un bouton "Gérer mon abonnement" apparaîtra une fois votre email validé. Pour PayPal, il n&apos;y a aucun prélèvement automatique, votre accès s&apos;arrêtera simplement à la fin de la période payée si vous ne renouvelez pas.
+          </div>
+        )}
 
-        {/* Results */}
-        {searched && !loading && (
+        {/* ── ÉTAPE 3 : Résultats ── */}
+        {step === 'results' && (
           orders.length === 0 ? (
             <div style={{
               textAlign: 'center', padding: '40px 24px',
@@ -301,15 +458,15 @@ function TrackOrderContent() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                         <div style={{
                           width: '36px', height: '36px', borderRadius: '9px', flexShrink: 0,
-                          background: order.service === 'YOUTUBE' ? 'rgba(255,59,59,0.15)' : 'rgba(124,58,237,0.15)',
-                          color: order.service === 'YOUTUBE' ? 'var(--yt)' : '#a78bfa',
+                          background: order.service === 'YOUTUBE' ? 'rgba(255,59,59,0.15)' : order.service === 'DISNEY' ? 'rgba(124,58,237,0.15)' : 'rgba(0,199,224,0.15)',
+                          color: order.service === 'YOUTUBE' ? 'var(--yt)' : order.service === 'DISNEY' ? '#a78bfa' : '#00c7e0',
                           display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.95rem',
                         }}>
-                          <i className={order.service === 'YOUTUBE' ? 'fa-brands fa-youtube' : 'fa-solid fa-wand-magic-sparkles'} />
+                          <i className={order.service === 'YOUTUBE' ? 'fa-brands fa-youtube' : order.service === 'DISNEY' ? 'fa-solid fa-wand-magic-sparkles' : 'fa-solid fa-shield-halved'} />
                         </div>
                         <div>
                           <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.92rem' }}>
-                            {order.service === 'YOUTUBE' ? 'YouTube Premium' : 'Disney+ 4K'}
+                            {order.service === 'YOUTUBE' ? 'YouTube Premium' : order.service === 'DISNEY' ? 'Disney+ 4K' : 'Surfshark VPN One'}
                           </div>
                           <div style={{ fontSize: '0.74rem', color: 'var(--muted)', fontFamily: 'monospace' }}>
                             #{order.id.slice(0, 12).toUpperCase()}
