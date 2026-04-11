@@ -17,6 +17,7 @@ import Stripe from 'stripe';
 import { prisma } from '@/lib/prisma';
 import { sendPaymentFailed, sendAdminPaymentFailed } from '@/lib/email';
 import { releaseSlot } from '@/lib/dispatch';
+import { notifyOrderConfirmed } from '@/lib/telegram';
 
 export async function POST(req: NextRequest) {
   const stripeKey = process.env.STRIPE_SECRET_KEY;
@@ -82,7 +83,7 @@ export async function POST(req: NextRequest) {
           create: { email: email.toLowerCase().trim() },
         });
 
-        await prisma.order.create({
+        const newOrder = await prisma.order.create({
           data: {
             userId: user.id,
             service,
@@ -97,6 +98,16 @@ export async function POST(req: NextRequest) {
             stripeCustomerId,
           },
         });
+
+        // Notification Telegram : nouvelle commande Stripe activée
+        await notifyOrderConfirmed({
+          orderId: newOrder.id,
+          email: email.toLowerCase().trim(),
+          service: service as 'YOUTUBE' | 'DISNEY' | 'SURFSHARK',
+          amount: totalAmount,
+          durationMonths: 1,
+        }).catch((e) => console.error('[webhook] notifyOrderConfirmed Telegram:', e));
+
         break;
       }
 

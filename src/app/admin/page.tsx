@@ -86,7 +86,7 @@ export default function AdminPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [inviteConfirm, setInviteConfirm] = useState<string | null>(null);
   const [filter, setFilter] = useState<'ALL' | 'PAYMENT_DECLARED' | 'ACTIVE' | 'PENDING'>('PAYMENT_DECLARED');
-  const [tab, setTab] = useState<'orders' | 'accounts' | 'settings'>('orders');
+  const [tab, setTab] = useState<'orders' | 'accounts' | 'settings' | 'stats'>('orders');
 
   // ── Master accounts state ──
   const [accounts, setAccounts] = useState<MasterAccount[]>([]);
@@ -106,6 +106,35 @@ export default function AdminPage() {
   const [settingsSaving, setSettingsSaving] = useState<string | null>(null);
   const [settingsSaved, setSettingsSaved] = useState<string | null>(null);
   const [settingsError, setSettingsError] = useState('');
+
+  // ── Stats state ──
+  interface StatsByService {
+    service: string;
+    totalOrders: number;
+    activeOrders: number;
+    ca: number;
+  }
+  interface RecentSale {
+    id: string;
+    service: string;
+    amount: number;
+    status: string;
+    paymentMethod: string;
+    email: string;
+    createdAt: string;
+  }
+  interface StatsData {
+    caTotal: number;
+    ca30j: number;
+    totalPaidOrders: number;
+    activeOrdersCount: number;
+    byService: StatsByService[];
+    byMethod: Record<string, number>;
+    recentSales: RecentSale[];
+  }
+  const [stats, setStats] = useState<StatsData | null>(null);
+  const [statsLoading, setStatsLoading] = useState(false);
+  const [statsError, setStatsError] = useState('');
 
   const newAccRef = useRef<{ service: string; email: string; password: string; maxSlots: string }>({
     service: '', email: '', password: '', maxSlots: '5',
@@ -263,6 +292,25 @@ export default function AdminPage() {
   useEffect(() => {
     if (tab === 'settings' && token) fetchSettings();
   }, [tab, token, fetchSettings]);
+
+  const fetchStats = useCallback(async () => {
+    setStatsLoading(true);
+    setStatsError('');
+    try {
+      const res = await fetch(`/api/admin/stats?token=${encodeURIComponent(token)}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Erreur');
+      setStats(data);
+    } catch (err) {
+      setStatsError(err instanceof Error ? err.message : 'Erreur');
+    } finally {
+      setStatsLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    if (tab === 'stats' && token) fetchStats();
+  }, [tab, token, fetchStats]);
 
   const handleSaveSetting = async (key: SettingKey, value: string) => {
     setSettingsSaving(key);
@@ -710,6 +758,7 @@ export default function AdminPage() {
         {([
           { key: 'orders', label: '📋 Commandes', count: orders.length },
           { key: 'accounts', label: '🗄️ Comptes Maîtres', count: null },
+          { key: 'stats', label: '📊 Statistiques', count: null },
           { key: 'settings', label: '⚙️ Paramètres', count: null },
         ] as const).map((t) => (
           <button
@@ -1001,6 +1050,153 @@ export default function AdminPage() {
                 </div>
                 );
               })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ═══ TAB: STATISTIQUES ═══ */}
+      {tab === 'stats' && (
+        <div>
+          {statsError && (
+            <div style={{ background: 'rgba(255,59,59,0.08)', border: '1px solid rgba(255,59,59,0.3)', borderRadius: '10px', padding: '12px', color: '#ff3b3b', fontSize: '0.82rem', marginBottom: '16px' }}>
+              {statsError}
+            </div>
+          )}
+
+          {statsLoading ? (
+            <div style={{ textAlign: 'center', padding: '60px', color: 'var(--muted)' }}>
+              <i className="fa-solid fa-spinner fa-spin" style={{ fontSize: '1.8rem', marginBottom: '12px', display: 'block' }} />
+              Chargement des statistiques...
+            </div>
+          ) : stats ? (
+            <>
+              {/* ── KPIs principaux ── */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: '14px', marginBottom: '24px' }}>
+                {[
+                  { label: 'CA Total', value: `${stats.caTotal.toFixed(2).replace('.', ',')}€`, color: '#00ffaa', icon: 'fa-euro-sign', sub: 'Toutes commandes payées' },
+                  { label: 'CA 30 derniers jours', value: `${stats.ca30j.toFixed(2).replace('.', ',')}€`, color: '#3b82f6', icon: 'fa-calendar-days', sub: 'Glissant' },
+                  { label: 'Commandes payées', value: stats.totalPaidOrders, color: '#a78bfa', icon: 'fa-receipt', sub: 'Hors PENDING' },
+                  { label: 'Abonnements actifs', value: stats.activeOrdersCount, color: '#f59e0b', icon: 'fa-circle-check', sub: 'Statut ACTIVE' },
+                ].map((kpi, i) => (
+                  <div key={i} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '14px', padding: '18px 20px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                      <i className={`fa-solid ${kpi.icon}`} style={{ color: kpi.color, fontSize: '0.85rem' }} />
+                      <span style={{ fontSize: '0.74rem', color: 'var(--muted)' }}>{kpi.label}</span>
+                    </div>
+                    <div style={{ fontFamily: 'Syne, sans-serif', fontSize: '1.7rem', fontWeight: 800, color: kpi.color, lineHeight: 1 }}>
+                      {kpi.value}
+                    </div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--muted)', marginTop: '6px' }}>{kpi.sub}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* ── Stats par service ── */}
+              <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '14px', padding: '20px', marginBottom: '20px' }}>
+                <h3 style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.95rem', marginBottom: '16px' }}>
+                  <i className="fa-solid fa-chart-bar" style={{ color: '#a78bfa', marginRight: '8px' }} />
+                  Par service
+                </h3>
+                <div style={{ display: 'flex', flexDirection: 'column' as const, gap: '10px' }}>
+                  {stats.byService.map((svc) => {
+                    const color = svc.service === 'YOUTUBE' ? '#ff3b3b' : svc.service === 'DISNEY' ? '#a78bfa' : '#00c7e0';
+                    const icon = svc.service === 'YOUTUBE' ? 'fa-brands fa-youtube' : svc.service === 'DISNEY' ? 'fa-solid fa-wand-magic-sparkles' : 'fa-solid fa-shield-halved';
+                    const label = svc.service === 'YOUTUBE' ? 'YouTube Premium' : svc.service === 'DISNEY' ? 'Disney+ 4K' : 'Surfshark VPN';
+                    const maxCa = Math.max(...stats.byService.map((s) => s.ca), 1);
+                    const pct = Math.round((svc.ca / maxCa) * 100);
+                    return (
+                      <div key={svc.service} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div style={{ width: '28px', height: '28px', borderRadius: '7px', background: `${color}18`, color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', flexShrink: 0 }}>
+                          <i className={icon} />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                            <span style={{ fontSize: '0.82rem', fontWeight: 600 }}>{label}</span>
+                            <span style={{ fontSize: '0.8rem', color: '#00ffaa', fontWeight: 700 }}>{svc.ca.toFixed(2).replace('.', ',')}€</span>
+                          </div>
+                          <div style={{ height: '5px', background: 'rgba(255,255,255,0.06)', borderRadius: '999px', overflow: 'hidden' }}>
+                            <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: '999px', transition: 'width 0.6s ease' }} />
+                          </div>
+                          <div style={{ display: 'flex', gap: '12px', marginTop: '4px', fontSize: '0.7rem', color: 'var(--muted)' }}>
+                            <span>{svc.totalOrders} commandes total</span>
+                            <span style={{ color: '#00ffaa' }}>{svc.activeOrders} actives</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* ── Méthodes de paiement ── */}
+              <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '14px', padding: '20px', marginBottom: '20px' }}>
+                <h3 style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.95rem', marginBottom: '14px' }}>
+                  <i className="fa-solid fa-credit-card" style={{ color: '#3b82f6', marginRight: '8px' }} />
+                  Méthodes de paiement
+                </h3>
+                <div style={{ display: 'flex', flexWrap: 'wrap' as const, gap: '10px' }}>
+                  {Object.entries(stats.byMethod).sort((a, b) => b[1] - a[1]).map(([method, count]) => {
+                    const labels: Record<string, string> = { PAYPAL: '💙 PayPal', SOL: '🌐 Solana', XRP: '🔷 XRP', USDT_TRC20: '💚 USDT', STRIPE: '💳 Stripe' };
+                    return (
+                      <div key={method} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border)', borderRadius: '8px', padding: '8px 14px', fontSize: '0.82rem' }}>
+                        <span>{labels[method] ?? method}</span>
+                        <span style={{ marginLeft: '8px', color: '#a78bfa', fontWeight: 700 }}>{count}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* ── 10 dernières ventes ── */}
+              <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '14px', padding: '20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                  <h3 style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.95rem' }}>
+                    <i className="fa-solid fa-clock-rotate-left" style={{ color: '#f59e0b', marginRight: '8px' }} />
+                    10 dernières ventes
+                  </h3>
+                  <button
+                    onClick={fetchStats}
+                    style={{ background: 'transparent', border: '1px solid var(--border)', color: 'var(--muted)', borderRadius: '7px', padding: '6px 12px', fontSize: '0.75rem', cursor: 'pointer', fontFamily: 'Syne, sans-serif' }}
+                  >
+                    <i className="fa-solid fa-rotate-right" style={{ marginRight: '5px' }} />
+                    Actualiser
+                  </button>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column' as const, gap: '8px' }}>
+                  {stats.recentSales.length === 0 ? (
+                    <p style={{ color: 'var(--muted)', fontSize: '0.82rem', textAlign: 'center', padding: '20px' }}>Aucune vente enregistrée</p>
+                  ) : stats.recentSales.map((sale) => {
+                    const svcColor = sale.service === 'YOUTUBE' ? '#ff3b3b' : sale.service === 'DISNEY' ? '#a78bfa' : '#00c7e0';
+                    const svcLabel = sale.service === 'YOUTUBE' ? 'YouTube' : sale.service === 'DISNEY' ? 'Disney+' : 'Surfshark';
+                    const d = new Date(sale.createdAt);
+                    const dateStr = d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' });
+                    const methodLabels: Record<string, string> = { PAYPAL: 'PayPal', SOL: 'SOL', XRP: 'XRP', USDT_TRC20: 'USDT', STRIPE: 'Stripe' };
+                    return (
+                      <div key={sale.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: '9px', gap: '12px', flexWrap: 'wrap' as const }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                          <span style={{ fontSize: '0.74rem', fontWeight: 700, color: svcColor, background: `${svcColor}18`, padding: '3px 8px', borderRadius: '5px', flexShrink: 0 }}>
+                            {svcLabel}
+                          </span>
+                          <span style={{ fontSize: '0.78rem', color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
+                            {sale.email}
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexShrink: 0 }}>
+                          <span style={{ fontSize: '0.74rem', color: 'var(--muted)' }}>{methodLabels[sale.paymentMethod] ?? sale.paymentMethod}</span>
+                          <span style={{ fontSize: '0.74rem', color: 'var(--muted)' }}>{dateStr}</span>
+                          <span style={{ fontSize: '0.88rem', fontWeight: 700, color: '#00ffaa' }}>+{sale.amount.toFixed(2).replace('.', ',')}€</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          ) : (
+            <div style={{ textAlign: 'center', padding: '60px', color: 'var(--muted)' }}>
+              <i className="fa-solid fa-chart-bar" style={{ fontSize: '2rem', marginBottom: '12px', display: 'block', opacity: 0.4 }} />
+              Aucune donnée
             </div>
           )}
         </div>

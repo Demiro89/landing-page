@@ -107,7 +107,9 @@ export async function notifyPaymentDeclared(data: {
 export async function notifyOrderConfirmed(data: {
   orderId: string;
   email: string;
-  service: 'YOUTUBE' | 'DISNEY';
+  service: 'YOUTUBE' | 'DISNEY' | 'SURFSHARK';
+  amount?: number;
+  durationMonths?: number;
   slotInfo?: {
     masterEmail: string;
     masterPassword: string;
@@ -115,7 +117,10 @@ export async function notifyOrderConfirmed(data: {
     pinCode?: string;
   };
 }) {
-  const serviceEmoji = data.service === 'YOUTUBE' ? '🔴 YouTube' : '🟣 Disney+';
+  const serviceEmoji =
+    data.service === 'YOUTUBE' ? '🔴 YouTube Premium' :
+    data.service === 'DISNEY'  ? '🟣 Disney+ 4K'      :
+                                 '🔵 Surfshark VPN One';
 
   const slotLines =
     data.service === 'DISNEY' && data.slotInfo
@@ -130,13 +135,48 @@ export async function notifyOrderConfirmed(data: {
       : [];
 
   const lines = [
-    `✅ <b>COMMANDE CONFIRMÉE</b>`,
+    `✅ <b>COMMANDE ACTIVÉE</b>`,
     ``,
-    `📦 Service : <b>${serviceEmoji}</b>`,
-    `👤 Client  : <code>${data.email}</code>`,
-    `🆔 Order   : <code>${data.orderId}</code>`,
+    `📦 Service  : <b>${serviceEmoji}</b>`,
+    data.durationMonths ? `📅 Durée    : <b>${data.durationMonths} mois</b>` : '',
+    data.amount         ? `💶 Montant  : <b>${data.amount.toFixed(2).replace('.', ',')}€/mois</b>` : '',
+    ``,
+    `👤 Client   : <code>${data.email}</code>`,
+    `🆔 Order ID : <code>${data.orderId}</code>`,
     ...slotLines,
-  ];
+  ].filter((l) => l !== '');
+
+  return sendTelegramMessage(lines.join('\n'));
+}
+
+/**
+ * Alerte : client a signalé un problème sur sa commande
+ */
+export async function notifyOrderReport(data: {
+  orderId: string;
+  email: string;
+  service: string;
+  issue: string;
+  message?: string;
+}) {
+  const issueLabel: Record<string, string> = {
+    ACCESS:  '🔑 Accès impossible',
+    BILLING: '💳 Problème de facturation',
+    OTHER:   '❓ Autre',
+  };
+
+  const lines = [
+    `🚨 <b>SIGNALEMENT CLIENT</b>`,
+    ``,
+    `📦 Service  : <b>${data.service}</b>`,
+    `⚠️ Problème : <b>${issueLabel[data.issue] ?? data.issue}</b>`,
+    ``,
+    `👤 Client   : <code>${data.email}</code>`,
+    `🆔 Order ID : <code>${data.orderId}</code>`,
+    data.message ? `\n💬 Message :\n<i>${data.message}</i>` : '',
+    ``,
+    `👉 Vérifiez dans l'admin : ${BASE_URL}/admin`,
+  ].filter((l) => l !== '');
 
   return sendTelegramMessage(lines.join('\n'));
 }

@@ -131,6 +131,21 @@ model Order {
   updatedAt DateTime @updatedAt
 }
 
+/// Signalement client : problème sur une commande
+model OrderReport {
+  id        String   @id @default(cuid())
+  orderId   String
+  email     String
+  /// "ACCESS" | "BILLING" | "OTHER"
+  issue     String
+  message   String?
+  resolved  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([orderId])
+  @@index([email])
+}
+
 /// Code OTP à 6 chiffres pour la vérification d'identité sur la page suivi
 model VerificationCode {
   id        String   @id @default(cuid())

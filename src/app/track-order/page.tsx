@@ -62,6 +62,13 @@ function TrackOrderContent() {
   const [cancelLoading, setCancelLoading] = useState(false);
   const [cancelledOrders, setCancelledOrders] = useState<Set<string>>(new Set());
 
+  // Report state
+  const [reportOrderId, setReportOrderId] = useState<string | null>(null);
+  const [reportIssue, setReportIssue] = useState('ACCESS');
+  const [reportMessage, setReportMessage] = useState('');
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportSuccess, setReportSuccess] = useState<Set<string>>(new Set());
+
   // Portal (update card) state
   const [portalLoading, setPortalLoading] = useState<string | null>(null);
 
@@ -191,6 +198,27 @@ function TrackOrderContent() {
       alert(err instanceof Error ? err.message : 'Impossible d\'ouvrir le portail Stripe.');
     } finally {
       setPortalLoading(null);
+    }
+  }
+
+  async function handleReport(orderId: string) {
+    setReportLoading(true);
+    try {
+      const res = await fetch('/api/report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId, email, issue: reportIssue, message: reportMessage }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Erreur lors du signalement.');
+      setReportSuccess((prev) => new Set(prev).add(orderId));
+      setReportOrderId(null);
+      setReportMessage('');
+      setReportIssue('ACCESS');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Erreur réseau. Réessayez.');
+    } finally {
+      setReportLoading(false);
     }
   }
 
@@ -685,6 +713,102 @@ function TrackOrderContent() {
                       >
                         <i className="fa-solid fa-ban" style={{ marginRight: '6px' }} />
                         Résilier l&apos;abonnement
+                      </button>
+                    )}
+
+                    {/* Signaler un problème */}
+                    {reportSuccess.has(order.id) ? (
+                      <div style={{
+                        display: 'flex', alignItems: 'center', gap: '8px',
+                        background: 'rgba(0,255,170,0.06)', border: '1px solid rgba(0,255,170,0.2)',
+                        borderRadius: '8px', padding: '10px 14px',
+                        fontSize: '0.8rem', color: '#00ffaa', marginBottom: '8px',
+                      }}>
+                        <i className="fa-solid fa-circle-check" />
+                        Signalement envoyé — nous allons traiter votre demande rapidement.
+                      </div>
+                    ) : reportOrderId === order.id ? (
+                      <div style={{
+                        background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.25)',
+                        borderRadius: '10px', padding: '14px 16px', marginBottom: '8px',
+                      }}>
+                        <p style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.85rem', marginBottom: '10px' }}>
+                          <i className="fa-solid fa-triangle-exclamation" style={{ color: '#f59e0b', marginRight: '7px' }} />
+                          Signaler un problème
+                        </p>
+                        <select
+                          value={reportIssue}
+                          onChange={(e) => setReportIssue(e.target.value)}
+                          style={{
+                            width: '100%', background: 'rgba(255,255,255,0.05)',
+                            border: '1px solid var(--border2)', borderRadius: '7px',
+                            padding: '9px 12px', fontSize: '0.82rem', color: 'var(--text)',
+                            fontFamily: 'DM Sans, sans-serif', marginBottom: '8px',
+                            outline: 'none',
+                          }}
+                        >
+                          <option value="ACCESS">🔑 Accès impossible</option>
+                          <option value="BILLING">💳 Problème de facturation</option>
+                          <option value="OTHER">❓ Autre</option>
+                        </select>
+                        <textarea
+                          value={reportMessage}
+                          onChange={(e) => setReportMessage(e.target.value)}
+                          placeholder="Décrivez le problème (optionnel)..."
+                          maxLength={500}
+                          rows={3}
+                          style={{
+                            width: '100%', background: 'rgba(255,255,255,0.04)',
+                            border: '1px solid var(--border2)', borderRadius: '7px',
+                            padding: '9px 12px', fontSize: '0.8rem', color: 'var(--text)',
+                            fontFamily: 'DM Sans, sans-serif', resize: 'vertical' as const,
+                            marginBottom: '10px', outline: 'none', boxSizing: 'border-box' as const,
+                          }}
+                        />
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button
+                            onClick={() => { setReportOrderId(null); setReportMessage(''); }}
+                            disabled={reportLoading}
+                            style={{
+                              flex: 1, padding: '9px', borderRadius: '7px',
+                              background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border2)',
+                              color: 'var(--muted)', fontSize: '0.8rem', fontWeight: 600,
+                              cursor: 'pointer', fontFamily: 'Syne, sans-serif',
+                            }}
+                          >
+                            Annuler
+                          </button>
+                          <button
+                            onClick={() => handleReport(order.id)}
+                            disabled={reportLoading}
+                            style={{
+                              flex: 2, padding: '9px', borderRadius: '7px',
+                              background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.4)',
+                              color: '#f59e0b', fontSize: '0.8rem', fontWeight: 700,
+                              cursor: reportLoading ? 'not-allowed' : 'pointer',
+                              opacity: reportLoading ? 0.7 : 1, fontFamily: 'Syne, sans-serif',
+                            }}
+                          >
+                            {reportLoading
+                              ? <><i className="fa-solid fa-spinner fa-spin" style={{ marginRight: '6px' }} />Envoi...</>
+                              : <><i className="fa-solid fa-paper-plane" style={{ marginRight: '6px' }} />Envoyer le signalement</>
+                            }
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setReportOrderId(order.id)}
+                        style={{
+                          width: '100%', padding: '9px', borderRadius: '9px', marginBottom: '8px',
+                          border: '1px solid rgba(245,158,11,0.25)',
+                          background: 'rgba(245,158,11,0.04)',
+                          color: 'var(--muted)', fontSize: '0.79rem', fontWeight: 600,
+                          cursor: 'pointer', fontFamily: 'Syne, sans-serif',
+                        }}
+                      >
+                        <i className="fa-solid fa-triangle-exclamation" style={{ marginRight: '6px', color: '#f59e0b' }} />
+                        Signaler un problème
                       </button>
                     )}
 

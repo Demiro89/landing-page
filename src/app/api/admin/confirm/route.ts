@@ -119,7 +119,9 @@ export async function GET(req: NextRequest) {
     await notifyOrderConfirmed({
       orderId,
       email: order.user.email,
-      service: order.service as 'YOUTUBE' | 'DISNEY',
+      service: order.service as 'YOUTUBE' | 'DISNEY' | 'SURFSHARK',
+      amount: order.amount,
+      durationMonths: order.durationMonths ?? 1,
       slotInfo,
     });
 
