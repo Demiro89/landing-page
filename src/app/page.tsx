@@ -423,7 +423,7 @@ export default function HomePage() {
             {
               num: '02',
               title: 'Payez discrètement',
-              desc: "Via PayPal (option \"Entre proches\") ou Crypto. Aucun libellé compromettant. Vos instructions s'affichent directement sur le site.",
+              desc: "Par Carte Bancaire (Stripe), PayPal (option \"Entre proches\") ou Crypto. Paiement sécurisé. Vos instructions s'affichent directement sur le site.",
               delay: 'd1',
             },
             {
@@ -557,9 +557,11 @@ export default function HomePage() {
             icon="fa-lock"
             iconColor="var(--green)"
             title="Paiement sécurisé"
-            desc="PayPal discret ou Crypto. Aucun tiers intermédiaire. Vous choisissez."
+            desc="CB cryptée via Stripe, PayPal discret ou Crypto. Aucun tiers intermédiaire. Vous choisissez."
             delay="d1"
             chips={[
+              { icon: 'fa-brands fa-cc-visa', color: '#1a1f71', label: 'Visa' },
+              { icon: 'fa-brands fa-cc-mastercard', color: '#eb001b', label: 'Mastercard' },
               { icon: 'fa-brands fa-paypal', color: '#009cde', label: 'PayPal' },
               { icon: 'fa-coins', color: '#f59e0b', label: 'Crypto' },
             ]}
