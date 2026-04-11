@@ -241,7 +241,38 @@ export default function HomePage() {
             gap: '20px',
           }}
         >
+          {/* Skeleton cards pendant le chargement du stock */}
+          {stocks === null && (
+            <>
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  style={{
+                    background: 'var(--card)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '20px',
+                    padding: '28px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '16px',
+                  }}
+                >
+                  <div className="skeleton" style={{ width: '40px', height: '40px', borderRadius: '12px' }} />
+                  <div className="skeleton" style={{ width: '60%', height: '18px' }} />
+                  <div className="skeleton" style={{ width: '40%', height: '32px' }} />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
+                    {[80, 90, 75, 85].map((w, j) => (
+                      <div key={j} className="skeleton" style={{ width: `${w}%`, height: '12px' }} />
+                    ))}
+                  </div>
+                  <div className="skeleton" style={{ width: '100%', height: '44px', borderRadius: '12px', marginTop: '8px' }} />
+                </div>
+              ))}
+            </>
+          )}
+
           {/* YouTube Card */}
+          {stocks !== null && <>
           <ProductCard
             service="YOUTUBE"
             title="YouTube Premium"
@@ -259,7 +290,7 @@ export default function HomePage() {
               'Lecture en arrière-plan',
             ]}
             popular
-            stock={stocks?.['YOUTUBE'] ?? null}
+            stock={stocks['YOUTUBE'] ?? null}
             onSubscribe={() => setCheckoutService('YOUTUBE')}
             delay="d0"
           />
@@ -281,7 +312,7 @@ export default function HomePage() {
               'Profil personnel & privé',
               'Résiliation à tout moment',
             ]}
-            stock={stocks?.['DISNEY'] ?? null}
+            stock={stocks['DISNEY'] ?? null}
             onSubscribe={() => setCheckoutService('DISNEY')}
             delay="d1"
           />
@@ -303,10 +334,11 @@ export default function HomePage() {
               'Alert & Search inclus',
               'Pas de logs — confidentialité totale',
             ]}
-            stock={stocks?.['SURFSHARK'] ?? null}
+            stock={stocks['SURFSHARK'] ?? null}
             onSubscribe={() => setCheckoutService('SURFSHARK')}
             delay="d2"
           />
+          </>}
         </div>
 
         <div

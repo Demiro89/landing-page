@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import ThemeToggle from './ThemeToggle';
 
 type Service = 'YOUTUBE' | 'DISNEY';
 
@@ -47,15 +48,16 @@ export default function Navbar({
 
   return (
     <nav
+      className="sm-navbar"
       style={{
         position: 'fixed',
         top: 0,
         left: 0,
         right: 0,
         zIndex: 100,
-        background: 'rgba(10,10,15,0.85)',
         backdropFilter: 'blur(20px)',
         borderBottom: '1px solid var(--border)',
+        transition: 'background 0.3s ease',
       }}
     >
       <div
@@ -137,6 +139,7 @@ export default function Navbar({
 
         {/* Right side buttons */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+          <ThemeToggle />
 
           {/* Dynamic order button */}
           {lastOrder ? (

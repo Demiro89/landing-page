@@ -18,6 +18,11 @@ type Order = {
   stripeSubscriptionId: string | null;
   cancelAtEnd: boolean;
   paymentFailed: boolean;
+  slot: {
+    profileNumber: number;
+    pinCode: string | null;
+    masterAccount: { email: string; password: string } | null;
+  } | null;
 };
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: string }> = {
@@ -71,6 +76,22 @@ function TrackOrderContent() {
 
   // Portal (update card) state
   const [portalLoading, setPortalLoading] = useState<string | null>(null);
+
+  // Copy-to-clipboard state (fieldKey = `${orderId}-email` | `${orderId}-password` | `${orderId}-pin`)
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  function handleCopy(text: string, fieldKey: string) {
+    navigator.clipboard.writeText(text).catch(() => {
+      const el = document.createElement('textarea');
+      el.value = text;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+    });
+    setCopiedField(fieldKey);
+    setTimeout(() => setCopiedField(null), 2000);
+  }
 
   // Pre-fill email from URL param or localStorage (no auto-send)
   useEffect(() => {
@@ -307,8 +328,41 @@ function TrackOrderContent() {
           </form>
         )}
 
+        {/* ── Skeleton : vérification OTP en cours ── */}
+        {step === 'otp' && otpLoading && (
+          <div style={{ display: 'flex', flexDirection: 'column' as const, gap: '12px', marginBottom: '16px' }}>
+            {[0, 1].map((i) => (
+              <div
+                key={i}
+                style={{
+                  background: 'var(--card)', border: '1px solid var(--border)',
+                  borderRadius: '14px', padding: '18px 20px',
+                }}
+              >
+                {/* Top row */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+                  <div className="skeleton" style={{ width: '36px', height: '36px', borderRadius: '9px', flexShrink: 0 }} />
+                  <div style={{ flex: 1 }}>
+                    <div className="skeleton" style={{ height: '14px', width: '40%', borderRadius: '6px', marginBottom: '6px' }} />
+                    <div className="skeleton" style={{ height: '10px', width: '25%', borderRadius: '5px' }} />
+                  </div>
+                  <div className="skeleton" style={{ height: '24px', width: '80px', borderRadius: '999px', flexShrink: 0 }} />
+                </div>
+                {/* Details row */}
+                <div style={{ display: 'flex', gap: '16px', marginBottom: '12px' }}>
+                  <div className="skeleton" style={{ height: '11px', width: '30%', borderRadius: '5px' }} />
+                  <div className="skeleton" style={{ height: '11px', width: '20%', borderRadius: '5px' }} />
+                  <div className="skeleton" style={{ height: '11px', width: '25%', borderRadius: '5px' }} />
+                </div>
+                {/* Button */}
+                <div className="skeleton" style={{ height: '36px', borderRadius: '9px' }} />
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* ── ÉTAPE 2 : Saisie OTP ── */}
-        {step === 'otp' && (
+        {step === 'otp' && !otpLoading && (
           <form
             onSubmit={handleVerifyCode}
             style={{
@@ -550,6 +604,125 @@ function TrackOrderContent() {
                             </span>
                           </>
                         )}
+                      </div>
+                    )}
+
+                    {/* Disney+ credentials (ACTIVE + slot assigned) */}
+                    {order.service === 'DISNEY' && isActive && order.slot?.masterAccount && (
+                      <div style={{
+                        background: 'rgba(124,58,237,0.06)',
+                        border: '1px solid rgba(124,58,237,0.25)',
+                        borderRadius: '10px', padding: '14px 16px',
+                        marginBottom: '10px',
+                      }}>
+                        <p style={{
+                          fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.85rem',
+                          marginBottom: '12px', color: '#a78bfa',
+                          display: 'flex', alignItems: 'center', gap: '7px',
+                        }}>
+                          <i className="fa-solid fa-key" />
+                          Accès Disney+ 4K
+                        </p>
+
+                        {/* Email / identifiant */}
+                        <div style={{ marginBottom: '8px' }}>
+                          <div style={{ fontSize: '0.72rem', color: 'var(--muted)', marginBottom: '4px', textTransform: 'uppercase' as const, letterSpacing: '0.06em' }}>
+                            Identifiant (email du compte)
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <code style={{
+                              flex: 1, background: 'rgba(255,255,255,0.05)',
+                              border: '1px solid var(--border2)', borderRadius: '7px',
+                              padding: '8px 12px', fontSize: '0.82rem',
+                              color: 'var(--text)', fontFamily: 'monospace',
+                              wordBreak: 'break-all' as const,
+                            }}>
+                              {order.slot.masterAccount.email}
+                            </code>
+                            <button
+                              className={`copy-btn${copiedField === `${order.id}-email` ? ' copied' : ''}`}
+                              onClick={() => handleCopy(order.slot!.masterAccount!.email, `${order.id}-email`)}
+                              style={{ flexShrink: 0 }}
+                            >
+                              <i className={`fa-solid ${copiedField === `${order.id}-email` ? 'fa-check' : 'fa-copy'}`} style={{ marginRight: '4px' }} />
+                              {copiedField === `${order.id}-email` ? 'Copié !' : 'Copier'}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Password */}
+                        <div style={{ marginBottom: '8px' }}>
+                          <div style={{ fontSize: '0.72rem', color: 'var(--muted)', marginBottom: '4px', textTransform: 'uppercase' as const, letterSpacing: '0.06em' }}>
+                            Mot de passe
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <code style={{
+                              flex: 1, background: 'rgba(255,255,255,0.05)',
+                              border: '1px solid var(--border2)', borderRadius: '7px',
+                              padding: '8px 12px', fontSize: '0.82rem',
+                              color: 'var(--text)', fontFamily: 'monospace',
+                              wordBreak: 'break-all' as const,
+                            }}>
+                              {order.slot.masterAccount.password}
+                            </code>
+                            <button
+                              className={`copy-btn${copiedField === `${order.id}-password` ? ' copied' : ''}`}
+                              onClick={() => handleCopy(order.slot!.masterAccount!.password, `${order.id}-password`)}
+                              style={{ flexShrink: 0 }}
+                            >
+                              <i className={`fa-solid ${copiedField === `${order.id}-password` ? 'fa-check' : 'fa-copy'}`} style={{ marginRight: '4px' }} />
+                              {copiedField === `${order.id}-password` ? 'Copié !' : 'Copier'}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Profile + PIN */}
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' as const }}>
+                          <div style={{ flex: 1, minWidth: '120px' }}>
+                            <div style={{ fontSize: '0.72rem', color: 'var(--muted)', marginBottom: '4px', textTransform: 'uppercase' as const, letterSpacing: '0.06em' }}>
+                              Profil à utiliser
+                            </div>
+                            <code style={{
+                              display: 'block', background: 'rgba(255,255,255,0.05)',
+                              border: '1px solid var(--border2)', borderRadius: '7px',
+                              padding: '8px 12px', fontSize: '0.88rem',
+                              color: '#a78bfa', fontFamily: 'Syne, sans-serif', fontWeight: 700,
+                            }}>
+                              Profil {order.slot.profileNumber}
+                            </code>
+                          </div>
+                          {order.slot.pinCode && (
+                            <div style={{ flex: 1, minWidth: '120px' }}>
+                              <div style={{ fontSize: '0.72rem', color: 'var(--muted)', marginBottom: '4px', textTransform: 'uppercase' as const, letterSpacing: '0.06em' }}>
+                                Code PIN profil
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <code style={{
+                                  flex: 1, background: 'rgba(255,255,255,0.05)',
+                                  border: '1px solid var(--border2)', borderRadius: '7px',
+                                  padding: '8px 12px', fontSize: '0.88rem',
+                                  color: '#a78bfa', fontFamily: 'Syne, sans-serif', fontWeight: 700,
+                                  letterSpacing: '0.15em',
+                                }}>
+                                  {order.slot.pinCode}
+                                </code>
+                                <button
+                                  className={`copy-btn${copiedField === `${order.id}-pin` ? ' copied' : ''}`}
+                                  onClick={() => handleCopy(order.slot!.pinCode!, `${order.id}-pin`)}
+                                  style={{ flexShrink: 0 }}
+                                >
+                                  <i className={`fa-solid ${copiedField === `${order.id}-pin` ? 'fa-check' : 'fa-copy'}`} style={{ marginRight: '4px' }} />
+                                  {copiedField === `${order.id}-pin` ? 'Copié !' : 'Copier'}
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        <p style={{ fontSize: '0.74rem', color: 'var(--muted)', marginTop: '10px', lineHeight: 1.5 }}>
+                          <i className="fa-solid fa-circle-info" style={{ marginRight: '5px' }} />
+                          Connectez-vous sur Disney+ avec ces identifiants, puis sélectionnez le <strong style={{ color: 'var(--text)' }}>Profil {order.slot.profileNumber}</strong>. Ne modifiez pas le mot de passe ni les autres profils.
+                        </p>
                       </div>
                     )}
 
