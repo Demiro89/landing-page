@@ -86,7 +86,7 @@ export default function AdminPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [inviteConfirm, setInviteConfirm] = useState<string | null>(null);
   const [filter, setFilter] = useState<'ALL' | 'PAYMENT_DECLARED' | 'ACTIVE' | 'PENDING'>('PAYMENT_DECLARED');
-  const [tab, setTab] = useState<'orders' | 'accounts' | 'settings' | 'stats'>('orders');
+  const [tab, setTab] = useState<'orders' | 'accounts' | 'settings' | 'stats' | 'reports'>('orders');
 
   // ── Master accounts state ──
   const [accounts, setAccounts] = useState<MasterAccount[]>([]);
@@ -136,6 +136,21 @@ export default function AdminPage() {
   const [statsLoading, setStatsLoading] = useState(false);
   const [statsError, setStatsError] = useState('');
 
+  // ── Reports state ──
+  interface OrderReport {
+    id: string;
+    orderId: string;
+    email: string;
+    issue: string;
+    message: string | null;
+    resolved: boolean;
+    createdAt: string;
+  }
+  const [reports, setReports] = useState<OrderReport[]>([]);
+  const [reportsLoading, setReportsLoading] = useState(false);
+  const [reportsError, setReportsError] = useState('');
+  const [resolvingId, setResolvingId] = useState<string | null>(null);
+
   const newAccRef = useRef<{ service: string; email: string; password: string; maxSlots: string }>({
     service: '', email: '', password: '', maxSlots: '5',
   });
@@ -146,6 +161,11 @@ export default function AdminPage() {
     if (saved && !token) {
       setToken(saved);
       fetchOrders(saved);
+      // Charge les signalements dès le login pour afficher la pastille
+      fetch(`/api/admin/reports?token=${encodeURIComponent(saved)}`)
+        .then((r) => r.json())
+        .then((d) => { if (d.reports) setReports(d.reports); })
+        .catch(() => {});
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -311,6 +331,44 @@ export default function AdminPage() {
   useEffect(() => {
     if (tab === 'stats' && token) fetchStats();
   }, [tab, token, fetchStats]);
+
+  const fetchReports = useCallback(async () => {
+    setReportsLoading(true);
+    setReportsError('');
+    try {
+      const res = await fetch(`/api/admin/reports?token=${encodeURIComponent(token)}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Erreur');
+      setReports(data.reports);
+    } catch (err) {
+      setReportsError(err instanceof Error ? err.message : 'Erreur');
+    } finally {
+      setReportsLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    if (tab === 'reports' && token) fetchReports();
+  }, [tab, token, fetchReports]);
+
+  const handleResolveReport = async (reportId: string) => {
+    setResolvingId(reportId);
+    try {
+      const res = await fetch('/api/admin/reports', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, reportId }),
+      });
+      if (!res.ok) throw new Error('Erreur');
+      setReports((prev) =>
+        prev.map((r) => r.id === reportId ? { ...r, resolved: true } : r)
+      );
+    } catch {
+      alert('Erreur lors de la mise à jour.');
+    } finally {
+      setResolvingId(null);
+    }
+  };
 
   const handleSaveSetting = async (key: SettingKey, value: string) => {
     setSettingsSaving(key);
@@ -775,6 +833,37 @@ export default function AdminPage() {
             {t.label}{t.count !== null ? ` (${t.count})` : ''}
           </button>
         ))}
+        {/* Onglet Signalements avec pastille non-résolus */}
+        {(() => {
+          const unresolvedCount = reports.filter((r) => !r.resolved).length;
+          return (
+            <button
+              onClick={() => setTab('reports')}
+              style={{
+                position: 'relative',
+                background: tab === 'reports' ? 'rgba(255,59,59,0.15)' : 'transparent',
+                border: tab === 'reports' ? '1px solid rgba(255,59,59,0.4)' : '1px solid transparent',
+                color: tab === 'reports' ? '#ff6b6b' : 'var(--muted)',
+                fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.85rem',
+                padding: '9px 18px', borderRadius: '10px', cursor: 'pointer',
+              }}
+            >
+              🚨 Signalements
+              {unresolvedCount > 0 && (
+                <span style={{
+                  position: 'absolute', top: '-6px', right: '-6px',
+                  background: '#ff3b3b', color: '#fff',
+                  borderRadius: '999px', fontSize: '0.65rem', fontWeight: 800,
+                  minWidth: '18px', height: '18px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  padding: '0 4px', lineHeight: 1,
+                }}>
+                  {unresolvedCount}
+                </span>
+              )}
+            </button>
+          );
+        })()}
       </div>
 
       {/* ═══ TAB: COMPTES MAÎTRES ═══ */}
@@ -1048,6 +1137,155 @@ export default function AdminPage() {
                     </button>
                   </div>
                 </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ═══ TAB: SIGNALEMENTS ═══ */}
+      {tab === 'reports' && (
+        <div>
+          {reportsError && (
+            <div style={{ background: 'rgba(255,59,59,0.08)', border: '1px solid rgba(255,59,59,0.3)', borderRadius: '10px', padding: '12px', color: '#ff3b3b', fontSize: '0.82rem', marginBottom: '16px' }}>
+              {reportsError}
+            </div>
+          )}
+
+          {/* Header */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
+            <div>
+              <h2 style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '1.1rem', marginBottom: '2px' }}>
+                <i className="fa-solid fa-triangle-exclamation" style={{ color: '#ff3b3b', marginRight: '8px' }} />
+                Signalements clients
+              </h2>
+              {reports.length > 0 && (
+                <p style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>
+                  {reports.filter((r) => !r.resolved).length} non résolu(s) · {reports.length} total
+                </p>
+              )}
+            </div>
+            <button
+              onClick={fetchReports}
+              disabled={reportsLoading}
+              style={{ background: 'transparent', border: '1px solid var(--border)', color: 'var(--muted)', borderRadius: '8px', padding: '7px 14px', fontSize: '0.78rem', cursor: 'pointer', fontFamily: 'Syne, sans-serif' }}
+            >
+              <i className="fa-solid fa-rotate-right" style={{ marginRight: '5px' }} />
+              Actualiser
+            </button>
+          </div>
+
+          {reportsLoading ? (
+            <div style={{ textAlign: 'center', padding: '60px', color: 'var(--muted)' }}>
+              <i className="fa-solid fa-spinner fa-spin" style={{ fontSize: '1.8rem', marginBottom: '12px', display: 'block' }} />
+              Chargement...
+            </div>
+          ) : reports.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '60px', color: 'var(--muted)' }}>
+              <i className="fa-solid fa-circle-check" style={{ fontSize: '2.4rem', marginBottom: '14px', display: 'block', color: '#00ffaa', opacity: 0.5 }} />
+              <p style={{ fontWeight: 700 }}>Aucun signalement</p>
+              <p style={{ fontSize: '0.8rem', marginTop: '4px' }}>Vos clients n&apos;ont signalé aucun problème.</p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column' as const, gap: '10px' }}>
+              {reports.map((report) => {
+                const issueLabel: Record<string, { label: string; color: string; icon: string }> = {
+                  ACCESS:  { label: 'Accès impossible',       color: '#ff3b3b', icon: 'fa-key' },
+                  BILLING: { label: 'Problème de facturation', color: '#f59e0b', icon: 'fa-credit-card' },
+                  OTHER:   { label: 'Autre',                  color: '#8888aa', icon: 'fa-circle-question' },
+                };
+                const cfg = issueLabel[report.issue] ?? issueLabel['OTHER'];
+                const d = new Date(report.createdAt);
+                const dateStr = d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' });
+
+                return (
+                  <div
+                    key={report.id}
+                    style={{
+                      background: report.resolved ? 'rgba(255,255,255,0.02)' : 'var(--card)',
+                      border: report.resolved
+                        ? '1px solid rgba(255,255,255,0.06)'
+                        : `1px solid rgba(255,59,59,0.25)`,
+                      borderLeft: report.resolved ? undefined : `3px solid ${cfg.color}`,
+                      borderRadius: '12px',
+                      padding: '16px 18px',
+                      opacity: report.resolved ? 0.55 : 1,
+                    }}
+                  >
+                    {/* Top row */}
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' as const, marginBottom: '10px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' as const }}>
+                        {/* Badge type */}
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center', gap: '5px',
+                          background: `${cfg.color}15`, color: cfg.color,
+                          border: `1px solid ${cfg.color}30`,
+                          borderRadius: '6px', padding: '3px 9px',
+                          fontSize: '0.74rem', fontWeight: 700, flexShrink: 0,
+                        }}>
+                          <i className={`fa-solid ${cfg.icon}`} style={{ fontSize: '0.65rem' }} />
+                          {cfg.label}
+                        </span>
+                        {/* Email */}
+                        <span style={{ fontSize: '0.82rem', color: 'var(--text)', fontFamily: 'monospace' }}>
+                          {report.email}
+                        </span>
+                      </div>
+                      {/* Résolu badge ou bouton */}
+                      {report.resolved ? (
+                        <span style={{
+                          fontSize: '0.74rem', color: '#00ffaa', fontWeight: 700,
+                          display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0,
+                        }}>
+                          <i className="fa-solid fa-circle-check" />
+                          Résolu
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => handleResolveReport(report.id)}
+                          disabled={resolvingId === report.id}
+                          style={{
+                            background: 'rgba(0,255,170,0.08)', border: '1px solid rgba(0,255,170,0.3)',
+                            color: '#00ffaa', fontFamily: 'Syne, sans-serif', fontWeight: 700,
+                            fontSize: '0.75rem', padding: '6px 12px', borderRadius: '7px',
+                            cursor: resolvingId === report.id ? 'not-allowed' : 'pointer',
+                            opacity: resolvingId === report.id ? 0.6 : 1, flexShrink: 0,
+                          }}
+                        >
+                          {resolvingId === report.id
+                            ? <><i className="fa-solid fa-spinner fa-spin" style={{ marginRight: '5px' }} />...</>
+                            : <><i className="fa-solid fa-check" style={{ marginRight: '5px' }} />Marquer résolu</>
+                          }
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Order ID + date */}
+                    <div style={{ display: 'flex', gap: '16px', fontSize: '0.73rem', color: 'var(--muted)', marginBottom: report.message ? '10px' : '0', flexWrap: 'wrap' as const }}>
+                      <span>
+                        <i className="fa-solid fa-hashtag" style={{ marginRight: '4px' }} />
+                        Commande <code style={{ fontSize: '0.72rem' }}>{report.orderId.slice(0, 16).toUpperCase()}</code>
+                      </span>
+                      <span>
+                        <i className="fa-regular fa-clock" style={{ marginRight: '4px' }} />
+                        {dateStr}
+                      </span>
+                    </div>
+
+                    {/* Message */}
+                    {report.message && (
+                      <div style={{
+                        background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)',
+                        borderRadius: '8px', padding: '10px 12px',
+                        fontSize: '0.82rem', color: 'var(--muted)', lineHeight: 1.55,
+                        fontStyle: 'italic',
+                      }}>
+                        <i className="fa-solid fa-quote-left" style={{ marginRight: '6px', fontSize: '0.7rem', opacity: 0.5 }} />
+                        {report.message}
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </div>
