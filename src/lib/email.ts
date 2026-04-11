@@ -60,7 +60,14 @@ async function send(options: {
     });
 
     if (error) {
-      console.error('[Email] ❌ Erreur API Resend:', JSON.stringify(error, null, 2));
+      // Erreurs courantes Resend :
+      //  - validation_error      → adresse FROM non vérifiée ou domaine manquant
+      //  - domain_not_verified   → DNS du domaine non configuré dans Resend
+      //  - missing_required_field → champ obligatoire absent
+      //  - rate_limit_exceeded   → quota atteint
+      console.error('[Email] ❌ Erreur API Resend — name:', (error as Record<string, unknown>).name ?? '?');
+      console.error('[Email] ❌ Erreur API Resend — message:', (error as Record<string, unknown>).message ?? JSON.stringify(error));
+      console.error('[Email] ❌ Erreur complète:', JSON.stringify(error, null, 2));
       return false;
     }
 
@@ -572,6 +579,9 @@ export async function sendAdminPaymentFailed(data: {
 // 11. CODE DE VÉRIFICATION OTP — Suivi de commande
 // ══════════════════════════════════════
 export async function sendVerificationCode(data: { to: string; code: string }) {
+  console.log('[Email][OTP] sendVerificationCode appelée pour:', data.to);
+  console.log('[Email][OTP] FROM utilisé:', FROM);
+  console.log('[Email][OTP] RESEND_API_KEY présente:', Boolean(process.env.RESEND_API_KEY), '| longueur:', process.env.RESEND_API_KEY?.length ?? 0);
   const html = baseTemplate({
     title: '🔐 Votre code de vérification',
     accentColor: '#6366f1',

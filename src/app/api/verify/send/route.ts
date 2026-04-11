@@ -17,6 +17,8 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const { email } = body as { email?: string };
 
+  console.log('[verify/send] Requête reçue pour:', email ?? '(vide)');
+
   if (!email?.includes('@')) {
     return NextResponse.json({ error: 'Email invalide.' }, { status: 400 });
   }
@@ -28,6 +30,8 @@ export async function POST(req: NextRequest) {
     where: { user: { email: normalizedEmail } },
     select: { id: true },
   });
+
+  console.log('[verify/send] Commandes trouvées pour', normalizedEmail, ':', Boolean(hasOrders));
 
   if (hasOrders) {
     const code = String(randomInt(100000, 999999));
@@ -45,12 +49,18 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Envoi email en fire-and-forget
-    sendVerificationCode({ to: normalizedEmail, code }).catch((err) =>
-      console.error('[verify/send] Email error:', err)
-    );
+    console.log('[verify/send] Code créé en DB, tentative envoi email...');
+
+    // ⚠️  DOIT être awaité — les fonctions serverless (Vercel) terminent dès le return,
+    //    tuant toute requête HTTP non résolue si on utilise fire-and-forget.
+    try {
+      const sent = await sendVerificationCode({ to: normalizedEmail, code });
+      console.log('[verify/send] Résultat envoi email:', sent ? '✅ envoyé' : '❌ échec (voir logs Email ci-dessus)');
+    } catch (err) {
+      console.error('[verify/send] ❌ Exception lors de l\'envoi email:', err);
+    }
   }
 
-  // Réponse identique dans tous les cas
+  // Réponse identique dans tous les cas (anti-énumération)
   return NextResponse.json({ ok: true });
 }
