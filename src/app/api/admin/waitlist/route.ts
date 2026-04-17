@@ -46,7 +46,7 @@ export async function PATCH(req: NextRequest) {
     });
 
     // Envoi de l'invitation par email
-    const fromEmail = process.env.RESEND_FROM_EMAIL ?? 'noreply@streammalin.fr';
+    const fromEmail = process.env.RESEND_FROM_EMAIL ?? 'hello@streammalin.fr';
     const siteUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://streammalin.fr';
 
     await resend.emails.send({

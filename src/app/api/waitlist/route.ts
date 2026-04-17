@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
   // (createdAt ≈ updatedAt → nouvel enregistrement)
   if (entry.status === 'PENDING' && !entry.invitedAt) {
     const fromName = 'StreamMalin';
-    const fromEmail = process.env.RESEND_FROM_EMAIL ?? 'noreply@streammalin.fr';
+    const fromEmail = process.env.RESEND_FROM_EMAIL ?? 'hello@streammalin.fr';
 
     await resend.emails.send({
       from: `${fromName} <${fromEmail}>`,

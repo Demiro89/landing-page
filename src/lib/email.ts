@@ -15,8 +15,8 @@
 
 import { Resend } from 'resend';
 
-const FROM       = 'StreamMalin <contact@streammalin.fr>';
-const REPLY_TO   = 'contact@streammalin.fr';
+const FROM       = 'StreamMalin <hello@streammalin.fr>';
+const REPLY_TO   = 'hello@streammalin.fr';
 const BASE_URL   = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://streammalin.fr';
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? 'oub9493@gmail.com';
 
