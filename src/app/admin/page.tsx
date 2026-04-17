@@ -2025,8 +2025,8 @@ export default function AdminPage() {
                     </div>
                     {entry.name && <div style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>{entry.name}</div>}
                     <div style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: '2px' }}>
-                      Inscrit le {new Date(entry.createdAt).toLocaleDateString('fr-FR')}
-                      {entry.invitedAt && ` · Invité le ${new Date(entry.invitedAt).toLocaleDateString('fr-FR')}`}
+                      {entry.createdAt ? `Inscrit le ${new Date(entry.createdAt).toLocaleDateString('fr-FR')}` : ''}
+                      {entry.invitedAt ? ` · Invité le ${new Date(entry.invitedAt).toLocaleDateString('fr-FR')}` : ''}
                     </div>
                   </div>
                   {entry.service && (

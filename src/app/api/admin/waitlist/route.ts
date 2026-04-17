@@ -34,9 +34,16 @@ export async function GET(req: NextRequest) {
   if (!auth(req)) return NextResponse.json({ error: 'Non autorisé.' }, { status: 401 });
 
   try {
-    const entries = await prisma.waitlist.findMany({
-      orderBy: { createdAt: 'desc' },
-    });
+    let entries;
+    try {
+      entries = await prisma.waitlist.findMany({ orderBy: { createdAt: 'desc' } });
+    } catch {
+      // service column may not exist yet — fetch without it
+      entries = await prisma.waitlist.findMany({
+        orderBy: { createdAt: 'desc' },
+        select: { id: true, email: true, name: true, status: true, invitedAt: true, createdAt: true },
+      });
+    }
     return NextResponse.json({ entries });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);

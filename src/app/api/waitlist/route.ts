@@ -28,6 +28,7 @@ const schema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  try {
   const body = await req.json().catch(() => ({}));
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
@@ -37,20 +38,22 @@ export async function POST(req: NextRequest) {
   const { email, name, service } = parsed.data;
   const normalized = email.toLowerCase().trim();
 
-  // Upsert — idempotent. On update le service si l'utilisateur le change.
+  // Upsert — idempotent. select limits return to avoid fetching missing columns.
   // Fallback sans service si la colonne n'existe pas encore en DB (migration en attente).
-  let entry;
+  let entry: { id: string; status: string; invitedAt: Date | null };
   try {
     entry = await prisma.waitlist.upsert({
       where:  { email: normalized },
       update: { service: service ?? null },
       create: { email: normalized, name: name?.trim() ?? null, service: service ?? null },
+      select: { id: true, status: true, invitedAt: true },
     });
   } catch {
     entry = await prisma.waitlist.upsert({
       where:  { email: normalized },
       update: {},
       create: { email: normalized, name: name?.trim() ?? null },
+      select: { id: true, status: true, invitedAt: true },
     });
   }
 
@@ -87,4 +90,8 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ ok: true });
+  } catch (error: unknown) {
+    console.error('[waitlist] Unhandled error:', error instanceof Error ? error.message : String(error));
+    return NextResponse.json({ error: 'Erreur interne.' }, { status: 500 });
+  }
 }
