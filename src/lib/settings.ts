@@ -35,18 +35,25 @@ export type Settings = Record<SettingKey, string>;
 
 /** Récupère tous les paramètres, en comblant les valeurs manquantes par les défauts. */
 export async function getSettings(): Promise<Settings> {
-  const rows = await prisma.setting.findMany();
-  const map = Object.fromEntries(rows.map((r) => [r.key, r.value])) as Partial<Settings>;
-
-  const result = {} as Settings;
-  for (const key of SETTING_KEYS) {
-    result[key] = map[key] ?? SETTING_DEFAULTS[key];
+  try {
+    const rows = await prisma.setting.findMany();
+    const map = Object.fromEntries(rows.map((r) => [r.key, r.value])) as Partial<Settings>;
+    const result = {} as Settings;
+    for (const key of SETTING_KEYS) {
+      result[key] = map[key] ?? SETTING_DEFAULTS[key];
+    }
+    return result;
+  } catch {
+    return { ...SETTING_DEFAULTS };
   }
-  return result;
 }
 
 /** Récupère une seule clé. */
 export async function getSetting(key: SettingKey): Promise<string> {
-  const row = await prisma.setting.findUnique({ where: { key } });
-  return row?.value ?? SETTING_DEFAULTS[key];
+  try {
+    const row = await prisma.setting.findUnique({ where: { key } });
+    return row?.value ?? SETTING_DEFAULTS[key];
+  } catch {
+    return SETTING_DEFAULTS[key];
+  }
 }

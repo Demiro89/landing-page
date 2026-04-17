@@ -12,6 +12,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+export const dynamic = 'force-dynamic';
+
 
 function unauthorized() {
   return NextResponse.json({ error: 'Non autorisé.' }, { status: 401 });

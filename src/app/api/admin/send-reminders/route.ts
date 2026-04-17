@@ -13,6 +13,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { sendExpiryReminder, sendExpiryNotice } from '@/lib/email';
+export const dynamic = 'force-dynamic';
+
 
 export async function GET(req: NextRequest) {
   // Accept either Vercel cron bearer token or manual admin token

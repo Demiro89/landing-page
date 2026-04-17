@@ -4,6 +4,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+export const dynamic = 'force-dynamic';
+
 
 const COOKIE_NAME = 'sm_admin_auth';
 const COOKIE_OPTIONS = {

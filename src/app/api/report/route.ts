@@ -11,6 +11,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { notifyOrderReport } from '@/lib/telegram';
+export const dynamic = 'force-dynamic';
+
 
 const VALID_ISSUES = ['ACCESS', 'BILLING', 'OTHER'] as const;
 type IssueType = typeof VALID_ISSUES[number];

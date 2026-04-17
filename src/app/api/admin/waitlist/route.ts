@@ -6,6 +6,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { Resend } from 'resend';
+export const dynamic = 'force-dynamic';
+
 
 function auth(req: NextRequest): boolean {
   const token = req.nextUrl.searchParams.get('token') ?? '';

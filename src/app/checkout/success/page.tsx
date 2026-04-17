@@ -5,6 +5,8 @@
  * stocke stripeSubscriptionId + stripeCustomerId, puis redirige vers /track-order.
  */
 
+export const dynamic = 'force-dynamic';
+
 import { redirect } from 'next/navigation';
 import Stripe from 'stripe';
 import { prisma } from '@/lib/prisma';

@@ -18,6 +18,8 @@ import { prisma } from '@/lib/prisma';
 import { sendPaymentFailed, sendAdminPaymentFailed } from '@/lib/email';
 import { releaseSlot } from '@/lib/dispatch';
 import { notifyOrderConfirmed } from '@/lib/telegram';
+export const dynamic = 'force-dynamic';
+
 
 export async function POST(req: NextRequest) {
   const stripeKey = process.env.STRIPE_SECRET_KEY;

@@ -12,6 +12,8 @@ import { prisma } from '@/lib/prisma';
 import { notifyPaymentDeclared } from '@/lib/telegram';
 import { getAvailableStock } from '@/lib/dispatch';
 import { sendAdminNewOrder, sendOrderReceived } from '@/lib/email';
+export const dynamic = 'force-dynamic';
+
 
 const VALID_SERVICES = ['YOUTUBE', 'DISNEY', 'SURFSHARK'] as const;
 const VALID_METHODS = ['PAYPAL', 'SOL', 'XRP', 'USDT_TRC20'] as const;

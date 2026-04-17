@@ -13,6 +13,8 @@ import { prisma } from '@/lib/prisma';
 import { dispatchSlot } from '@/lib/dispatch';
 import { notifyOrderConfirmed } from '@/lib/telegram';
 import { sendOrderConfirmed } from '@/lib/email';
+export const dynamic = 'force-dynamic';
+
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);

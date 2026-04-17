@@ -10,6 +10,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { prisma } from '@/lib/prisma';
+export const dynamic = 'force-dynamic';
+
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));

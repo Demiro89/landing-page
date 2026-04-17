@@ -8,6 +8,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { dispatchSlot } from '@/lib/dispatch';
 import { sendYouTubeInvitationSent, sendAccessUpdated } from '@/lib/email';
+export const dynamic = 'force-dynamic';
+
 
 function auth(req: NextRequest): boolean {
   const token = new URL(req.url).searchParams.get('token')

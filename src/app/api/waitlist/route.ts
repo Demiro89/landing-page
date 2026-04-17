@@ -10,6 +10,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { Resend } from 'resend';
+export const dynamic = 'force-dynamic';
+
 
 const schema = z.object({
   email: z.string().email('Adresse email invalide.'),

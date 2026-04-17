@@ -9,6 +9,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { getAvailableStock } from '@/lib/dispatch';
 import { getSetting } from '@/lib/settings';
+export const dynamic = 'force-dynamic';
+
 
 const LABELS: Record<string, string> = { YOUTUBE: 'YouTube Premium', DISNEY: 'Disney+ 4K', SURFSHARK: 'Surfshark VPN One' };
 
