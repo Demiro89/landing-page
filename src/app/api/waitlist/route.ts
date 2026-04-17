@@ -18,8 +18,6 @@ const schema = z.object({
   name: z.string().max(80).optional(),
 });
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const parsed = schema.safeParse(body);
@@ -40,11 +38,11 @@ export async function POST(req: NextRequest) {
   // Envoi de l'email de confirmation uniquement lors de la première inscription
   // (createdAt ≈ updatedAt → nouvel enregistrement)
   if (entry.status === 'PENDING' && !entry.invitedAt) {
-    const fromName = 'StreamMalin';
-    const fromEmail = process.env.RESEND_FROM_EMAIL ?? 'hello@streammalin.fr';
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    const from = 'StreamMalin <hello@streammalin.fr>';
 
-    await resend.emails.send({
-      from: `${fromName} <${fromEmail}>`,
+    const { error: resendError } = await resend.emails.send({
+      from,
       to: normalized,
       subject: '✅ Tu es sur la liste d\'attente StreamMalin',
       html: `
@@ -65,7 +63,8 @@ export async function POST(req: NextRequest) {
           </p>
         </div>
       `,
-    }).catch((e) => console.error('[waitlist] Resend error:', e));
+    });
+    if (resendError) console.error('[waitlist] Resend error:', JSON.stringify(resendError));
   }
 
   return NextResponse.json({ ok: true });

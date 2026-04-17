@@ -44,9 +44,8 @@ export async function PATCH(req: NextRequest) {
 
     // ── Email ──────────────────────────────────────────────────────────────
     const apiKey = process.env.RESEND_API_KEY;
-    const fromEmail = process.env.RESEND_FROM_EMAIL ?? 'hello@streammalin.fr';
+    const from = 'StreamMalin <hello@streammalin.fr>';
     const siteUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://streammalin.fr';
-    const from = `StreamMalin <${fromEmail}>`;
 
     console.log('[admin/waitlist] PATCH → envoi invitation');
     console.log('[admin/waitlist] RESEND_API_KEY présente:', Boolean(apiKey), '| longueur:', apiKey?.length ?? 0);
