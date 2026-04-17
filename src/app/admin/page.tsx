@@ -165,6 +165,8 @@ export default function AdminPage() {
   const [waitlistError, setWaitlistError] = useState('');
   const [invitingId, setInvitingId] = useState<string | null>(null);
   const [inviteCodeForWaitlist, setInviteCodeForWaitlist] = useState('');
+  const [waitlistDeleteConfirm, setWaitlistDeleteConfirm] = useState<string | null>(null);
+  const [deletingWaitlistId, setDeletingWaitlistId] = useState<string | null>(null);
 
   // ── Invite codes state ──
   interface InviteCodeEntry {
@@ -423,6 +425,25 @@ export default function AdminPage() {
   useEffect(() => {
     if (tab === 'invites' && token) fetchInviteCodes();
   }, [tab, token, fetchInviteCodes]);
+
+  const handleDeleteWaitlist = async (id: string) => {
+    setDeletingWaitlistId(id);
+    try {
+      const r = await fetch(`/api/admin/waitlist?token=${encodeURIComponent(token)}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ waitlistId: id }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? 'Erreur');
+      setWaitlist((prev) => prev.filter((w) => w.id !== id));
+    } catch (e) {
+      setWaitlistError(e instanceof Error ? e.message : 'Erreur lors de la suppression');
+    } finally {
+      setDeletingWaitlistId(null);
+      setWaitlistDeleteConfirm(null);
+    }
+  };
 
   const handleSendInvite = async (entry: WaitlistEntry) => {
     setInvitingId(entry.id);
@@ -2033,6 +2054,58 @@ export default function AdminPage() {
                       }
                     </button>
                   )}
+
+                  {/* Delete — inline confirm */}
+                  <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                    {waitlistDeleteConfirm === entry.id ? (
+                      <>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Confirmer ?</span>
+                        <button
+                          onClick={() => handleDeleteWaitlist(entry.id)}
+                          disabled={deletingWaitlistId === entry.id}
+                          style={{
+                            background: 'rgba(255,59,59,0.18)', border: '1px solid rgba(255,59,59,0.4)',
+                            color: '#ff6b6b', borderRadius: '7px', padding: '5px 11px',
+                            fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer',
+                          }}
+                        >
+                          {deletingWaitlistId === entry.id
+                            ? <i className="fa-solid fa-spinner fa-spin" />
+                            : 'Oui'}
+                        </button>
+                        <button
+                          onClick={() => setWaitlistDeleteConfirm(null)}
+                          style={{
+                            background: 'transparent', border: '1px solid var(--border2)',
+                            color: 'var(--muted)', borderRadius: '7px', padding: '5px 11px',
+                            fontSize: '0.75rem', cursor: 'pointer',
+                          }}
+                        >
+                          Non
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => setWaitlistDeleteConfirm(entry.id)}
+                        title="Supprimer"
+                        style={{
+                          background: 'transparent', border: '1px solid transparent',
+                          color: 'var(--muted)', borderRadius: '7px', padding: '5px 8px',
+                          fontSize: '0.85rem', cursor: 'pointer', transition: 'color 0.15s, border-color 0.15s',
+                        }}
+                        onMouseEnter={(e) => {
+                          (e.currentTarget as HTMLButtonElement).style.color = '#ff6b6b';
+                          (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,59,59,0.35)';
+                        }}
+                        onMouseLeave={(e) => {
+                          (e.currentTarget as HTMLButtonElement).style.color = 'var(--muted)';
+                          (e.currentTarget as HTMLButtonElement).style.borderColor = 'transparent';
+                        }}
+                      >
+                        <i className="fa-solid fa-trash" />
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

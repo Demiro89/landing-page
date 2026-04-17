@@ -13,7 +13,23 @@ function auth(req: NextRequest): boolean {
   return !!token && token === process.env.ADMIN_SECRET_TOKEN;
 }
 
-export async function GET(req: NextRequest) {
+export async function DELETE(req: NextRequest) {
+  if (!auth(req)) return NextResponse.json({ error: 'Non autorisé.' }, { status: 401 });
+
+  try {
+    const { waitlistId } = await req.json().catch(() => ({}));
+    if (!waitlistId) return NextResponse.json({ error: 'waitlistId requis.' }, { status: 400 });
+
+    await prisma.waitlist.delete({ where: { id: waitlistId } });
+    console.log('[admin/waitlist] DELETE → suppression', waitlistId);
+    return NextResponse.json({ ok: true });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('[admin/waitlist] DELETE error:', message);
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
   if (!auth(req)) return NextResponse.json({ error: 'Non autorisé.' }, { status: 401 });
 
   try {
