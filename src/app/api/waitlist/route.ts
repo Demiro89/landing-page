@@ -12,10 +12,19 @@ import { prisma } from '@/lib/prisma';
 import { Resend } from 'resend';
 export const dynamic = 'force-dynamic';
 
+const VALID_SERVICES = ['YOUTUBE', 'DISNEY', 'SURFSHARK'] as const;
+type WaitlistService = (typeof VALID_SERVICES)[number];
+
+const SERVICE_LABELS: Record<WaitlistService, string> = {
+  YOUTUBE:   'YouTube Premium',
+  DISNEY:    'Disney+ Premium 4K',
+  SURFSHARK: 'Surfshark VPN One',
+};
 
 const schema = z.object({
-  email: z.string().email('Adresse email invalide.'),
-  name: z.string().max(80).optional(),
+  email:   z.string().email('Adresse email invalide.'),
+  name:    z.string().max(80).optional(),
+  service: z.enum(VALID_SERVICES).optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -25,21 +34,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? 'Données invalides.' }, { status: 400 });
   }
 
-  const { email, name } = parsed.data;
+  const { email, name, service } = parsed.data;
   const normalized = email.toLowerCase().trim();
 
-  // Upsert — idempotent, pas de doublon
+  // Upsert — idempotent. On update le service si l'utilisateur le change.
   const entry = await prisma.waitlist.upsert({
     where:  { email: normalized },
-    update: {},           // déjà inscrit : on ne change rien
-    create: { email: normalized, name: name?.trim() ?? null },
+    update: { service: service ?? null },
+    create: { email: normalized, name: name?.trim() ?? null, service: service ?? null },
   });
 
   // Envoi de l'email de confirmation uniquement lors de la première inscription
-  // (createdAt ≈ updatedAt → nouvel enregistrement)
   if (entry.status === 'PENDING' && !entry.invitedAt) {
     const resend = new Resend(process.env.RESEND_API_KEY);
     const from = 'StreamMalin <hello@streammalin.fr>';
+    const serviceLabel = service ? SERVICE_LABELS[service] : null;
 
     const { error: resendError } = await resend.emails.send({
       from,
@@ -55,8 +64,8 @@ export async function POST(req: NextRequest) {
           </div>
           <h1 style="font-size:1.4rem;font-weight:800;margin:0 0 12px">Tu es inscrit·e sur la liste d'attente !</h1>
           <p style="color:#8888aa;line-height:1.7;margin:0 0 20px">
-            Merci ${name ? name.trim() : ''} — ton adresse <strong style="color:#f0f0f5">${normalized}</strong>
-            est bien enregistrée. Tu seras parmi les premiers prévenus quand une place se libère.
+            Merci${name ? ` ${name.trim()}` : ''} — ton adresse <strong style="color:#f0f0f5">${normalized}</strong>
+            est bien enregistrée.${serviceLabel ? ` Tu seras parmi les premiers prévenus quand une place <strong style="color:#f0f0f5">${serviceLabel}</strong> se libère.` : ' Tu seras parmi les premiers prévenus quand une place se libère.'}
           </p>
           <p style="color:#8888aa;font-size:0.85rem;margin:0">
             — L'équipe StreamMalin

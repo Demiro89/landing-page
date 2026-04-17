@@ -156,6 +156,7 @@ export default function AdminPage() {
     id: string;
     email: string;
     name: string | null;
+    service: string | null;
     status: string;
     invitedAt: string | null;
     createdAt: string;
@@ -2028,6 +2029,17 @@ export default function AdminPage() {
                       {entry.invitedAt && ` · Invité le ${new Date(entry.invitedAt).toLocaleDateString('fr-FR')}`}
                     </div>
                   </div>
+                  {entry.service && (
+                    <span style={{
+                      padding: '4px 10px', borderRadius: '999px', fontSize: '0.68rem', fontWeight: 700,
+                      flexShrink: 0,
+                      background: entry.service === 'YOUTUBE' ? 'rgba(255,59,59,0.12)' : entry.service === 'DISNEY' ? 'rgba(124,58,237,0.12)' : 'rgba(0,199,224,0.1)',
+                      color: entry.service === 'YOUTUBE' ? '#ff6b6b' : entry.service === 'DISNEY' ? '#a78bfa' : '#00c7e0',
+                      border: `1px solid ${entry.service === 'YOUTUBE' ? 'rgba(255,59,59,0.3)' : entry.service === 'DISNEY' ? 'rgba(124,58,237,0.3)' : 'rgba(0,199,224,0.3)'}`,
+                    }}>
+                      {entry.service === 'YOUTUBE' ? '▶ YouTube' : entry.service === 'DISNEY' ? '✦ Disney+' : '🛡 Surfshark'}
+                    </span>
+                  )}
                   <span style={{
                     padding: '4px 10px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: 700,
                     background: entry.status === 'INVITED' ? 'rgba(0,255,170,0.1)' : entry.status === 'CONVERTED' ? 'rgba(124,58,237,0.12)' : 'rgba(245,158,11,0.1)',

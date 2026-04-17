@@ -163,12 +163,15 @@ model Waitlist {
   id          String   @id @default(cuid())
   email       String   @unique
   name        String?
+  /// "YOUTUBE" | "DISNEY" | "SURFSHARK" | null (anciens enregistrements)
+  service     String?
   /// "PENDING" | "INVITED" | "CONVERTED"
   status      String   @default("PENDING")
   invitedAt   DateTime?
   createdAt   DateTime @default(now())
 
   @@index([status])
+  @@index([service])
 }
 
 /// Code d'invitation individuel — généré par l'admin, usage unique

@@ -22,6 +22,7 @@ export default function HomePage() {
 
   // Waitlist form
   const [waitlistEmail, setWaitlistEmail] = useState('');
+  const [waitlistService, setWaitlistService] = useState('');
   const [waitlistStatus, setWaitlistStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [waitlistMsg, setWaitlistMsg] = useState('');
 
@@ -33,7 +34,7 @@ export default function HomePage() {
       const res = await fetch('/api/waitlist', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: waitlistEmail }),
+        body: JSON.stringify({ email: waitlistEmail, service: waitlistService || undefined }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -494,6 +495,33 @@ export default function HomePage() {
                   marginBottom: waitlistStatus === 'error' ? '10px' : '16px',
                 }}
               >
+                <select
+                  value={waitlistService}
+                  onChange={(e) => setWaitlistService(e.target.value)}
+                  style={{
+                    flex: '0 1 200px',
+                    background: 'rgba(255,255,255,0.05)',
+                    border: '1px solid var(--border2)',
+                    borderRadius: '10px',
+                    padding: '12px 14px',
+                    fontSize: '0.9rem',
+                    color: waitlistService ? 'var(--text)' : 'var(--muted)',
+                    outline: 'none',
+                    cursor: 'pointer',
+                    appearance: 'none',
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238888aa' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
+                    backgroundRepeat: 'no-repeat',
+                    backgroundPosition: 'right 12px center',
+                    paddingRight: '32px',
+                  }}
+                  onFocus={(e) => (e.currentTarget.style.borderColor = '#7c3aed')}
+                  onBlur={(e) => (e.currentTarget.style.borderColor = 'var(--border2)')}
+                >
+                  <option value="" disabled style={{ background: '#12121a' }}>Quel service ?</option>
+                  <option value="YOUTUBE" style={{ background: '#12121a' }}>▶ YouTube Premium</option>
+                  <option value="DISNEY" style={{ background: '#12121a' }}>✦ Disney+ Premium 4K</option>
+                  <option value="SURFSHARK" style={{ background: '#12121a' }}>🛡 Surfshark VPN</option>
+                </select>
                 <input
                   type="email"
                   required
