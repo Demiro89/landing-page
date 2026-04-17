@@ -21,41 +21,56 @@ function generateCode(): string {
 export async function GET(req: NextRequest) {
   if (!auth(req)) return NextResponse.json({ error: 'Non autorisé.' }, { status: 401 });
 
-  const codes = await prisma.inviteCode.findMany({
-    orderBy: { createdAt: 'desc' },
-  });
-  return NextResponse.json({ codes });
+  try {
+    const codes = await prisma.inviteCode.findMany({
+      orderBy: { createdAt: 'desc' },
+    });
+    return NextResponse.json({ codes });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
 
 export async function POST(req: NextRequest) {
   if (!auth(req)) return NextResponse.json({ error: 'Non autorisé.' }, { status: 401 });
 
-  const { note } = await req.json().catch(() => ({}));
+  try {
+    const { note } = await req.json().catch(() => ({}));
 
-  // Génère un code unique (retry si collision)
-  let code: string;
-  let attempts = 0;
-  do {
-    code = generateCode();
-    attempts++;
-    if (attempts > 20) return NextResponse.json({ error: 'Impossible de générer un code unique.' }, { status: 500 });
-  } while (await prisma.inviteCode.findUnique({ where: { code } }));
+    // Génère un code unique (retry si collision)
+    let code: string;
+    let attempts = 0;
+    do {
+      code = generateCode();
+      attempts++;
+      if (attempts > 20) return NextResponse.json({ error: 'Impossible de générer un code unique.' }, { status: 500 });
+    } while (await prisma.inviteCode.findUnique({ where: { code } }));
 
-  const created = await prisma.inviteCode.create({
-    data: { code, note: note?.trim() ?? null },
-  });
-  return NextResponse.json({ code: created });
+    const created = await prisma.inviteCode.create({
+      data: { code, note: note?.trim() ?? null },
+    });
+    return NextResponse.json({ code: created });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
 
 export async function DELETE(req: NextRequest) {
   if (!auth(req)) return NextResponse.json({ error: 'Non autorisé.' }, { status: 401 });
 
-  const { codeId } = await req.json().catch(() => ({}));
-  if (!codeId) return NextResponse.json({ error: 'codeId requis.' }, { status: 400 });
+  try {
+    const { codeId } = await req.json().catch(() => ({}));
+    if (!codeId) return NextResponse.json({ error: 'codeId requis.' }, { status: 400 });
 
-  await prisma.inviteCode.update({
-    where: { id: codeId },
-    data: { active: false },
-  });
-  return NextResponse.json({ ok: true });
+    await prisma.inviteCode.update({
+      where: { id: codeId },
+      data: { active: false },
+    });
+    return NextResponse.json({ ok: true });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
