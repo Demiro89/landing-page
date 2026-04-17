@@ -1078,9 +1078,9 @@ function ProductCard({
         position: 'relative',
         overflow: 'hidden',
         transition: 'transform 0.25s, border-color 0.25s',
-        opacity: isFull ? 0.75 : 1,
+        opacity: 1,
       }}
-      onMouseEnter={(e) => !isFull && ((e.currentTarget as HTMLDivElement).style.transform = 'translateY(-6px)')}
+      onMouseEnter={(e) => (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-6px)'}
       onMouseLeave={(e) => ((e.currentTarget as HTMLDivElement).style.transform = '')}
     >
       {/* Glow top */}
@@ -1256,53 +1256,71 @@ function ProductCard({
         ))}
       </ul>
 
-      <button
-        onClick={isFull ? undefined : onSubscribe}
-        disabled={isFull}
-        style={{
-          display: 'block',
-          width: '100%',
-          textAlign: 'center',
-          fontFamily: 'Syne, sans-serif',
-          fontWeight: 700,
-          fontSize: '0.92rem',
-          padding: '13px',
-          borderRadius: '11px',
-          cursor: isFull ? 'not-allowed' : 'pointer',
-          border: 'none',
-          background: isFull
-            ? 'rgba(255,59,59,0.15)'
-            : service === 'YOUTUBE'
-            ? 'var(--yt)'
-            : service === 'DISNEY'
-            ? 'linear-gradient(135deg, #2563eb, #7c3aed)'
-            : 'linear-gradient(135deg, #0891b2, #00c7e0)',
-          color: isFull ? '#ff6b6b' : '#fff',
-          transition: 'opacity 0.2s, transform 0.2s',
-          outline: isFull ? '1px solid rgba(255,59,59,0.3)' : 'none',
-        }}
-        onMouseEnter={(e) => {
-          if (isFull) return;
-          (e.currentTarget as HTMLButtonElement).style.opacity = '0.85';
-          (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)';
-        }}
-        onMouseLeave={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.opacity = '1';
-          (e.currentTarget as HTMLButtonElement).style.transform = '';
-        }}
-      >
-        {isFull ? (
-          <>
-            <i className="fa-solid fa-lock" style={{ marginRight: '8px' }} />
-            COMPLET
-          </>
-        ) : (
-          <>
-            <i className="fa-solid fa-bolt" style={{ marginRight: '8px' }} />
-            S&apos;abonner maintenant
-          </>
-        )}
-      </button>
+      {isFull ? (
+        <button
+          onClick={() => document.getElementById('waitlist')?.scrollIntoView({ behavior: 'smooth' })}
+          style={{
+            display: 'block',
+            width: '100%',
+            textAlign: 'center',
+            fontFamily: 'Syne, sans-serif',
+            fontWeight: 700,
+            fontSize: '0.92rem',
+            padding: '13px',
+            borderRadius: '11px',
+            cursor: 'pointer',
+            border: '1px solid rgba(167,139,250,0.4)',
+            background: 'rgba(124,58,237,0.12)',
+            color: '#a78bfa',
+            transition: 'background 0.2s, transform 0.2s',
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.background = 'rgba(124,58,237,0.22)';
+            (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)';
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.background = 'rgba(124,58,237,0.12)';
+            (e.currentTarget as HTMLButtonElement).style.transform = '';
+          }}
+        >
+          <i className="fa-solid fa-bell" style={{ marginRight: '8px' }} />
+          Me prévenir du retour
+        </button>
+      ) : (
+        <button
+          onClick={onSubscribe}
+          style={{
+            display: 'block',
+            width: '100%',
+            textAlign: 'center',
+            fontFamily: 'Syne, sans-serif',
+            fontWeight: 700,
+            fontSize: '0.92rem',
+            padding: '13px',
+            borderRadius: '11px',
+            cursor: 'pointer',
+            border: 'none',
+            background: service === 'YOUTUBE'
+              ? 'var(--yt)'
+              : service === 'DISNEY'
+              ? 'linear-gradient(135deg, #2563eb, #7c3aed)'
+              : 'linear-gradient(135deg, #0891b2, #00c7e0)',
+            color: '#fff',
+            transition: 'opacity 0.2s, transform 0.2s',
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.opacity = '0.85';
+            (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)';
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.opacity = '1';
+            (e.currentTarget as HTMLButtonElement).style.transform = '';
+          }}
+        >
+          <i className="fa-solid fa-bolt" style={{ marginRight: '8px' }} />
+          S&apos;abonner maintenant
+        </button>
+      )}
     </div>
   );
 }
