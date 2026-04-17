@@ -8,13 +8,10 @@ import { prisma } from '@/lib/prisma';
 import { Resend } from 'resend';
 export const dynamic = 'force-dynamic';
 
-
 function auth(req: NextRequest): boolean {
   const token = req.nextUrl.searchParams.get('token') ?? '';
   return !!token && token === process.env.ADMIN_SECRET_TOKEN;
 }
-
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function GET(req: NextRequest) {
   if (!auth(req)) return NextResponse.json({ error: 'Non autorisé.' }, { status: 401 });
@@ -45,12 +42,27 @@ export async function PATCH(req: NextRequest) {
       data: { status: 'INVITED', invitedAt: new Date() },
     });
 
-    // Envoi de l'invitation par email
+    // ── Email ──────────────────────────────────────────────────────────────
+    const apiKey = process.env.RESEND_API_KEY;
     const fromEmail = process.env.RESEND_FROM_EMAIL ?? 'hello@streammalin.fr';
     const siteUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://streammalin.fr';
+    const from = `StreamMalin <${fromEmail}>`;
 
-    await resend.emails.send({
-      from: `StreamMalin <${fromEmail}>`,
+    console.log('[admin/waitlist] PATCH → envoi invitation');
+    console.log('[admin/waitlist] RESEND_API_KEY présente:', Boolean(apiKey), '| longueur:', apiKey?.length ?? 0);
+    console.log('[admin/waitlist] from:', from);
+    console.log('[admin/waitlist] to:', entry.email);
+    console.log('[admin/waitlist] inviteCode:', inviteCode ?? '(aucun)');
+
+    if (!apiKey) {
+      console.error('[admin/waitlist] ❌ RESEND_API_KEY absente — email non envoyé');
+      return NextResponse.json({ ok: true, emailSent: false, emailError: 'RESEND_API_KEY manquante' });
+    }
+
+    const resend = new Resend(apiKey);
+
+    const { data, error: resendError } = await resend.emails.send({
+      from,
       to: entry.email,
       subject: '🎉 Tu es invité·e à rejoindre StreamMalin',
       html: `
@@ -80,11 +92,21 @@ export async function PATCH(req: NextRequest) {
         </p>
       </div>
     `,
-    }).catch((e) => console.error('[admin/waitlist] Resend error:', e));
+    });
 
-    return NextResponse.json({ ok: true });
+    if (resendError) {
+      console.error('[admin/waitlist] ❌ Resend API error — name:', (resendError as Record<string, unknown>).name ?? '?');
+      console.error('[admin/waitlist] ❌ Resend API error — message:', (resendError as Record<string, unknown>).message ?? JSON.stringify(resendError));
+      console.error('[admin/waitlist] ❌ Détail complet:', JSON.stringify(resendError, null, 2));
+      return NextResponse.json({ ok: true, emailSent: false, emailError: JSON.stringify(resendError) });
+    }
+
+    console.log('[admin/waitlist] ✅ Email envoyé — Resend ID:', data?.id);
+    return NextResponse.json({ ok: true, emailSent: true, emailId: data?.id });
+
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
+    console.error('[admin/waitlist] ❌ Exception:', message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
