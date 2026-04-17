@@ -30,6 +30,7 @@ export async function DELETE(req: NextRequest) {
   }
 }
 
+export async function GET(req: NextRequest) {
   if (!auth(req)) return NextResponse.json({ error: 'Non autorisé.' }, { status: 401 });
 
   try {
