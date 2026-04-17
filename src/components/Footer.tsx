@@ -60,6 +60,8 @@ export default function Footer() {
             { href: '#avis', label: 'Avis clients' },
             { href: '/cgv', label: 'CGV' },
             { href: '/mentions-legales', label: 'Mentions Légales' },
+            { href: '/politique-confidentialite', label: 'Confidentialité' },
+            { href: '/cookies', label: 'Cookies' },
             { href: 'https://t.me/flexnight9493', label: '📩 Support Telegram', external: true },
           ].map((link) => (
             <a

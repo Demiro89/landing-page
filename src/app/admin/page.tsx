@@ -86,7 +86,7 @@ export default function AdminPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [inviteConfirm, setInviteConfirm] = useState<string | null>(null);
   const [filter, setFilter] = useState<'ALL' | 'PAYMENT_DECLARED' | 'ACTIVE' | 'PENDING'>('PAYMENT_DECLARED');
-  const [tab, setTab] = useState<'orders' | 'accounts' | 'settings' | 'stats' | 'reports'>('orders');
+  const [tab, setTab] = useState<'orders' | 'accounts' | 'settings' | 'stats' | 'reports' | 'waitlist' | 'invites'>('orders');
 
   // ── Master accounts state ──
   const [accounts, setAccounts] = useState<MasterAccount[]>([]);
@@ -150,6 +150,39 @@ export default function AdminPage() {
   const [reportsLoading, setReportsLoading] = useState(false);
   const [reportsError, setReportsError] = useState('');
   const [resolvingId, setResolvingId] = useState<string | null>(null);
+
+  // ── Waitlist state ──
+  interface WaitlistEntry {
+    id: string;
+    email: string;
+    name: string | null;
+    status: string;
+    invitedAt: string | null;
+    createdAt: string;
+  }
+  const [waitlist, setWaitlist] = useState<WaitlistEntry[]>([]);
+  const [waitlistLoading, setWaitlistLoading] = useState(false);
+  const [waitlistError, setWaitlistError] = useState('');
+  const [invitingId, setInvitingId] = useState<string | null>(null);
+  const [inviteCodeForWaitlist, setInviteCodeForWaitlist] = useState('');
+
+  // ── Invite codes state ──
+  interface InviteCodeEntry {
+    id: string;
+    code: string;
+    note: string | null;
+    usedByEmail: string | null;
+    usedAt: string | null;
+    active: boolean;
+    createdAt: string;
+  }
+  const [inviteCodes, setInviteCodes] = useState<InviteCodeEntry[]>([]);
+  const [inviteCodesLoading, setInviteCodesLoading] = useState(false);
+  const [inviteCodesError, setInviteCodesError] = useState('');
+  const [generatingCode, setGeneratingCode] = useState(false);
+  const [newCodeNote, setNewCodeNote] = useState('');
+  const [revokingCodeId, setRevokingCodeId] = useState<string | null>(null);
+  const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
 
   const newAccRef = useRef<{ service: string; email: string; password: string; maxSlots: string }>({
     service: '', email: '', password: '', maxSlots: '5',
@@ -350,6 +383,101 @@ export default function AdminPage() {
   useEffect(() => {
     if (tab === 'reports' && token) fetchReports();
   }, [tab, token, fetchReports]);
+
+  // ── Fetch waitlist ──
+  const fetchWaitlist = useCallback(async (t = token) => {
+    setWaitlistLoading(true);
+    setWaitlistError('');
+    try {
+      const r = await fetch(`/api/admin/waitlist?token=${encodeURIComponent(t)}`);
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? 'Erreur');
+      setWaitlist(d.entries ?? []);
+    } catch (e) {
+      setWaitlistError(e instanceof Error ? e.message : 'Erreur');
+    } finally {
+      setWaitlistLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    if (tab === 'waitlist' && token) fetchWaitlist();
+  }, [tab, token, fetchWaitlist]);
+
+  // ── Fetch invite codes ──
+  const fetchInviteCodes = useCallback(async (t = token) => {
+    setInviteCodesLoading(true);
+    setInviteCodesError('');
+    try {
+      const r = await fetch(`/api/admin/invite-codes?token=${encodeURIComponent(t)}`);
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? 'Erreur');
+      setInviteCodes(d.codes ?? []);
+    } catch (e) {
+      setInviteCodesError(e instanceof Error ? e.message : 'Erreur');
+    } finally {
+      setInviteCodesLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    if (tab === 'invites' && token) fetchInviteCodes();
+  }, [tab, token, fetchInviteCodes]);
+
+  const handleSendInvite = async (entry: WaitlistEntry) => {
+    setInvitingId(entry.id);
+    try {
+      const r = await fetch(`/api/admin/waitlist?token=${encodeURIComponent(token)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ waitlistId: entry.id, inviteCode: inviteCodeForWaitlist || undefined }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? 'Erreur');
+      setWaitlist((prev) => prev.map((w) => w.id === entry.id ? { ...w, status: 'INVITED', invitedAt: new Date().toISOString() } : w));
+      setInviteCodeForWaitlist('');
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Erreur');
+    } finally {
+      setInvitingId(null);
+    }
+  };
+
+  const handleGenerateCode = async () => {
+    setGeneratingCode(true);
+    try {
+      const r = await fetch(`/api/admin/invite-codes?token=${encodeURIComponent(token)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ note: newCodeNote || undefined }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? 'Erreur');
+      setInviteCodes((prev) => [d.code, ...prev]);
+      setNewCodeNote('');
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Erreur');
+    } finally {
+      setGeneratingCode(false);
+    }
+  };
+
+  const handleRevokeCode = async (codeId: string) => {
+    setRevokingCodeId(codeId);
+    try {
+      const r = await fetch(`/api/admin/invite-codes?token=${encodeURIComponent(token)}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codeId }),
+      });
+      if (!r.ok) throw new Error('Erreur');
+      setInviteCodes((prev) => prev.map((c) => c.id === codeId ? { ...c, active: false } : c));
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Erreur');
+    } finally {
+      setRevokingCodeId(null);
+    }
+  };
 
   const handleResolveReport = async (reportId: string) => {
     setResolvingId(reportId);
@@ -864,6 +992,50 @@ export default function AdminPage() {
             </button>
           );
         })()}
+        {/* Waitlist */}
+        {(() => {
+          const pendingCount = waitlist.filter((w) => w.status === 'PENDING').length;
+          return (
+            <button
+              onClick={() => setTab('waitlist')}
+              style={{
+                position: 'relative',
+                background: tab === 'waitlist' ? 'rgba(0,255,170,0.12)' : 'transparent',
+                border: tab === 'waitlist' ? '1px solid rgba(0,255,170,0.35)' : '1px solid transparent',
+                color: tab === 'waitlist' ? 'var(--green)' : 'var(--muted)',
+                fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.85rem',
+                padding: '9px 18px', borderRadius: '10px', cursor: 'pointer',
+              }}
+            >
+              📬 Waitlist
+              {pendingCount > 0 && (
+                <span style={{
+                  position: 'absolute', top: '-6px', right: '-6px',
+                  background: 'var(--green)', color: '#000',
+                  borderRadius: '999px', fontSize: '0.65rem', fontWeight: 800,
+                  minWidth: '18px', height: '18px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  padding: '0 4px', lineHeight: 1,
+                }}>
+                  {pendingCount}
+                </span>
+              )}
+            </button>
+          );
+        })()}
+        {/* Codes d'accès */}
+        <button
+          onClick={() => setTab('invites')}
+          style={{
+            background: tab === 'invites' ? 'rgba(167,139,250,0.15)' : 'transparent',
+            border: tab === 'invites' ? '1px solid rgba(167,139,250,0.4)' : '1px solid transparent',
+            color: tab === 'invites' ? '#a78bfa' : 'var(--muted)',
+            fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.85rem',
+            padding: '9px 18px', borderRadius: '10px', cursor: 'pointer',
+          }}
+        >
+          🔑 Codes d&apos;accès
+        </button>
       </div>
 
       {/* ═══ TAB: COMPTES MAÎTRES ═══ */}
@@ -1778,6 +1950,221 @@ export default function AdminPage() {
                 </div>
               </SettingsSection>
 
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ═══ TAB: WAITLIST ═══ */}
+      {tab === 'waitlist' && (
+        <div>
+          {waitlistError && (
+            <div style={{ background: 'rgba(255,59,59,0.08)', border: '1px solid rgba(255,59,59,0.3)', borderRadius: '10px', padding: '12px', color: '#ff6b6b', fontSize: '0.82rem', marginBottom: '16px' }}>
+              {waitlistError}
+            </div>
+          )}
+          {waitlistLoading ? (
+            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--muted)' }}>
+              <i className="fa-solid fa-spinner fa-spin" style={{ fontSize: '1.4rem' }} />
+            </div>
+          ) : waitlist.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '48px', color: 'var(--muted)', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '14px' }}>
+              <i className="fa-solid fa-inbox" style={{ fontSize: '2rem', marginBottom: '12px', display: 'block' }} />
+              Aucune inscription pour l&apos;instant.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <p style={{ fontSize: '0.8rem', color: 'var(--muted)', marginBottom: '8px' }}>
+                {waitlist.length} inscription{waitlist.length > 1 ? 's' : ''} — {waitlist.filter((w) => w.status === 'PENDING').length} en attente
+              </p>
+              {/* Invite code field */}
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                <input
+                  type="text"
+                  value={inviteCodeForWaitlist}
+                  onChange={(e) => setInviteCodeForWaitlist(e.target.value)}
+                  placeholder="Code d'invitation à inclure dans l'email (optionnel)"
+                  style={{
+                    flex: 1, background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border2)',
+                    borderRadius: '8px', padding: '9px 12px', fontSize: '0.82rem', color: 'var(--text)',
+                    fontFamily: 'monospace', outline: 'none',
+                  }}
+                />
+              </div>
+              {waitlist.map((entry) => (
+                <div key={entry.id} style={{
+                  background: 'var(--card)', border: `1px solid ${entry.status === 'INVITED' ? 'rgba(0,255,170,0.2)' : 'var(--border)'}`,
+                  borderRadius: '12px', padding: '14px 16px',
+                  display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' as const,
+                }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--text)' }}>
+                      {entry.email}
+                    </div>
+                    {entry.name && <div style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>{entry.name}</div>}
+                    <div style={{ fontSize: '0.72rem', color: 'var(--muted)', marginTop: '2px' }}>
+                      Inscrit le {new Date(entry.createdAt).toLocaleDateString('fr-FR')}
+                      {entry.invitedAt && ` · Invité le ${new Date(entry.invitedAt).toLocaleDateString('fr-FR')}`}
+                    </div>
+                  </div>
+                  <span style={{
+                    padding: '4px 10px', borderRadius: '999px', fontSize: '0.72rem', fontWeight: 700,
+                    background: entry.status === 'INVITED' ? 'rgba(0,255,170,0.1)' : entry.status === 'CONVERTED' ? 'rgba(124,58,237,0.12)' : 'rgba(245,158,11,0.1)',
+                    color: entry.status === 'INVITED' ? 'var(--green)' : entry.status === 'CONVERTED' ? '#a78bfa' : '#f59e0b',
+                    border: `1px solid ${entry.status === 'INVITED' ? 'rgba(0,255,170,0.3)' : entry.status === 'CONVERTED' ? 'rgba(124,58,237,0.3)' : 'rgba(245,158,11,0.3)'}`,
+                  }}>
+                    {entry.status === 'INVITED' ? '✉️ Invité' : entry.status === 'CONVERTED' ? '✅ Converti' : '⏳ En attente'}
+                  </span>
+                  {entry.status === 'PENDING' && (
+                    <button
+                      onClick={() => handleSendInvite(entry)}
+                      disabled={invitingId === entry.id}
+                      style={{
+                        background: 'linear-gradient(135deg,#2563eb,#7c3aed)', border: 'none',
+                        color: '#fff', borderRadius: '8px', padding: '7px 14px',
+                        fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.78rem',
+                        cursor: invitingId === entry.id ? 'not-allowed' : 'pointer',
+                        opacity: invitingId === entry.id ? 0.7 : 1, flexShrink: 0,
+                      }}
+                    >
+                      {invitingId === entry.id
+                        ? <><i className="fa-solid fa-spinner fa-spin" style={{ marginRight: '6px' }} />Envoi...</>
+                        : <><i className="fa-solid fa-paper-plane" style={{ marginRight: '6px' }} />Envoyer invitation</>
+                      }
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ═══ TAB: CODES D'ACCÈS ═══ */}
+      {tab === 'invites' && (
+        <div>
+          {inviteCodesError && (
+            <div style={{ background: 'rgba(255,59,59,0.08)', border: '1px solid rgba(255,59,59,0.3)', borderRadius: '10px', padding: '12px', color: '#ff6b6b', fontSize: '0.82rem', marginBottom: '16px' }}>
+              {inviteCodesError}
+            </div>
+          )}
+
+          {/* Générateur */}
+          <div style={{
+            background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '14px',
+            padding: '18px 20px', marginBottom: '20px',
+          }}>
+            <p style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.9rem', marginBottom: '12px' }}>
+              <i className="fa-solid fa-plus" style={{ marginRight: '7px', color: '#a78bfa' }} />
+              Générer un nouveau code
+            </p>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' as const }}>
+              <input
+                type="text"
+                value={newCodeNote}
+                onChange={(e) => setNewCodeNote(e.target.value)}
+                placeholder="Note interne (ex: pour Alice)"
+                style={{
+                  flex: 1, background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border2)',
+                  borderRadius: '8px', padding: '9px 12px', fontSize: '0.82rem', color: 'var(--text)',
+                  fontFamily: 'DM Sans, sans-serif', outline: 'none', minWidth: '180px',
+                }}
+              />
+              <button
+                onClick={handleGenerateCode}
+                disabled={generatingCode}
+                style={{
+                  background: 'linear-gradient(135deg,#4f46e5,#7c3aed)', border: 'none',
+                  color: '#fff', borderRadius: '8px', padding: '9px 18px',
+                  fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.82rem',
+                  cursor: generatingCode ? 'not-allowed' : 'pointer', opacity: generatingCode ? 0.7 : 1,
+                  flexShrink: 0,
+                }}
+              >
+                {generatingCode
+                  ? <><i className="fa-solid fa-spinner fa-spin" style={{ marginRight: '6px' }} />Génération...</>
+                  : <><i className="fa-solid fa-key" style={{ marginRight: '6px' }} />Générer</>
+                }
+              </button>
+            </div>
+          </div>
+
+          {inviteCodesLoading ? (
+            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--muted)' }}>
+              <i className="fa-solid fa-spinner fa-spin" style={{ fontSize: '1.4rem' }} />
+            </div>
+          ) : inviteCodes.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--muted)', background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '14px' }}>
+              Aucun code généré pour l&apos;instant.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <p style={{ fontSize: '0.8rem', color: 'var(--muted)', marginBottom: '4px' }}>
+                {inviteCodes.length} code{inviteCodes.length > 1 ? 's' : ''} — {inviteCodes.filter((c) => c.active && !c.usedAt).length} disponible{inviteCodes.filter((c) => c.active && !c.usedAt).length > 1 ? 's' : ''}
+              </p>
+              {inviteCodes.map((c) => (
+                <div key={c.id} style={{
+                  background: 'var(--card)',
+                  border: `1px solid ${!c.active ? 'rgba(255,59,59,0.2)' : c.usedAt ? 'rgba(0,255,170,0.2)' : 'rgba(167,139,250,0.25)'}`,
+                  borderRadius: '12px', padding: '14px 16px',
+                  display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' as const,
+                  opacity: !c.active ? 0.6 : 1,
+                }}>
+                  <code style={{
+                    fontFamily: 'monospace', fontSize: '1rem', fontWeight: 800,
+                    color: !c.active ? 'var(--muted)' : c.usedAt ? 'var(--green)' : '#a78bfa',
+                    letterSpacing: '0.1em', flex: 1,
+                  }}>
+                    {c.code}
+                  </code>
+                  <div style={{ fontSize: '0.74rem', color: 'var(--muted)', flex: 1 }}>
+                    {c.note && <div style={{ color: 'var(--text)' }}>{c.note}</div>}
+                    {c.usedAt
+                      ? <div style={{ color: 'var(--green)' }}>Utilisé par {c.usedByEmail ?? '?'} · {new Date(c.usedAt).toLocaleDateString('fr-FR')}</div>
+                      : !c.active
+                      ? <div style={{ color: '#ff6b6b' }}>Révoqué</div>
+                      : <div style={{ color: 'var(--muted)' }}>Créé le {new Date(c.createdAt).toLocaleDateString('fr-FR')}</div>
+                    }
+                  </div>
+                  <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                    {/* Copier */}
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(c.code).catch(() => {});
+                        setCopiedCodeId(c.id);
+                        setTimeout(() => setCopiedCodeId(null), 2000);
+                      }}
+                      style={{
+                        background: copiedCodeId === c.id ? 'rgba(0,255,170,0.12)' : 'rgba(255,255,255,0.05)',
+                        border: `1px solid ${copiedCodeId === c.id ? 'rgba(0,255,170,0.3)' : 'var(--border2)'}`,
+                        color: copiedCodeId === c.id ? 'var(--green)' : 'var(--muted)',
+                        borderRadius: '7px', padding: '5px 10px', fontSize: '0.76rem',
+                        cursor: 'pointer', fontFamily: 'Syne, sans-serif', fontWeight: 700,
+                      }}
+                    >
+                      <i className={`fa-solid ${copiedCodeId === c.id ? 'fa-check' : 'fa-copy'}`} style={{ marginRight: '4px' }} />
+                      {copiedCodeId === c.id ? 'Copié' : 'Copier'}
+                    </button>
+                    {/* Révoquer */}
+                    {c.active && !c.usedAt && (
+                      <button
+                        onClick={() => handleRevokeCode(c.id)}
+                        disabled={revokingCodeId === c.id}
+                        style={{
+                          background: 'rgba(255,59,59,0.08)', border: '1px solid rgba(255,59,59,0.25)',
+                          color: '#ff6b6b', borderRadius: '7px', padding: '5px 10px',
+                          fontSize: '0.76rem', cursor: revokingCodeId === c.id ? 'not-allowed' : 'pointer',
+                          fontFamily: 'Syne, sans-serif', fontWeight: 700,
+                          opacity: revokingCodeId === c.id ? 0.6 : 1,
+                        }}
+                      >
+                        <i className="fa-solid fa-ban" style={{ marginRight: '4px' }} />
+                        Révoquer
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>

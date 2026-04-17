@@ -157,3 +157,34 @@ model VerificationCode {
 
   @@index([email])
 }
+
+/// Personne ayant demandé à être prévenue quand une place se libère
+model Waitlist {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  name        String?
+  /// "PENDING" | "INVITED" | "CONVERTED"
+  status      String   @default("PENDING")
+  invitedAt   DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([status])
+}
+
+/// Code d'invitation individuel — généré par l'admin, usage unique
+model InviteCode {
+  id          String   @id @default(cuid())
+  /// Code affiché à l'invité (ex: "SM-XKYZ-42")
+  code        String   @unique
+  /// Note interne (ex: "pour Alice")
+  note        String?
+  /// Email de la personne qui l'a utilisé (null = non utilisé)
+  usedByEmail String?
+  usedAt      DateTime?
+  /// false = révoqué par l'admin
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  @@index([code])
+  @@index([active])
+}
