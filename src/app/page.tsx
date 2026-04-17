@@ -1088,9 +1088,9 @@ function ProductCard({
   delay: string;
 }) {
   // stock=null  → data not loaded yet, show nothing
-  // total=0     → service has no master accounts, hide badge
-  // available=0 → COMPLET
-  const isFull = stock !== null && stock.total > 0 && stock.available === 0;
+  // available=0 → COMPLET (qu'il y ait des comptes maîtres ou non)
+  // total=0     → pas de comptes maîtres configurés → aussi COMPLET
+  const isFull = stock !== null && stock.available === 0;
   const showBadge = stock !== null && stock.total > 0 && stock.available > 0;
   const isLast = showBadge && stock.available === 1;
 
