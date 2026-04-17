@@ -1,5 +1,7 @@
+// 📄 FILE: src/app/layout.tsx
 import type { Metadata } from 'next';
 import './globals.css';
+import CookieBanner from '@/components/CookieBanner';
 
 export const metadata: Metadata = {
   title: 'StreamMalin — YouTube & Disney+ à -50%',
@@ -48,18 +50,7 @@ export default function RootLayout({
           rel="stylesheet"
           href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
         />
-        {/* Google Analytics */}
-        <script async src="https://www.googletagmanager.com/gtag/js?id=G-S29G36JGQJ" />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              window.dataLayer = window.dataLayer || [];
-              function gtag(){dataLayer.push(arguments);}
-              gtag('js', new Date());
-              gtag('config', 'G-S29G36JGQJ');
-            `,
-          }}
-        />
+        {/* Google Analytics — injected conditionally by CookieBanner on consent */}
       </head>
       <body>
         {/* Background blobs */}
@@ -67,6 +58,7 @@ export default function RootLayout({
         <div className="blob blob-violet" />
 
         {children}
+        <CookieBanner />
       </body>
     </html>
   );
