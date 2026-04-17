@@ -38,11 +38,21 @@ export async function POST(req: NextRequest) {
   const normalized = email.toLowerCase().trim();
 
   // Upsert — idempotent. On update le service si l'utilisateur le change.
-  const entry = await prisma.waitlist.upsert({
-    where:  { email: normalized },
-    update: { service: service ?? null },
-    create: { email: normalized, name: name?.trim() ?? null, service: service ?? null },
-  });
+  // Fallback sans service si la colonne n'existe pas encore en DB (migration en attente).
+  let entry;
+  try {
+    entry = await prisma.waitlist.upsert({
+      where:  { email: normalized },
+      update: { service: service ?? null },
+      create: { email: normalized, name: name?.trim() ?? null, service: service ?? null },
+    });
+  } catch {
+    entry = await prisma.waitlist.upsert({
+      where:  { email: normalized },
+      update: {},
+      create: { email: normalized, name: name?.trim() ?? null },
+    });
+  }
 
   // Envoi de l'email de confirmation uniquement lors de la première inscription
   if (entry.status === 'PENDING' && !entry.invitedAt) {
