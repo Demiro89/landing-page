@@ -20,6 +20,34 @@ export default function HomePage() {
   const [stocks, setStocks] = useState<Record<Service, StockInfo> | null>(null);
   const statsRef = useRef<HTMLDivElement>(null);
 
+  // Waitlist form
+  const [waitlistEmail, setWaitlistEmail] = useState('');
+  const [waitlistStatus, setWaitlistStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [waitlistMsg, setWaitlistMsg] = useState('');
+
+  async function handleWaitlist(e: React.FormEvent) {
+    e.preventDefault();
+    if (!waitlistEmail || waitlistStatus === 'loading') return;
+    setWaitlistStatus('loading');
+    try {
+      const res = await fetch('/api/waitlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: waitlistEmail }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setWaitlistStatus('success');
+      } else {
+        setWaitlistStatus('error');
+        setWaitlistMsg(data.error ?? 'Une erreur est survenue.');
+      }
+    } catch {
+      setWaitlistStatus('error');
+      setWaitlistMsg('Impossible de se connecter au serveur.');
+    }
+  }
+
   // Fetch available stock
   useEffect(() => {
     fetch('/api/stock')
@@ -352,6 +380,192 @@ export default function HomePage() {
             <i className="fa-solid fa-bolt" />
             Obtenir mon accès maintenant
           </button>
+        </div>
+      </section>
+
+      <div style={{ height: '1px', background: 'var(--border)', position: 'relative', zIndex: 1 }} />
+
+      {/* == LISTE D'ATTENTE == */}
+      <section
+        id="waitlist"
+        style={{ position: 'relative', zIndex: 1, maxWidth: '680px', margin: '0 auto', padding: '72px 24px' }}
+      >
+        <div
+          className="reveal"
+          style={{
+            background: 'var(--card)',
+            border: '1px solid var(--border)',
+            borderTop: '2px solid #7c3aed',
+            borderRadius: '20px',
+            padding: '40px 36px',
+            position: 'relative',
+            overflow: 'hidden',
+            textAlign: 'center',
+          }}
+        >
+          {/* Glow */}
+          <div
+            style={{
+              position: 'absolute',
+              top: 0, left: 0, right: 0,
+              height: '140px',
+              background: 'radial-gradient(ellipse at 50% 0%, rgba(124,58,237,0.14), transparent 70%)',
+              pointerEvents: 'none',
+            }}
+          />
+
+          {/* Icon badge */}
+          <div
+            style={{
+              width: '52px', height: '52px', borderRadius: '14px',
+              background: 'rgba(124,58,237,0.15)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '1.4rem', margin: '0 auto 20px',
+            }}
+          >
+            <i className="fa-solid fa-bell" style={{ color: '#a78bfa' }} />
+          </div>
+
+          <span
+            style={{
+              display: 'inline-block',
+              background: 'rgba(167,139,250,0.12)',
+              color: '#a78bfa',
+              border: '1px solid rgba(167,139,250,0.25)',
+              borderRadius: '999px',
+              padding: '3px 13px',
+              fontSize: '0.68rem',
+              fontWeight: 700,
+              letterSpacing: '0.1em',
+              textTransform: 'uppercase',
+              marginBottom: '18px',
+            }}
+          >
+            Places limitées
+          </span>
+
+          <h2
+            style={{
+              fontFamily: 'Syne, sans-serif',
+              fontSize: 'clamp(1.4rem, 3.5vw, 2rem)',
+              fontWeight: 800,
+              letterSpacing: '-0.03em',
+              marginBottom: '12px',
+            }}
+          >
+            Plus de places disponibles ?
+          </h2>
+          <p style={{ color: 'var(--muted)', fontSize: '0.95rem', lineHeight: 1.7, marginBottom: '28px', maxWidth: '460px', margin: '0 auto 28px' }}>
+            Inscrivez-vous pour être averti dès le prochain réapprovisionnement !<br />
+            Vous recevrez un email dès qu&apos;une place se libère.
+          </p>
+
+          {waitlistStatus === 'success' ? (
+            <div
+              style={{
+                background: 'rgba(0,255,170,0.08)',
+                border: '1px solid rgba(0,255,170,0.25)',
+                borderRadius: '12px',
+                padding: '18px 24px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '12px',
+              }}
+            >
+              <i className="fa-solid fa-circle-check" style={{ color: 'var(--green)', fontSize: '1.2rem' }} />
+              <div style={{ textAlign: 'left' }}>
+                <p style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text)', marginBottom: '2px' }}>
+                  Vous êtes sur la liste !
+                </p>
+                <p style={{ fontSize: '0.82rem', color: 'var(--muted)' }}>
+                  On vous prévient dès qu&apos;une place se libère.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={handleWaitlist}>
+              <div
+                style={{
+                  display: 'flex',
+                  gap: '10px',
+                  flexWrap: 'wrap',
+                  justifyContent: 'center',
+                  marginBottom: waitlistStatus === 'error' ? '10px' : '16px',
+                }}
+              >
+                <input
+                  type="email"
+                  required
+                  placeholder="votre@email.com"
+                  value={waitlistEmail}
+                  onChange={(e) => { setWaitlistEmail(e.target.value); setWaitlistStatus('idle'); }}
+                  style={{
+                    flex: '1 1 220px',
+                    minWidth: '0',
+                    background: 'rgba(255,255,255,0.05)',
+                    border: `1px solid ${waitlistStatus === 'error' ? 'rgba(255,59,59,0.5)' : 'var(--border2)'}`,
+                    borderRadius: '10px',
+                    padding: '12px 16px',
+                    fontSize: '0.9rem',
+                    color: 'var(--text)',
+                    outline: 'none',
+                  }}
+                  onFocus={(e) => (e.currentTarget.style.borderColor = '#7c3aed')}
+                  onBlur={(e) => (e.currentTarget.style.borderColor = waitlistStatus === 'error' ? 'rgba(255,59,59,0.5)' : 'var(--border2)')}
+                />
+                <button
+                  type="submit"
+                  disabled={waitlistStatus === 'loading'}
+                  style={{
+                    flexShrink: 0,
+                    background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '10px',
+                    padding: '12px 22px',
+                    fontFamily: 'Syne, sans-serif',
+                    fontWeight: 700,
+                    fontSize: '0.9rem',
+                    cursor: waitlistStatus === 'loading' ? 'not-allowed' : 'pointer',
+                    opacity: waitlistStatus === 'loading' ? 0.7 : 1,
+                    transition: 'opacity 0.2s, transform 0.2s',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (waitlistStatus !== 'loading') (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)';
+                  }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.transform = ''; }}
+                >
+                  {waitlistStatus === 'loading' ? (
+                    <>
+                      <i className="fa-solid fa-spinner fa-spin" />
+                      Inscription…
+                    </>
+                  ) : (
+                    <>
+                      <i className="fa-solid fa-paper-plane" />
+                      S&apos;inscrire
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {waitlistStatus === 'error' && (
+                <p style={{ fontSize: '0.82rem', color: '#ff6b6b', marginBottom: '12px' }}>
+                  <i className="fa-solid fa-triangle-exclamation" style={{ marginRight: '6px' }} />
+                  {waitlistMsg}
+                </p>
+              )}
+
+              <p style={{ fontSize: '0.73rem', color: 'var(--muted)' }}>
+                <i className="fa-solid fa-lock" style={{ marginRight: '5px', fontSize: '0.65rem' }} />
+                Aucun spam. Désabonnement à tout moment.
+              </p>
+            </form>
+          )}
         </div>
       </section>
 
