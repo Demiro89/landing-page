@@ -243,6 +243,34 @@ body::before {
   animation: slideIn 0.25s ease;
 }
 
+/* Wider modal for 2-column payment step */
+.modal-box--wide {
+  max-width: 860px;
+}
+
+/* Responsive 2-column grid — Summary last in DOM, appears first on mobile via col-reverse */
+.checkout-grid {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 20px;
+}
+
+@media (min-width: 640px) {
+  .checkout-grid {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 24px;
+  }
+  .checkout-grid .checkout-payment {
+    flex: 3;
+    min-width: 0;
+  }
+  .checkout-grid .checkout-summary {
+    flex: 2;
+    min-width: 0;
+  }
+}
+
 /* ══ Copy button ══ */
 .copy-btn {
   cursor: pointer;
