@@ -714,9 +714,10 @@ export default function AdminPage() {
         <form
           onSubmit={handleLogin}
           style={{
-            background: 'var(--card)',
-            border: '1px solid var(--border)',
-            borderRadius: '20px',
+            background: 'rgba(255,255,255,0.05)',
+            backdropFilter: 'blur(24px)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            borderRadius: '24px',
             padding: '36px',
             width: '100%',
             maxWidth: '380px',
@@ -851,7 +852,12 @@ export default function AdminPage() {
             }}
           >
             <i className="fa-solid fa-bolt" style={{ color: '#a78bfa', marginRight: '10px' }} />
-            Admin StreamMalin
+            <span style={{
+              background: 'linear-gradient(135deg,#e0e0f5 0%,#a78bfa 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+            }}>Admin StreamMalin</span>
           </h1>
           <p style={{ fontSize: '0.82rem', color: 'var(--muted)' }}>
             Tableau de bord de gestion des commandes
@@ -937,22 +943,32 @@ export default function AdminPage() {
           <div
             key={i}
             style={{
-              background: 'var(--card)',
-              border: '1px solid var(--border)',
-              borderRadius: '14px',
-              padding: '18px 20px',
+              background: 'rgba(255,255,255,0.04)',
+              backdropFilter: 'blur(12px)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderTop: `2px solid ${stat.color}`,
+              borderRadius: '16px',
+              padding: '20px 22px',
+              transition: 'box-shadow 0.2s',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-              <i className={`fa-solid ${stat.icon}`} style={{ color: stat.color, fontSize: '0.9rem' }} />
-              <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>{stat.label}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+              <div style={{
+                width: '34px', height: '34px', borderRadius: '9px', flexShrink: 0,
+                background: `${stat.color}18`, color: stat.color,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem',
+              }}>
+                <i className={`fa-solid ${stat.icon}`} />
+              </div>
+              <span style={{ fontSize: '0.74rem', color: 'var(--muted)', lineHeight: 1.3 }}>{stat.label}</span>
             </div>
             <div
               style={{
                 fontFamily: 'Syne, sans-serif',
-                fontSize: '1.8rem',
+                fontSize: '2rem',
                 fontWeight: 800,
                 color: stat.color,
+                lineHeight: 1,
               }}
             >
               {stat.value}
@@ -962,7 +978,7 @@ export default function AdminPage() {
       </div>
 
       {/* Main tabs */}
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '24px', borderBottom: '1px solid var(--border)', paddingBottom: '16px', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', borderBottom: '1px solid var(--border)', paddingBottom: '16px', overflowX: 'auto', flexWrap: 'nowrap', scrollbarWidth: 'none' }}>
         {([
           { key: 'orders', label: '📋 Commandes', count: orders.length },
           { key: 'accounts', label: '🗄️ Comptes Maîtres', count: null },
@@ -1070,7 +1086,7 @@ export default function AdminPage() {
           )}
 
           {/* Add account form */}
-          <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '16px', padding: '22px', marginBottom: '20px' }}>
+          <div style={{ background: 'rgba(255,255,255,0.04)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '22px', marginBottom: '20px' }}>
             <h3 style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '1rem', marginBottom: '16px' }}>
               <i className="fa-solid fa-plus" style={{ color: '#00ffaa', marginRight: '8px' }} />
               Ajouter un compte maître
@@ -1158,9 +1174,11 @@ export default function AdminPage() {
                 <div
                   key={acc.id}
                   style={{
-                    background: 'var(--card)', border: '1px solid var(--border)',
+                    background: 'rgba(255,255,255,0.04)',
+                    backdropFilter: 'blur(12px)',
+                    border: '1px solid rgba(255,255,255,0.07)',
                     borderLeft: `3px solid ${svcColor}`,
-                    borderRadius: '12px', padding: '16px 20px',
+                    borderRadius: '14px', padding: '16px 20px',
                     opacity: acc.active ? 1 : 0.55,
                     display: 'grid', gridTemplateColumns: '1fr auto', gap: '12px', alignItems: 'start',
                   }}
@@ -1511,21 +1529,29 @@ export default function AdminPage() {
                   { label: 'Commandes payées', value: stats.totalPaidOrders, color: '#a78bfa', icon: 'fa-receipt', sub: 'Hors PENDING' },
                   { label: 'Abonnements actifs', value: stats.activeOrdersCount, color: '#f59e0b', icon: 'fa-circle-check', sub: 'Statut ACTIVE' },
                 ].map((kpi, i) => (
-                  <div key={i} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '14px', padding: '18px 20px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-                      <i className={`fa-solid ${kpi.icon}`} style={{ color: kpi.color, fontSize: '0.85rem' }} />
-                      <span style={{ fontSize: '0.74rem', color: 'var(--muted)' }}>{kpi.label}</span>
+                  <div key={i} style={{
+                    background: 'rgba(255,255,255,0.04)',
+                    backdropFilter: 'blur(12px)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    borderTop: `2px solid ${kpi.color}`,
+                    borderRadius: '16px', padding: '20px 22px',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+                      <div style={{ width: '34px', height: '34px', borderRadius: '9px', flexShrink: 0, background: `${kpi.color}18`, color: kpi.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem' }}>
+                        <i className={`fa-solid ${kpi.icon}`} />
+                      </div>
+                      <span style={{ fontSize: '0.74rem', color: 'var(--muted)', lineHeight: 1.3 }}>{kpi.label}</span>
                     </div>
-                    <div style={{ fontFamily: 'Syne, sans-serif', fontSize: '1.7rem', fontWeight: 800, color: kpi.color, lineHeight: 1 }}>
+                    <div style={{ fontFamily: 'Syne, sans-serif', fontSize: '1.9rem', fontWeight: 800, color: kpi.color, lineHeight: 1 }}>
                       {kpi.value}
                     </div>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--muted)', marginTop: '6px' }}>{kpi.sub}</div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--muted)', marginTop: '8px' }}>{kpi.sub}</div>
                   </div>
                 ))}
               </div>
 
               {/* ── Stats par service ── */}
-              <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '14px', padding: '20px', marginBottom: '20px' }}>
+              <div style={{ background: 'rgba(255,255,255,0.04)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '20px', marginBottom: '20px' }}>
                 <h3 style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.95rem', marginBottom: '16px' }}>
                   <i className="fa-solid fa-chart-bar" style={{ color: '#a78bfa', marginRight: '8px' }} />
                   Par service
@@ -1562,7 +1588,7 @@ export default function AdminPage() {
               </div>
 
               {/* ── Méthodes de paiement ── */}
-              <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '14px', padding: '20px', marginBottom: '20px' }}>
+              <div style={{ background: 'rgba(255,255,255,0.04)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '20px', marginBottom: '20px' }}>
                 <h3 style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.95rem', marginBottom: '14px' }}>
                   <i className="fa-solid fa-credit-card" style={{ color: '#3b82f6', marginRight: '8px' }} />
                   Méthodes de paiement
@@ -1581,7 +1607,7 @@ export default function AdminPage() {
               </div>
 
               {/* ── 10 dernières ventes ── */}
-              <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '14px', padding: '20px' }}>
+              <div style={{ background: 'rgba(255,255,255,0.04)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '20px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
                   <h3 style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.95rem' }}>
                     <i className="fa-solid fa-clock-rotate-left" style={{ color: '#f59e0b', marginRight: '8px' }} />
@@ -2136,7 +2162,7 @@ export default function AdminPage() {
 
           {/* Générateur */}
           <div style={{
-            background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '14px',
+            background: 'rgba(255,255,255,0.04)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px',
             padding: '18px 20px', marginBottom: '20px',
           }}>
             <p style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.9rem', marginBottom: '12px' }}>
@@ -2265,7 +2291,7 @@ export default function AdminPage() {
 
 function SettingsSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '16px', padding: '20px 22px' }}>
+    <div style={{ background: 'rgba(255,255,255,0.04)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '20px 22px' }}>
       <h3 style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.95rem', marginBottom: '18px', color: 'var(--text)' }}>
         {title}
       </h3>
@@ -2391,15 +2417,17 @@ function AdminOrderCard({
   return (
     <div
       style={{
-        background: 'var(--card)',
-        border: `1px solid var(--border)`,
+        background: 'rgba(255,255,255,0.04)',
+        backdropFilter: 'blur(12px)',
+        border: '1px solid rgba(255,255,255,0.07)',
         borderLeft: `3px solid ${statusColor}`,
-        borderRadius: '14px',
+        borderRadius: '16px',
         padding: '18px 20px',
         display: 'grid',
         gridTemplateColumns: '1fr auto',
         gap: '16px',
         alignItems: 'start',
+        transition: 'box-shadow 0.2s',
       }}
     >
       <div>
