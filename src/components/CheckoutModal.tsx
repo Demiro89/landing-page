@@ -60,6 +60,7 @@ export default function CheckoutModal({
   const [txId, setTxId] = useState('');
   const [orderId, setOrderId] = useState('');
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<'STRIPE' | 'PAYPAL' | 'CRYPTO'>('STRIPE');
   const [error, setError] = useState('');
   const [copiedKey, setCopiedKey] = useState('');
   const [showPaypalModal, setShowPaypalModal] = useState(false);
@@ -192,9 +193,324 @@ export default function CheckoutModal({
     router.push(`/dashboard?orderId=${orderId}&email=${encodeURIComponent(email)}`);
   };
 
+  function selectTab(tab: 'STRIPE' | 'PAYPAL' | 'CRYPTO') {
+    setActiveTab(tab);
+    if (tab === 'STRIPE') setPaymentMethod('STRIPE');
+    else if (tab === 'PAYPAL') setPaymentMethod('PAYPAL');
+    else setPaymentMethod('SOL');
+  }
+
+  function renderStep2() {
+    const accentColor =
+      service === 'YOUTUBE' ? '#ff3b3b' : service === 'DISNEY' ? '#a78bfa' : '#00c7e0';
+    const serviceIcon =
+      service === 'YOUTUBE'
+        ? 'fa-brands fa-youtube'
+        : service === 'DISNEY'
+        ? 'fa-solid fa-wand-magic-sparkles'
+        : 'fa-solid fa-shield-halved';
+
+    const payAction = () => {
+      if (activeTab === 'STRIPE') return handleStripeCheckout();
+      if (activeTab === 'PAYPAL') return setShowPaypalModal(true);
+      return setStep('declare');
+    };
+
+    const CRYPTO_OPTIONS: { id: 'SOL' | 'XRP' | 'USDT_TRC20'; label: string; color: string }[] = [
+      { id: 'SOL',        label: 'SOL',  color: '#9945ff' },
+      { id: 'XRP',        label: 'XRP',  color: '#346aa9' },
+      { id: 'USDT_TRC20', label: 'USDT', color: '#26a17b' },
+    ];
+
+    return (
+      <div style={{ padding: '20px 24px 24px' }}>
+        <div className="checkout-grid">
+
+          {/* ── LEFT : Formulaire de paiement ── */}
+          <div className="checkout-payment">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '18px' }}>
+              <i className="fa-solid fa-credit-card" style={{ color: accentColor }} />
+              <h3 style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '1.05rem', margin: 0 }}>
+                Méthode de paiement
+              </h3>
+            </div>
+
+            {/* Onglets */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '20px' }}>
+              {(
+                [
+                  { id: 'STRIPE' as const, icon: 'fa-solid fa-credit-card', label: 'Carte Bancaire' },
+                  { id: 'PAYPAL' as const, icon: 'fa-brands fa-paypal',     label: 'PayPal'         },
+                  { id: 'CRYPTO' as const, icon: 'fa-solid fa-coins',        label: 'Crypto'         },
+                ] as { id: 'STRIPE' | 'PAYPAL' | 'CRYPTO'; icon: string; label: string }[]
+              ).map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => selectTab(tab.id)}
+                  style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center',
+                    gap: '6px', padding: '12px 6px', borderRadius: '12px', cursor: 'pointer',
+                    border: activeTab === tab.id ? '2px solid #4f46e5' : '1px solid var(--border2)',
+                    background: activeTab === tab.id ? 'rgba(79,70,229,0.1)' : 'rgba(255,255,255,0.02)',
+                    color: activeTab === tab.id ? '#a78bfa' : 'var(--muted)',
+                    fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.75rem',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  <i className={tab.icon} style={{ fontSize: '1.1rem' }} />
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Contenu Stripe */}
+            {activeTab === 'STRIPE' && (
+              <div style={{
+                background: 'rgba(99,91,255,0.06)', border: '1px solid rgba(99,91,255,0.2)',
+                borderRadius: '12px', padding: '16px', marginBottom: '20px',
+              }}>
+                <p style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.85rem', color: '#635bff', marginBottom: '10px' }}>
+                  <i className="fa-solid fa-lock" style={{ marginRight: '6px' }} />
+                  Paiement 100% sécurisé via Stripe
+                </p>
+                <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                  {[
+                    '✅ CB Visa / Mastercard, Apple Pay, Google Pay',
+                    '✅ Activation immédiate après paiement',
+                    '🔒 Données bancaires jamais transmises à StreamMalin',
+                  ].map((line, i) => (
+                    <li key={i} style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>{line}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Contenu PayPal */}
+            {activeTab === 'PAYPAL' && (
+              <div style={{
+                background: 'rgba(0,156,222,0.06)', border: '1px solid rgba(0,156,222,0.2)',
+                borderRadius: '12px', padding: '16px', marginBottom: '20px',
+              }}>
+                <p style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.85rem', color: '#009cde', marginBottom: '10px' }}>
+                  <i className="fa-brands fa-paypal" style={{ marginRight: '6px' }} />
+                  Instructions PayPal importantes
+                </p>
+                <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {[
+                    '⚠️ Mode "À un proche" uniquement — jamais Biens/Services',
+                    '🔇 Aucun message ni libellé dans la note',
+                    `💶 Montant exact : ${totalPrice.toFixed(2).replace('.', ',')}€ (${duration} mois)`,
+                    '📋 Notez l\'ID de transaction PayPal après le paiement',
+                  ].map((line, i) => (
+                    <li key={i} style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>{line}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Contenu Crypto */}
+            {activeTab === 'CRYPTO' && (
+              <div style={{ marginBottom: '20px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', marginBottom: '14px' }}>
+                  {CRYPTO_OPTIONS.map(({ id, label: clabel, color }) => (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => setPaymentMethod(id)}
+                      style={{
+                        padding: '9px 4px', borderRadius: '9px', cursor: 'pointer',
+                        fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.78rem',
+                        border: paymentMethod === id ? `2px solid ${color}` : '1px solid var(--border2)',
+                        background: paymentMethod === id ? `${color}18` : 'rgba(255,255,255,0.02)',
+                        color: paymentMethod === id ? color : 'var(--muted)',
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      {clabel}
+                    </button>
+                  ))}
+                </div>
+                <div style={{
+                  background: 'rgba(255,59,59,0.08)', border: '1px solid rgba(255,59,59,0.35)',
+                  borderLeft: '3px solid #ff3b3b', borderRadius: '9px',
+                  padding: '10px 12px', marginBottom: '12px',
+                }}>
+                  <p style={{ margin: 0, fontSize: '0.78rem', color: '#ff6b6b', lineHeight: 1.55 }}>
+                    <strong style={{ color: '#ff3b3b' }}>⚠️ Réseau strict — fonds irrécupérables en cas d&apos;erreur.</strong>{' '}
+                    {paymentMethod === 'SOL' && 'Utilisez uniquement le réseau Solana.'}
+                    {paymentMethod === 'XRP' && 'Utilisez uniquement le réseau Ripple / XRP Ledger.'}
+                    {paymentMethod === 'USDT_TRC20' && 'Utilisez uniquement le réseau TRON (TRC-20).'}
+                  </p>
+                </div>
+                <WalletAddress
+                  label={
+                    paymentMethod === 'SOL'  ? 'Solana (SOL)'
+                    : paymentMethod === 'XRP' ? 'XRP (Ripple)'
+                    : 'USDT TRC-20 (TRON)'
+                  }
+                  address={
+                    paymentMethod === 'SOL'  ? WALLETS.SOL
+                    : paymentMethod === 'XRP' ? WALLETS.XRP
+                    : WALLETS.USDT_TRC20
+                  }
+                  copiedKey={copiedKey}
+                  onCopy={copyToClipboard}
+                  copyKey={paymentMethod}
+                />
+                <p style={{ fontSize: '0.76rem', color: 'var(--muted)', marginTop: '8px' }}>
+                  Envoyez exactement{' '}
+                  <strong style={{ color: 'var(--text)' }}>{totalPrice.toFixed(2).replace('.', ',')}€</strong>{' '}
+                  ({duration} mois) en {paymentMethod.replace('_TRC20', '')}. Conservez le hash pour l&apos;étape suivante.
+                </p>
+              </div>
+            )}
+
+            {error && <ErrorBox message={error} />}
+
+            {/* Bouton payer */}
+            <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
+              <button
+                type="button"
+                onClick={() => setStep('info')}
+                style={{
+                  flexShrink: 0, background: 'none', border: '1px solid var(--border2)',
+                  color: 'var(--muted)', fontFamily: 'Syne, sans-serif', fontWeight: 700,
+                  fontSize: '0.85rem', padding: '12px 16px', borderRadius: '10px', cursor: 'pointer',
+                }}
+              >
+                <i className="fa-solid fa-arrow-left" />
+              </button>
+              <button
+                type="button"
+                onClick={payAction}
+                disabled={loading}
+                style={{
+                  flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  gap: '8px', padding: '13px', borderRadius: '11px', border: 'none',
+                  fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.92rem',
+                  color: '#fff', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1,
+                  background:
+                    activeTab === 'STRIPE'  ? 'linear-gradient(135deg,#635bff,#4f46e5)'
+                    : activeTab === 'PAYPAL' ? 'linear-gradient(135deg,#009cde,#0070ba)'
+                    : 'linear-gradient(135deg,#7c3aed,#4f46e5)',
+                  transition: 'opacity 0.2s',
+                }}
+              >
+                {loading ? (
+                  <><i className="fa-solid fa-spinner fa-spin" /> Chargement...</>
+                ) : activeTab === 'STRIPE' ? (
+                  <><i className="fa-solid fa-lock" /> Payer {totalPrice.toFixed(2).replace('.', ',')}€ en sécurité</>
+                ) : activeTab === 'PAYPAL' ? (
+                  <><i className="fa-brands fa-paypal" /> Payer via PayPal</>
+                ) : (
+                  <><i className="fa-solid fa-check" /> J&apos;ai payé — Déclarer</>
+                )}
+              </button>
+            </div>
+
+            {activeTab === 'STRIPE' && (
+              <p style={{ textAlign: 'center', fontSize: '0.72rem', color: 'var(--muted)', marginTop: '10px' }}>
+                <i className="fa-solid fa-lock" style={{ marginRight: '4px' }} />
+                Paiement chiffré SSL 256-bit via Stripe
+              </p>
+            )}
+          </div>
+
+          {/* ── RIGHT : Récapitulatif (en haut sur mobile grâce à column-reverse) ── */}
+          <div className="checkout-summary">
+            <div style={{
+              background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)',
+              borderRadius: '16px', padding: '20px',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                <span>📦</span>
+                <h3 style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '1rem', margin: 0 }}>
+                  Récapitulatif
+                </h3>
+              </div>
+
+              {/* Produit */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                <div style={{
+                  width: '44px', height: '44px', borderRadius: '10px', flexShrink: 0,
+                  background:
+                    service === 'YOUTUBE' ? 'rgba(255,59,59,0.15)'
+                    : service === 'DISNEY'  ? 'rgba(124,58,237,0.15)'
+                    : 'rgba(0,199,224,0.15)',
+                  color: accentColor,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem',
+                }}>
+                  <i className={serviceIcon} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.88rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {label}
+                  </div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>
+                    Partage familial — {duration} mois
+                  </div>
+                </div>
+                <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '0.95rem', flexShrink: 0 }}>
+                  {totalPrice.toFixed(2).replace('.', ',')}€
+                </div>
+              </div>
+
+              {/* Détail prix */}
+              <div style={{ borderTop: '1px solid var(--border)', paddingTop: '14px', display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '14px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--muted)' }}>
+                  <span>Sous-total</span><span>{totalPrice.toFixed(2).replace('.', ',')}€</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--muted)' }}>
+                  <span>Frais</span><span>0,00€</span>
+                </div>
+                <div style={{
+                  display: 'flex', justifyContent: 'space-between',
+                  fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '0.95rem',
+                  borderTop: '1px solid var(--border)', paddingTop: '10px', marginTop: '2px',
+                }}>
+                  <span>Total</span>
+                  <span style={{ color: accentColor }}>{totalPrice.toFixed(2).replace('.', ',')}€</span>
+                </div>
+              </div>
+
+              {/* Garanties */}
+              <div style={{
+                background: 'rgba(0,255,170,0.05)', border: '1px solid rgba(0,255,170,0.15)',
+                borderRadius: '10px', padding: '12px 14px', marginBottom: '14px',
+              }}>
+                <p style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--green)', marginBottom: '4px', fontFamily: 'Syne, sans-serif' }}>
+                  ✓ Garanties incluses
+                </p>
+                <p style={{ fontSize: '0.73rem', color: 'var(--muted)', lineHeight: 1.5, margin: 0 }}>
+                  Accès instantané · Remplacement 24h · Support 7j/7
+                </p>
+              </div>
+
+              {/* Logos paiement */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                {['CB', 'Visa', 'MC', 'PayPal', 'SOL', 'XRP', 'USDT'].map((logo) => (
+                  <span key={logo} style={{
+                    padding: '3px 8px', borderRadius: '5px', fontSize: '0.62rem',
+                    fontFamily: 'Syne, sans-serif', fontWeight: 700,
+                    background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border2)',
+                    color: 'var(--muted)',
+                  }}>
+                    {logo}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="modal-backdrop" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal-box">
+      <div className={`modal-box${step === 'payment' ? ' modal-box--wide' : ''}`}>
         {/* Header */}
         <div
           style={{
@@ -433,290 +749,7 @@ export default function CheckoutModal({
         )}
 
         {/* -- STEP 2 : Choisir la méthode de paiement -- */}
-        {step === 'payment' && (
-          <div style={{ padding: '20px 24px 24px' }}>
-            <h3
-              style={{
-                fontFamily: 'Syne, sans-serif',
-                fontSize: '1.05rem',
-                fontWeight: 700,
-                marginBottom: '4px',
-              }}
-            >
-              Méthode de paiement
-            </h3>
-            <p style={{ fontSize: '0.82rem', color: 'var(--muted)', marginBottom: '20px' }}>
-              Choisissez votre méthode préférée.
-            </p>
-
-            {/* Method selector */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
-              <MethodOption
-                id="STRIPE"
-                selected={paymentMethod === 'STRIPE'}
-                icon="fa-solid fa-credit-card"
-                iconColor="#635bff"
-                title="CB / Apple Pay / Google Pay"
-                subtitle="Paiement sécurisé par Stripe — activation immédiate"
-                badge="Recommandé"
-                onClick={() => setPaymentMethod('STRIPE')}
-              />
-              <MethodOption
-                id="PAYPAL"
-                selected={paymentMethod === 'PAYPAL'}
-                icon="fa-brands fa-paypal"
-                iconColor="#009cde"
-                title="PayPal"
-                subtitle='Option "Entre proches" — sans frais'
-                onClick={() => setPaymentMethod('PAYPAL')}
-              />
-              <MethodOption
-                id="SOL"
-                selected={paymentMethod === 'SOL'}
-                icon="fa-solid fa-coins"
-                iconColor="#9945ff"
-                title="Solana (SOL)"
-                subtitle="Réseau Solana — vérification manuelle"
-                onClick={() => setPaymentMethod('SOL')}
-              />
-              <MethodOption
-                id="XRP"
-                selected={paymentMethod === 'XRP'}
-                icon="fa-solid fa-coins"
-                iconColor="#346aa9"
-                title="XRP (Ripple)"
-                subtitle="Réseau XRP Ledger — vérification manuelle"
-                onClick={() => setPaymentMethod('XRP')}
-              />
-              <MethodOption
-                id="USDT_TRC20"
-                selected={paymentMethod === 'USDT_TRC20'}
-                icon="fa-solid fa-coins"
-                iconColor="#26a17b"
-                title="USDT (TRC-20)"
-                subtitle="Réseau TRON uniquement — vérification manuelle"
-                onClick={() => setPaymentMethod('USDT_TRC20')}
-              />
-            </div>
-
-            {/* Stripe block */}
-            {paymentMethod === 'STRIPE' && (
-              <div style={{
-                background: 'rgba(99,91,255,0.06)', border: '1px solid rgba(99,91,255,0.25)',
-                borderRadius: '12px', padding: '16px', marginBottom: '20px',
-              }}>
-                <p style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.88rem', marginBottom: '8px', color: '#635bff' }}>
-                  <i className="fa-solid fa-lock" style={{ marginRight: '6px' }} />
-                  Paiement 100% sécurisé — Stripe
-                </p>
-                <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                  {[
-                    '✅ CB Visa/Mastercard, Apple Pay, Google Pay',
-                    '✅ Activation immédiate après paiement',
-                    `💶 Montant total : ${totalPrice.toFixed(2).replace('.', ',')}€ (${duration} mois)`,
-                    '🔒 Vos données bancaires ne nous sont jamais transmises',
-                  ].map((line, i) => (
-                    <li key={i} style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>{line}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* Payment instructions */}
-            {paymentMethod === 'PAYPAL' && (
-              <div
-                style={{
-                  background: 'rgba(0,156,222,0.06)',
-                  border: '1px solid rgba(0,156,222,0.2)',
-                  borderRadius: '12px',
-                  padding: '16px',
-                  marginBottom: '20px',
-                }}
-              >
-                <p
-                  style={{
-                    fontFamily: 'Syne, sans-serif',
-                    fontWeight: 700,
-                    fontSize: '0.88rem',
-                    marginBottom: '8px',
-                    color: '#009cde',
-                  }}
-                >
-                  <i className="fa-brands fa-paypal" style={{ marginRight: '6px' }} />
-                  Instructions PayPal importantes
-                </p>
-                <ul
-                  style={{
-                    listStyle: 'none',
-                    padding: 0,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '6px',
-                  }}
-                >
-                  {[
-                    '⚠️ Sélectionner "Envoyer à un proche" (pas "Paiement de biens/services")',
-                    '🔇 Ne pas mettre de message ni de libellé dans la note',
-                    `💶 Montant exact : ${totalPrice.toFixed(2).replace('.', ',')}€ (${duration} mois)`,
-                    '📋 Notez votre ID de transaction PayPal après le paiement',
-                  ].map((line, i) => (
-                    <li key={i} style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
-                      {line}
-                    </li>
-                  ))}
-                </ul>
-
-                <a
-                  href={`${paypalLink}/${totalPrice.toFixed(2)}EUR`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    marginTop: '12px',
-                    background: '#009cde',
-                    color: '#fff',
-                    fontFamily: 'Syne, sans-serif',
-                    fontWeight: 700,
-                    fontSize: '0.85rem',
-                    padding: '10px 18px',
-                    borderRadius: '9px',
-                    textDecoration: 'none',
-                    transition: 'opacity 0.2s',
-                  }}
-                  onMouseEnter={(e) =>
-                    ((e.currentTarget as HTMLAnchorElement).style.opacity = '0.85')
-                  }
-                  onMouseLeave={(e) =>
-                    ((e.currentTarget as HTMLAnchorElement).style.opacity = '1')
-                  }
-                >
-                  <i className="fa-brands fa-paypal" />
-                  Payer {totalPrice.toFixed(2).replace('.', ',')}€ via PayPal.Me
-                  <i className="fa-solid fa-arrow-up-right-from-square" style={{ fontSize: '0.7rem' }} />
-                </a>
-              </div>
-            )}
-
-            {paymentMethod !== 'PAYPAL' && paymentMethod !== 'STRIPE' && (
-              <div style={{ marginBottom: '20px' }}>
-                {/* RED WARNING */}
-                <div style={{
-                  background: 'rgba(255,59,59,0.08)', border: '1px solid rgba(255,59,59,0.4)',
-                  borderRadius: '10px', padding: '12px 14px', marginBottom: '12px',
-                  display: 'flex', alignItems: 'flex-start', gap: '10px',
-                }}>
-                  <i className="fa-solid fa-triangle-exclamation" style={{ color: '#ff3b3b', fontSize: '1rem', marginTop: '2px', flexShrink: 0 }} />
-                  <p style={{ margin: 0, fontSize: '0.8rem', color: '#ff6b6b', lineHeight: 1.6, fontWeight: 600 }}>
-                    <strong style={{ color: '#ff3b3b' }}>Attention :</strong> Utilisez exclusivement le réseau mentionné, sinon vos fonds seront <strong>définitivement perdus</strong>.
-                  </p>
-                </div>
-              <div
-                style={{
-                  background: 'rgba(249,168,11,0.06)',
-                  border: '1px solid rgba(249,168,11,0.2)',
-                  borderRadius: '12px',
-                  padding: '16px',
-                }}
-              >
-                <p
-                  style={{
-                    fontFamily: 'Syne, sans-serif',
-                    fontWeight: 700,
-                    fontSize: '0.88rem',
-                    marginBottom: '12px',
-                    color: '#f59e0b',
-                  }}
-                >
-                  <i className="fa-solid fa-coins" style={{ marginRight: '6px' }} />
-                  Adresse de réception
-                </p>
-
-                {paymentMethod === 'SOL' && (
-                  <WalletAddress
-                    label="Solana (SOL)"
-                    address={WALLETS.SOL}
-                    copiedKey={copiedKey}
-                    onCopy={copyToClipboard}
-                    copyKey="SOL"
-                  />
-                )}
-                {paymentMethod === 'XRP' && (
-                  <WalletAddress
-                    label="XRP (Ripple)"
-                    address={WALLETS.XRP}
-                    copiedKey={copiedKey}
-                    onCopy={copyToClipboard}
-                    copyKey="XRP"
-                  />
-                )}
-                {paymentMethod === 'USDT_TRC20' && (
-                  <WalletAddress
-                    label="USDT TRC-20 (TRON)"
-                    address={WALLETS.USDT_TRC20}
-                    copiedKey={copiedKey}
-                    onCopy={copyToClipboard}
-                    copyKey="USDT_TRC20"
-                  />
-                )}
-
-                <p style={{ fontSize: '0.78rem', color: 'var(--muted)', marginTop: '10px' }}>
-                  <i className="fa-solid fa-circle-info" style={{ marginRight: '4px' }} />
-                  Envoyez exactement{' '}
-                  <strong style={{ color: 'var(--text)' }}>{totalPrice.toFixed(2).replace('.', ',')}€</strong>{' '}
-                  ({duration} mois) en équivalent {paymentMethod.replace('_TRC20', '')}. Conservez le hash de
-                  transaction pour l'étape suivante.
-                </p>
-              </div>
-              </div>
-            )}
-
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <button
-                onClick={() => setStep('info')}
-                style={{
-                  flex: '0 0 auto',
-                  background: 'none',
-                  border: '1px solid var(--border2)',
-                  color: 'var(--muted)',
-                  fontFamily: 'Syne, sans-serif',
-                  fontWeight: 700,
-                  fontSize: '0.85rem',
-                  padding: '12px 16px',
-                  borderRadius: '10px',
-                  cursor: 'pointer',
-                }}
-              >
-                <i className="fa-solid fa-arrow-left" />
-              </button>
-              {paymentMethod === 'STRIPE' ? (
-                <button
-                  onClick={handleStripeCheckout}
-                  disabled={loading}
-                  style={{ ...submitBtnStyle(service), flex: 1, background: 'linear-gradient(135deg,#635bff,#4f46e5)', opacity: loading ? 0.7 : 1, cursor: loading ? 'not-allowed' : 'pointer' }}
-                >
-                  {loading ? (
-                    <><i className="fa-solid fa-spinner fa-spin" style={{ marginRight: '8px' }} />Redirection...</>
-                  ) : (
-                    <><i className="fa-solid fa-lock" style={{ marginRight: '8px' }} />Payer {totalPrice.toFixed(2).replace('.', ',')}€ en sécurité</>
-                  )}
-                </button>
-              ) : (
-                <button
-                  onClick={() => paymentMethod === 'PAYPAL' ? setShowPaypalModal(true) : setStep('declare')}
-                  style={{ ...submitBtnStyle(service), flex: 1 }}
-                >
-                  {paymentMethod === 'PAYPAL' ? (
-                    <><i className="fa-brands fa-paypal" style={{ marginRight: '8px' }} />Payer via PayPal</>
-                  ) : 'J\'ai payé — Déclarer le paiement'}
-                  <i className="fa-solid fa-arrow-right" style={{ marginLeft: '8px' }} />
-                </button>
-              )}
-            </div>
-            {error && <ErrorBox message={error} />}
-          </div>
-        )}
+        {step === 'payment' && renderStep2()}
 
         {/* -- STEP 3 : Déclaration du paiement -- */}
         {step === 'declare' && (
