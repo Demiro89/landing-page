@@ -115,7 +115,7 @@ export default function MentionsLegalesPage() {
               StreamMalin n&apos;est pas affilié aux plateformes YouTube, Google, Disney+,
               Surfshark, PayPal, Stripe ou à tout autre service mentionné sur ce site. Ces noms
               sont des marques déposées appartenant à leurs propriétaires respectifs. StreamMalin
-              agit en qualité de revendeur indépendant de places sur des abonnements partagés.
+              agit en qualité de prestataire de services numériques indépendant, facilitant l'accès à certains abonnements numériques.
               L&apos;accès aux services peut dépendre des règles techniques et contractuelles
               imposées par ces plateformes.
             </div>

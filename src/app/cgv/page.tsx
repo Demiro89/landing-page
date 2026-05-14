@@ -218,7 +218,7 @@ const sections = [
   {
     title: 'Indépendance vis-à-vis des plateformes tierces',
     content: `
-      ${info(`StreamMalin n'est <strong style="color:var(--text)">pas affilié</strong> à YouTube, Google, Disney+, Surfshark, PayPal, Stripe, ni à aucune autre plateforme mentionnée sur ce site. Ces noms sont des marques déposées appartenant à leurs propriétaires respectifs. StreamMalin agit en qualité de revendeur indépendant de places sur des abonnements partagés ou familiaux. L'accès aux services peut dépendre des règles techniques et contractuelles imposées unilatéralement par ces plateformes.`)}
+      ${info(`StreamMalin n'est <strong style="color:var(--text)">pas affilié</strong> à YouTube, Google, Disney+, Surfshark, PayPal, Stripe, ni à aucune autre plateforme mentionnée sur ce site. Ces noms sont des marques déposées appartenant à leurs propriétaires respectifs. StreamMalin agit en qualité de prestataire de services numériques indépendant, facilitant l'accès à certains abonnements numériques. L'accès aux services peut dépendre des règles techniques et contractuelles imposées unilatéralement par ces plateformes.`)}
     `,
   },
   {
