@@ -83,9 +83,9 @@ export default function CheckoutModal({
   const totalPrice = price * duration;
   const paypalLink = settings?.paypal_link ?? 'https://paypal.me/AccesPremium89';
   const paypalInstructions = [
-    settings?.paypal_instruction_1 ?? 'Envoyez en mode "À un proche" — jamais "Biens ou services".',
-    settings?.paypal_instruction_2 ?? 'Indiquez votre adresse email dans la note du paiement.',
-    settings?.paypal_instruction_3 ?? 'Activation sous 12h après réception.',
+    settings?.paypal_instruction_1 ?? 'Paiement PayPal uniquement en mode <strong>Biens et Services</strong>.',
+    settings?.paypal_instruction_2 ?? `Montant exact : <strong>${totalPrice.toFixed(2).replace('.', ',')}€</strong>. Après paiement, conservez votre <strong>ID de transaction PayPal</strong>.`,
+    settings?.paypal_instruction_3 ?? "L'accès sera activé après vérification du paiement. En cas de problème, contactez le support avec votre numéro de commande et votre email.",
   ];
   const label = SERVICE_LABELS[service];
 
@@ -467,7 +467,7 @@ export default function CheckoutModal({
                 icon="fa-brands fa-paypal"
                 iconColor="#009cde"
                 title="PayPal"
-                subtitle='Option "Entre proches" — sans frais'
+                subtitle="Paiement Biens et Services — vérification manuelle"
                 onClick={() => setPaymentMethod('PAYPAL')}
               />
               <MethodOption
@@ -555,10 +555,10 @@ export default function CheckoutModal({
                   }}
                 >
                   {[
-                    '⚠️ Sélectionner "Envoyer à un proche" (pas "Paiement de biens/services")',
-                    '🔇 Ne pas mettre de message ni de libellé dans la note',
+                    '✅ Paiement PayPal uniquement en mode Biens et Services',
                     `💶 Montant exact : ${totalPrice.toFixed(2).replace('.', ',')}€ (${duration} mois)`,
-                    '📋 Notez votre ID de transaction PayPal après le paiement',
+                    '📋 Après paiement, conservez votre ID de transaction PayPal',
+                    "🔓 L'accès sera activé après vérification du paiement",
                   ].map((line, i) => (
                     <li key={i} style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
                       {line}
@@ -1030,9 +1030,9 @@ export default function CheckoutModal({
                 style={{ marginTop: '2px', accentColor: '#00ffaa', flexShrink: 0, width: '16px', height: '16px', cursor: 'pointer' }}
               />
               <span style={{ fontSize: '0.82rem', color: 'var(--text)', lineHeight: 1.5 }}>
-                J&apos;ai compris que je dois envoyer l&apos;argent en mode{' '}
-                <strong style={{ color: '#00ffaa' }}>&quot;À un proche&quot;</strong>{' '}
-                et indiquer mon email dans la note PayPal.
+                J&apos;ai compris que je dois payer en mode{' '}
+                <strong style={{ color: '#00ffaa' }}>&quot;Biens et Services&quot;</strong>{' '}
+                et conserver mon ID de transaction PayPal.
               </span>
             </label>
 
@@ -1066,8 +1066,8 @@ export default function CheckoutModal({
               textAlign: 'center', fontSize: '0.76rem', fontWeight: 700,
               color: '#ff6b6b', lineHeight: 1.5, marginBottom: '14px',
             }}>
-              ⚠️ ATTENTION : Seuls les paiements envoyés &quot;À un proche&quot; seront validés.
-              N&apos;oubliez pas d&apos;indiquer votre email dans les notes PayPal.
+              ⚠️ ATTENTION : Payez uniquement en mode &quot;Biens et Services&quot;.
+              Conservez votre ID de transaction PayPal — il sera requis à l&apos;étape suivante.
             </p>
 
             {/* Secondary CTA */}
