@@ -7,14 +7,15 @@ export default function Footer() {
         style={{
           maxWidth: '1100px',
           margin: '0 auto',
-          padding: '32px 24px',
+          padding: '40px 24px 32px',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          gap: '16px',
+          gap: '20px',
           textAlign: 'center',
         }}
       >
+        {/* Logo */}
         <a
           href="/"
           style={{
@@ -46,6 +47,7 @@ export default function Footer() {
           StreamMalin
         </a>
 
+        {/* Navigation links */}
         <div
           style={{
             display: 'flex',
@@ -59,7 +61,9 @@ export default function Footer() {
             { href: '#comment', label: 'Comment ça marche' },
             { href: '#avis', label: 'Avis clients' },
             { href: '/cgv', label: 'CGV' },
-            { href: '/mentions-legales', label: 'Mentions Légales' },
+            { href: '/mentions-legales', label: 'Mentions légales' },
+            { href: '/politique-confidentialite', label: 'Politique de confidentialité' },
+            { href: 'mailto:hello@streammalin.fr', label: '✉ hello@streammalin.fr', external: true },
             { href: 'https://t.me/flexnight9493', label: '📩 Support Telegram', external: true },
           ].map((link) => (
             <a
@@ -85,14 +89,28 @@ export default function Footer() {
           ))}
         </div>
 
-        <p style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
-          Support 7j/7 — réponse en moins d'une heure.
+        {/* Non-affiliation */}
+        <p
+          style={{
+            fontSize: '0.73rem',
+            color: 'var(--muted)',
+            maxWidth: '620px',
+            lineHeight: 1.6,
+            opacity: 0.7,
+          }}
+        >
+          StreamMalin n&apos;est pas affilié aux plateformes YouTube, Google, Disney+, Surfshark
+          ou autres services mentionnés. L&apos;accès peut dépendre des règles techniques et
+          contractuelles imposées par ces plateformes.
         </p>
-        <p style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
-          Ce service propose des accès partagés à des abonnements familiaux. Résiliation à tout
-          moment.
+
+        {/* EI info */}
+        <p style={{ fontSize: '0.73rem', color: 'var(--muted)', opacity: 0.6 }}>
+          SAID OUARZAZI EI — Entrepreneur individuel — SIREN : en cours d&apos;attribution
+          &nbsp;·&nbsp; 4 rue des Acacias, 89200 Avallon, France
         </p>
-        <p style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: '4px' }}>
+
+        <p style={{ fontSize: '0.73rem', color: 'var(--muted)', opacity: 0.6, marginTop: '-8px' }}>
           © {new Date().getFullYear()} StreamMalin. Tous droits réservés.
         </p>
       </div>

@@ -321,6 +321,24 @@ export default function HomePage() {
             Obtenir mon accès maintenant
           </button>
         </div>
+
+        <p
+          className="reveal d2"
+          style={{
+            textAlign: 'center',
+            fontSize: '0.72rem',
+            color: 'var(--muted)',
+            opacity: 0.6,
+            marginTop: '24px',
+            lineHeight: 1.6,
+            maxWidth: '600px',
+            margin: '24px auto 0',
+          }}
+        >
+          StreamMalin n&apos;est pas affilié aux plateformes YouTube, Google, Disney+, Surfshark
+          ou autres services mentionnés. L&apos;accès peut dépendre des règles techniques et
+          contractuelles imposées par ces plateformes.
+        </p>
       </section>
 
       <div style={{ height: '1px', background: 'var(--border)', position: 'relative', zIndex: 1 }} />
