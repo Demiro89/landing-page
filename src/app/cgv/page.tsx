@@ -218,19 +218,23 @@ const sections = [
   {
     title: 'Indépendance vis-à-vis des plateformes tierces',
     content: `
-      ${info(`StreamMalin n'est <strong style="color:var(--text)">pas affilié</strong> à YouTube, Google, Disney+, Surfshark, PayPal, Stripe, ni à aucune autre plateforme mentionnée sur ce site. Ces noms sont des marques déposées appartenant à leurs propriétaires respectifs. StreamMalin agit en qualité de revendeur indépendant de places sur des abonnements partagés ou familiaux. L'accès aux services peut dépendre des règles techniques et contractuelles imposées unilatéralement par ces plateformes.`)}
+      ${info(`StreamMalin n'est <strong style="color:var(--text)">pas affilié</strong> à YouTube, Google, Disney+, Surfshark, PayPal, Stripe, ni à aucune autre plateforme mentionnée sur ce site. Ces noms sont des marques déposées appartenant à leurs propriétaires respectifs. StreamMalin agit en qualité de prestataire de services numériques indépendant, facilitant l'accès à certains abonnements numériques. L'accès aux services peut dépendre des règles techniques et contractuelles imposées unilatéralement par ces plateformes.`)}
     `,
   },
   {
     title: 'Objet du service',
     content: `
-      <p>StreamMalin propose la revente de places sur des abonnements numériques partagés, permettant au Client d'accéder à des contenus de streaming premium à tarif réduit. Les services disponibles sont :</p>
+      <p>StreamMalin propose un service numérique de gestion, d'organisation et de facilitation d'accès à certains abonnements numériques, selon les offres disponibles sur le site.</p>
+      <p style="margin-top:10px;">Les services proposés peuvent notamment concerner :</p>
       ${ul([
-        `${strong('YouTube Premium Famille')} — Accès via invitation sur le compte Google/Gmail du Client.`,
-        `${strong('Disney+ 4K')} — Attribution d'un profil dédié sur un compte Premium.`,
-        `${strong('Surfshark VPN One')} — Fourniture de codes d'accès VPN.`,
+        `${strong('YouTube Premium Famille')} — Accès via invitation sur le compte Google/Gmail du Client ;`,
+        `${strong('Disney+ 4K')} — Attribution d'un profil dédié sur un compte Premium ;`,
+        `${strong('Surfshark VPN One')} — Accès à un service VPN selon les modalités indiquées lors de la commande ;`,
+        'tout autre service numérique présenté sur le site au moment de la commande.',
       ])}
-      <p style="margin-top:12px;">StreamMalin fournit un accès numérique. Aucun produit physique n'est livré.</p>
+      <p style="margin-top:12px;">StreamMalin fournit uniquement des accès ou services numériques. Aucun produit physique n'est livré.</p>
+      <p style="margin-top:10px;">Les offres disponibles, leurs caractéristiques, leur durée, leur prix et leurs conditions d'accès sont indiqués sur le site au moment de la commande.</p>
+      <p style="margin-top:10px;">Le Client reconnaît que certains services peuvent dépendre de plateformes tierces indépendantes de StreamMalin, lesquelles peuvent modifier leurs règles, conditions d'utilisation, restrictions techniques ou modalités d'accès à tout moment.</p>
     `,
   },
   {
