@@ -75,10 +75,11 @@ export default function CGVPage() {
           />
           <p style={{ margin: 0, fontSize: '0.88rem', color: '#ff6b6b', lineHeight: 1.7 }}>
             <strong style={{ color: '#ff3b3b' }}>Important :</strong> En passant commande sur
-            StreamMalin, vous acceptez l&apos;intégralité des présentes CGV, notamment
-            l&apos;absence de droit de rétractation sur les produits numériques livrés
-            immédiatement, et la politique de résiliation immédiate en cas de litige PayPal ou
-            Stripe non précédé d&apos;un contact support.
+            StreamMalin, vous acceptez l&apos;intégralité des présentes CGV, notamment les
+            conditions relatives à l&apos;exécution immédiate du service numérique, à la perte
+            éventuelle du droit de rétractation lorsque les conditions légales sont réunies, ainsi
+            qu&apos;à la suspension temporaire de l&apos;accès en cas d&apos;impayé,
+            d&apos;opposition bancaire ou de litige de paiement le temps de la vérification.
           </p>
         </div>
 
@@ -249,6 +250,7 @@ const sections = [
         'Ne pas avoir fait l\'objet d\'une résiliation antérieure pour violation des présentes CGV.',
       ])}
       <p style="margin-top:12px;">En passant commande, le Client déclare remplir ces conditions.</p>
+      <p style="margin-top:12px;">Le Client reconnaît que certaines plateformes tierces peuvent imposer leurs propres conditions d'éligibilité, notamment des restrictions liées au foyer, au pays, à l'historique du compte ou au changement de groupe familial. StreamMalin ne peut garantir l'activation du service si le compte du Client ne respecte pas les conditions techniques ou contractuelles imposées par la plateforme concernée.</p>
     `,
   },
   {
@@ -269,7 +271,7 @@ const sections = [
   {
     title: 'Prix et paiement',
     content: `
-      <p>Les prix sont indiqués en euros TTC. StreamMalin, en tant qu'entrepreneur individuel non assujetti à la TVA (franchise en base de TVA), n'applique pas de TVA sur ses prestations.</p>
+      <p>Les prix sont indiqués en euros. StreamMalin bénéficie, le cas échéant, de la franchise en base de TVA. La TVA n'est donc pas applicable conformément à l'article 293 B du Code général des impôts, sous réserve du respect des seuils légaux applicables.</p>
       <p style="margin-top:10px;">Les moyens de paiement acceptés sont :</p>
       ${ul([
         `${strong('Carte bancaire, Apple Pay, Google Pay')} — via Stripe. Paiement sécurisé, activation immédiate. Libellé sur relevé bancaire : STREAMMALIN.`,
@@ -312,18 +314,15 @@ const sections = [
   {
     title: 'Droit de rétractation',
     content: `
-      ${warn(`<strong style="color:#ff3b3b;">Aucun remboursement ne sera effectué une fois les identifiants ou l'invitation envoyés.</strong>`)}
-      <p style="margin-top:14px;">Conformément à l'${strong('article L221-28 du Code de la consommation')}, le droit de rétractation de 14 jours ne s'applique pas aux :</p>
+      <p>Conformément au Code de la consommation, le Client consommateur dispose en principe d'un délai de 14 jours pour exercer son droit de rétractation dans le cadre d'un contrat conclu à distance.</p>
+      <p style="margin-top:10px;">Toutefois, ce droit peut être exclu pour la fourniture d'un contenu numérique sans support matériel ou pour un service numérique dont l'exécution commence avant la fin du délai de rétractation, lorsque le Client a donné son accord exprès préalable et reconnu qu'il perdra son droit de rétractation après le début d'exécution ou la fourniture de l'accès.</p>
+      <p style="margin-top:10px;">Lors de la commande, le Client doit cocher une case spécifique par laquelle il reconnaît expressément :</p>
       ${ul([
-        'Contenus numériques dont l\'exécution a commencé avec l\'accord exprès du consommateur,',
-        'Services pleinement exécutés avant la fin du délai de rétractation.',
+        'demander l\'exécution immédiate du service ;',
+        'accepter que l\'accès numérique soit fourni avant la fin du délai légal de rétractation ;',
+        'reconnaître perdre son droit de rétractation dès la fourniture de l\'accès numérique.',
       ])}
-      <p style="margin-top:12px;">En cochant la case correspondante lors de la commande, le Client reconnaît expressément :</p>
-      ${ul([
-        'Demander l\'exécution immédiate du service,',
-        'Renoncer à son droit de rétractation dès la livraison des accès,',
-        'Que le service est considéré comme pleinement exécuté à ce stade.',
-      ])}
+      <p style="margin-top:12px;">Aucun remboursement ne sera dû une fois l'accès numérique fourni, sauf en cas d'impossibilité technique imputable à StreamMalin, d'erreur de commande imputable à StreamMalin ou lorsque la loi l'impose.</p>
     `,
   },
   {
@@ -349,7 +348,7 @@ const sections = [
         'Ne pas tenter d\'identifier ou de contacter les autres utilisateurs du compte,',
         'Ne pas utiliser le service à des fins illégales ou contraires aux conditions d\'utilisation des plateformes concernées.',
       ])}
-      <p style="margin-top:12px;">Tout manquement à ces obligations entraînera la résiliation immédiate du service sans remboursement ni compensation.</p>
+      <p style="margin-top:12px;">Tout manquement grave à ces obligations pourra entraîner la suspension ou la résiliation de l'accès, sans remboursement lorsque le manquement est imputable au Client.</p>
     `,
   },
   {
@@ -376,13 +375,10 @@ const sections = [
   {
     title: "Impayés, opposition bancaire et litiges de paiement",
     content: `
-      ${warn(`<strong style="color:#ff3b3b;">Tout litige ouvert sur Stripe ou PayPal (chargeback, contestation de paiement, demande de remboursement) sans contact préalable avec le support StreamMalin entraînera la clôture immédiate et définitive de l'accès concerné, sans compensation ni remboursement d'aucune sorte.</strong>`)}
-      <p style="margin-top:14px;">Procédure obligatoire en cas de problème :</p>
-      ${ul([
-        `Contacter le support par email avant toute démarche : <a href="mailto:hello@streammalin.fr" style="color:#60a5fa;">hello@streammalin.fr</a>`,
-        `Attendre la réponse de l'équipe (sous 24h maximum).`,
-        `Si aucune solution n'est trouvée, les voies légales et la médiation restent ouvertes.`,
-      ])}
+      <p>En cas d'impayé, de paiement annulé, d'opposition bancaire, de chargeback, de litige Stripe/PayPal ou de suspicion de fraude, StreamMalin se réserve le droit de suspendre temporairement l'accès concerné le temps de la vérification.</p>
+      <p style="margin-top:10px;">Le Client est invité à contacter le support StreamMalin à l'adresse <a href="mailto:hello@streammalin.fr" style="color:#60a5fa;">hello@streammalin.fr</a> afin de rechercher une solution amiable.</p>
+      <p style="margin-top:10px;">En cas de fraude avérée, d'abus manifeste ou de paiement définitivement annulé, StreamMalin pourra résilier l'accès concerné sans remboursement lorsque le manquement est imputable au Client.</p>
+      ${info(`Cette clause ne prive pas le Client de ses droits légaux, notamment le droit de saisir un médiateur de la consommation ou les juridictions compétentes.`)}
     `,
   },
   {
@@ -402,8 +398,9 @@ const sections = [
     title: 'Données personnelles',
     content: `
       <p>StreamMalin collecte et traite les données personnelles du Client (email, adresse Gmail si nécessaire, informations de paiement) dans le cadre de l'exécution du contrat et conformément au RGPD.</p>
-      <p style="margin-top:10px;">Responsable du traitement : SAID OUARZOZI EI — <a href="mailto:hello@streammalin.fr" style="color:#60a5fa;">hello@streammalin.fr</a></p>
-      <p style="margin-top:10px;">Le Client dispose d'un droit d'accès, de rectification, de suppression et d'opposition sur ses données. Pour en savoir plus, consultez notre <a href="/politique-confidentialite" style="color:#60a5fa;">Politique de confidentialité</a>.</p>
+      <p style="margin-top:10px;">Responsable du traitement : SAID OUARZAZI EI — <a href="mailto:hello@streammalin.fr" style="color:#60a5fa;">hello@streammalin.fr</a></p>
+      <p style="margin-top:10px;">Le Client dispose d'un droit d'accès, de rectification, de suppression et d'opposition sur ses données.</p>
+      <p style="margin-top:10px;">Pour plus d'informations, le Client peut consulter la Politique de confidentialité disponible à l'adresse : <a href="https://streammalin.fr/politique-confidentialite" style="color:#60a5fa;" target="_blank" rel="noopener noreferrer">https://streammalin.fr/politique-confidentialite</a></p>
     `,
   },
   {
@@ -417,8 +414,10 @@ const sections = [
   {
     title: 'Droit applicable et litiges',
     content: `
-      <p>Les présentes CGV sont soumises au droit français. En cas de litige, le Client est invité à contacter en priorité le support StreamMalin pour une résolution amiable.</p>
-      <p style="margin-top:10px;">À défaut de résolution amiable dans un délai raisonnable, les tribunaux compétents sont ceux du ressort du siège social de SAID OUARZAZI EI (Tribunal judiciaire d'Auxerre ou tribunal compétent selon la nature du litige).</p>
+      <p>Les présentes CGV sont soumises au droit français.</p>
+      <p style="margin-top:10px;">En cas de litige, le Client est invité à contacter en priorité le support StreamMalin afin de rechercher une solution amiable.</p>
+      <p style="margin-top:10px;">À défaut de résolution amiable, le Client consommateur pourra recourir gratuitement au médiateur de la consommation compétent, puis saisir les juridictions compétentes conformément aux règles de droit commun.</p>
+      ${info(`Aucune disposition des présentes CGV ne prive le Client consommateur des droits impératifs que lui reconnaît la loi.`)}
     `,
   },
   {
