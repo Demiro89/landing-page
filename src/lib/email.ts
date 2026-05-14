@@ -21,7 +21,7 @@ const BASE_URL   = process.env.NEXT_PUBLIC_BASE_URL ?? 'https://streammalin.fr';
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? 'oub9493@gmail.com';
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
-  PAYPAL:     'PayPal (Entre proches)',
+  PAYPAL:     'PayPal (Biens et Services)',
   SOL:        'Solana (SOL)',
   XRP:        'XRP (Ripple)',
   USDT_TRC20: 'USDT TRC-20 (TRON)',

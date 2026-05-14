@@ -186,7 +186,7 @@ const sections = [
       <p>La commande est considérée comme ferme et définitive dès sa validation et la déclaration du paiement. Les moyens de paiement acceptés sont :</p>
       ${ul([
         `${strong('Carte bancaire, Apple Pay, Google Pay')} — via Stripe. Activation immédiate.`,
-        `${strong('PayPal')} — envoi "Entre proches" uniquement, sans note ni libellé, au montant exact.`,
+        `${strong('PayPal')} — paiement en mode Biens et Services, au montant exact de la commande.`,
         `${strong('Cryptomonnaies')} — Solana (SOL) · réseau Solana uniquement, XRP · réseau Ripple uniquement, USDT · réseau TRC-20/TRON uniquement.`,
       ])}
 

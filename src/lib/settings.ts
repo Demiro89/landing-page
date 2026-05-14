@@ -26,9 +26,9 @@ export const SETTING_DEFAULTS: Record<SettingKey, string> = {
   price_surfshark:      '2.49',
   paypal_link:          'https://paypal.me/AccesPremium89',
   paypal_admin_email:   'oub9493@gmail.com',
-  paypal_instruction_1: 'Envoyez en mode "À un proche" — jamais "Biens ou services".',
-  paypal_instruction_2: 'Indiquez votre adresse email dans la note du paiement.',
-  paypal_instruction_3: 'Activation sous 12h après réception.',
+  paypal_instruction_1: 'Paiement PayPal uniquement en mode <strong>Biens et Services</strong>. Montant exact : celui de votre commande.',
+  paypal_instruction_2: 'Après paiement, conservez votre <strong>ID de transaction PayPal</strong>. L\'accès sera activé après vérification du paiement.',
+  paypal_instruction_3: 'En cas de problème, contactez le support avec votre numéro de commande et votre email.',
 };
 
 export type Settings = Record<SettingKey, string>;
