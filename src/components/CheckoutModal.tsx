@@ -64,6 +64,9 @@ export default function CheckoutModal({
   const [copiedKey, setCopiedKey] = useState('');
   const [showPaypalModal, setShowPaypalModal] = useState(false);
   const [paypalChecked, setPaypalChecked] = useState(false);
+  const [acceptCGV, setAcceptCGV] = useState(false);
+  const [acceptRetractation, setAcceptRetractation] = useState(false);
+  const legalAccepted = acceptCGV && acceptRetractation;
 
   // Dynamic settings fetched from DB
   const [settings, setSettings] = useState<PublicSettings | null>(null);
@@ -672,6 +675,52 @@ export default function CheckoutModal({
               </div>
             )}
 
+            {/* ── Cases obligatoires CGV + Rétractation ── */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
+              {[
+                {
+                  key: 'cgv' as const,
+                  checked: acceptCGV,
+                  onChange: setAcceptCGV,
+                  label: (
+                    <>
+                      J&apos;ai lu et j&apos;accepte les{' '}
+                      <a href="/cgv" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--green)', textDecoration: 'underline' }}>
+                        Conditions Générales de Vente
+                      </a>{' '}
+                      de StreamMalin.
+                    </>
+                  ),
+                },
+                {
+                  key: 'retractation' as const,
+                  checked: acceptRetractation,
+                  onChange: setAcceptRetractation,
+                  label: "Je demande l'exécution immédiate du service numérique et je reconnais perdre mon droit de rétractation dès la fourniture de l'accès.",
+                },
+              ].map(({ key, checked, onChange, label }) => (
+                <label
+                  key={key}
+                  style={{
+                    display: 'flex', alignItems: 'flex-start', gap: '10px',
+                    cursor: 'pointer',
+                    background: checked ? 'rgba(0,255,170,0.04)' : 'rgba(255,255,255,0.02)',
+                    border: `1px solid ${checked ? 'rgba(0,255,170,0.25)' : 'var(--border2)'}`,
+                    borderRadius: '9px', padding: '11px 13px',
+                    transition: 'background 0.2s, border-color 0.2s',
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={(e) => onChange(e.target.checked)}
+                    style={{ marginTop: '2px', accentColor: '#00ffaa', flexShrink: 0, width: '15px', height: '15px', cursor: 'pointer' }}
+                  />
+                  <span style={{ fontSize: '0.79rem', color: 'var(--muted)', lineHeight: 1.55 }}>{label}</span>
+                </label>
+              ))}
+            </div>
+
             <div style={{ display: 'flex', gap: '10px' }}>
               <button
                 onClick={() => setStep('info')}
@@ -693,8 +742,9 @@ export default function CheckoutModal({
               {paymentMethod === 'STRIPE' ? (
                 <button
                   onClick={handleStripeCheckout}
-                  disabled={loading}
-                  style={{ ...submitBtnStyle(service), flex: 1, background: 'linear-gradient(135deg,#635bff,#4f46e5)', opacity: loading ? 0.7 : 1, cursor: loading ? 'not-allowed' : 'pointer' }}
+                  disabled={loading || !legalAccepted}
+                  title={!legalAccepted ? 'Veuillez accepter les CGV et la clause de rétractation' : undefined}
+                  style={{ ...submitBtnStyle(service), flex: 1, background: 'linear-gradient(135deg,#635bff,#4f46e5)', opacity: (loading || !legalAccepted) ? 0.45 : 1, cursor: (loading || !legalAccepted) ? 'not-allowed' : 'pointer' }}
                 >
                   {loading ? (
                     <><i className="fa-solid fa-spinner fa-spin" style={{ marginRight: '8px' }} />Redirection...</>
@@ -704,8 +754,10 @@ export default function CheckoutModal({
                 </button>
               ) : (
                 <button
-                  onClick={() => paymentMethod === 'PAYPAL' ? setShowPaypalModal(true) : setStep('declare')}
-                  style={{ ...submitBtnStyle(service), flex: 1 }}
+                  disabled={!legalAccepted}
+                  title={!legalAccepted ? 'Veuillez accepter les CGV et la clause de rétractation' : undefined}
+                  onClick={() => legalAccepted && (paymentMethod === 'PAYPAL' ? setShowPaypalModal(true) : setStep('declare'))}
+                  style={{ ...submitBtnStyle(service), flex: 1, opacity: legalAccepted ? 1 : 0.45, cursor: legalAccepted ? 'pointer' : 'not-allowed' }}
                 >
                   {paymentMethod === 'PAYPAL' ? (
                     <><i className="fa-brands fa-paypal" style={{ marginRight: '8px' }} />Payer via PayPal</>
