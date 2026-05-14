@@ -391,7 +391,7 @@ export default function HomePage() {
             {
               num: '02',
               title: 'Payez discrètement',
-              desc: "Via PayPal (option \"Entre proches\") ou Crypto. Aucun libellé compromettant. Vos instructions s'affichent directement sur le site.",
+              desc: "Via PayPal (Biens et Services) ou Crypto. Vos instructions s'affichent directement sur le site.",
               delay: 'd1',
             },
             {
