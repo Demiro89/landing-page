@@ -233,7 +233,7 @@ export default function CheckoutModal({
             <div>
               <div
                 style={{
-                  fontFamily: 'Syne, sans-serif',
+                  fontFamily: 'var(--font-syne), sans-serif',
                   fontWeight: 700,
                   fontSize: '1rem',
                 }}
@@ -330,7 +330,7 @@ export default function CheckoutModal({
           <form onSubmit={handleInfoSubmit} style={{ padding: '20px 24px 24px' }}>
             <h3
               style={{
-                fontFamily: 'Syne, sans-serif',
+                fontFamily: 'var(--font-syne), sans-serif',
                 fontSize: '1.05rem',
                 fontWeight: 700,
                 marginBottom: '4px',
@@ -399,7 +399,7 @@ export default function CheckoutModal({
                         ? service === 'YOUTUBE' ? 'rgba(255,59,59,0.1)' : service === 'DISNEY' ? 'rgba(124,58,237,0.1)' : 'rgba(0,199,224,0.1)'
                         : 'rgba(255,255,255,0.02)',
                       color: duration === months ? 'var(--text)' : 'var(--muted)',
-                      fontFamily: 'Syne, sans-serif',
+                      fontFamily: 'var(--font-syne), sans-serif',
                       fontWeight: 700,
                       fontSize: '0.78rem',
                       cursor: 'pointer',
@@ -440,7 +440,7 @@ export default function CheckoutModal({
           <div style={{ padding: '20px 24px 24px' }}>
             <h3
               style={{
-                fontFamily: 'Syne, sans-serif',
+                fontFamily: 'var(--font-syne), sans-serif',
                 fontSize: '1.05rem',
                 fontWeight: 700,
                 marginBottom: '4px',
@@ -508,7 +508,7 @@ export default function CheckoutModal({
                 background: 'rgba(99,91,255,0.06)', border: '1px solid rgba(99,91,255,0.25)',
                 borderRadius: '12px', padding: '16px', marginBottom: '20px',
               }}>
-                <p style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.88rem', marginBottom: '8px', color: '#635bff' }}>
+                <p style={{ fontFamily: 'var(--font-syne), sans-serif', fontWeight: 700, fontSize: '0.88rem', marginBottom: '8px', color: '#635bff' }}>
                   <i className="fa-solid fa-lock" style={{ marginRight: '6px' }} />
                   Paiement 100% sécurisé — Stripe
                 </p>
@@ -538,7 +538,7 @@ export default function CheckoutModal({
               >
                 <p
                   style={{
-                    fontFamily: 'Syne, sans-serif',
+                    fontFamily: 'var(--font-syne), sans-serif',
                     fontWeight: 700,
                     fontSize: '0.88rem',
                     marginBottom: '8px',
@@ -580,7 +580,7 @@ export default function CheckoutModal({
                     marginTop: '12px',
                     background: '#009cde',
                     color: '#fff',
-                    fontFamily: 'Syne, sans-serif',
+                    fontFamily: 'var(--font-syne), sans-serif',
                     fontWeight: 700,
                     fontSize: '0.85rem',
                     padding: '10px 18px',
@@ -625,7 +625,7 @@ export default function CheckoutModal({
               >
                 <p
                   style={{
-                    fontFamily: 'Syne, sans-serif',
+                    fontFamily: 'var(--font-syne), sans-serif',
                     fontWeight: 700,
                     fontSize: '0.88rem',
                     marginBottom: '12px',
@@ -729,7 +729,7 @@ export default function CheckoutModal({
                   background: 'none',
                   border: '1px solid var(--border2)',
                   color: 'var(--muted)',
-                  fontFamily: 'Syne, sans-serif',
+                  fontFamily: 'var(--font-syne), sans-serif',
                   fontWeight: 700,
                   fontSize: '0.85rem',
                   padding: '12px 16px',
@@ -775,7 +775,7 @@ export default function CheckoutModal({
           <form onSubmit={handleDeclarePayment} style={{ padding: '20px 24px 24px' }}>
             <h3
               style={{
-                fontFamily: 'Syne, sans-serif',
+                fontFamily: 'var(--font-syne), sans-serif',
                 fontSize: '1.05rem',
                 fontWeight: 700,
                 marginBottom: '4px',
@@ -811,7 +811,7 @@ export default function CheckoutModal({
               <span
                 style={{
                   fontSize: '0.8rem',
-                  fontFamily: 'Syne, sans-serif',
+                  fontFamily: 'var(--font-syne), sans-serif',
                   fontWeight: 700,
                   color: service === 'YOUTUBE' ? 'var(--yt)' : service === 'DISNEY' ? '#a78bfa' : '#00c7e0',
                 }}
@@ -847,7 +847,7 @@ export default function CheckoutModal({
                   background: 'none',
                   border: '1px solid var(--border2)',
                   color: 'var(--muted)',
-                  fontFamily: 'Syne, sans-serif',
+                  fontFamily: 'var(--font-syne), sans-serif',
                   fontWeight: 700,
                   fontSize: '0.85rem',
                   padding: '12px 16px',
@@ -911,7 +911,7 @@ export default function CheckoutModal({
 
             <h3
               style={{
-                fontFamily: 'Syne, sans-serif',
+                fontFamily: 'var(--font-syne), sans-serif',
                 fontSize: '1.2rem',
                 fontWeight: 800,
                 marginBottom: '8px',
@@ -1020,7 +1020,7 @@ export default function CheckoutModal({
                 <i className="fa-brands fa-paypal" />
               </div>
               <h3 style={{
-                fontFamily: 'Syne, sans-serif', fontWeight: 800,
+                fontFamily: 'var(--font-syne), sans-serif', fontWeight: 800,
                 fontSize: '1.05rem', margin: 0,
               }}>
                 Instructions de paiement PayPal
@@ -1061,7 +1061,7 @@ export default function CheckoutModal({
             {/* Montant */}
             <div style={{
               textAlign: 'center', fontSize: '1.7rem', fontWeight: 800,
-              fontFamily: 'Syne, sans-serif', color: '#009cde', marginBottom: '16px',
+              fontFamily: 'var(--font-syne), sans-serif', color: '#009cde', marginBottom: '16px',
             }}>
               {totalPrice.toFixed(2).replace('.', ',')}€
             </div>
@@ -1101,7 +1101,7 @@ export default function CheckoutModal({
                   ? 'linear-gradient(135deg,#009cde,#0070ba)'
                   : 'rgba(0,156,222,0.25)',
                 color: '#fff', textDecoration: 'none',
-                fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.95rem',
+                fontFamily: 'var(--font-syne), sans-serif', fontWeight: 700, fontSize: '0.95rem',
                 marginBottom: '8px', boxSizing: 'border-box' as const,
                 opacity: paypalChecked ? 1 : 0.5,
                 cursor: paypalChecked ? 'pointer' : 'not-allowed',
@@ -1128,7 +1128,7 @@ export default function CheckoutModal({
               style={{
                 width: '100%', padding: '11px', borderRadius: '11px',
                 border: '1px solid var(--border2)', background: 'rgba(255,255,255,0.04)',
-                color: 'var(--muted)', fontFamily: 'Syne, sans-serif',
+                color: 'var(--muted)', fontFamily: 'var(--font-syne), sans-serif',
                 fontWeight: 600, fontSize: '0.83rem', cursor: 'pointer',
               }}
             >
@@ -1213,7 +1213,7 @@ function MethodOption({
       <div style={{ flex: 1 }}>
         <div
           style={{
-            fontFamily: 'Syne, sans-serif',
+            fontFamily: 'var(--font-syne), sans-serif',
             fontWeight: 700,
             fontSize: '0.88rem',
             color: 'var(--text)',
@@ -1334,7 +1334,7 @@ const inputStyle: React.CSSProperties = {
   fontSize: '0.88rem',
   color: 'var(--text)',
   outline: 'none',
-  fontFamily: 'DM Sans, sans-serif',
+  fontFamily: 'var(--font-dm-sans), sans-serif',
   transition: 'border-color 0.2s',
 };
 
@@ -1345,7 +1345,7 @@ const submitBtnStyle = (service: Service): React.CSSProperties => ({
   width: '100%',
   padding: '13px',
   borderRadius: '11px',
-  fontFamily: 'Syne, sans-serif',
+  fontFamily: 'var(--font-syne), sans-serif',
   fontWeight: 700,
   fontSize: '0.92rem',
   cursor: 'pointer',

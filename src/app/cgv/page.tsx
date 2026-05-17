@@ -37,7 +37,7 @@ export default function CGVPage() {
 
         <h1
           style={{
-            fontFamily: 'Syne, sans-serif',
+            fontFamily: 'var(--font-syne), sans-serif',
             fontSize: 'clamp(1.8rem, 5vw, 2.4rem)',
             fontWeight: 800,
             letterSpacing: '-0.03em',
@@ -104,7 +104,7 @@ export default function CGVPage() {
             >
               <h2
                 style={{
-                  fontFamily: 'Syne, sans-serif',
+                  fontFamily: 'var(--font-syne), sans-serif',
                   fontSize: '1rem',
                   fontWeight: 700,
                   color: 'var(--text)',
@@ -163,7 +163,7 @@ export default function CGVPage() {
               color: '#3b82f6',
               borderRadius: '10px',
               padding: '10px 20px',
-              fontFamily: 'Syne, sans-serif',
+              fontFamily: 'var(--font-syne), sans-serif',
               fontWeight: 700,
               fontSize: '0.85rem',
               textDecoration: 'none',

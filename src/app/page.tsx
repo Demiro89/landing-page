@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import CheckoutModal from '@/components/CheckoutModal';
+import dynamic from 'next/dynamic';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+
+const CheckoutModal = dynamic(() => import('@/components/CheckoutModal'), { ssr: false });
 
 // --------------------------------------
 // Types
@@ -107,7 +109,7 @@ export default function HomePage() {
 
         <h1
           style={{
-            fontFamily: 'Syne, sans-serif',
+            fontFamily: 'var(--font-syne), sans-serif',
             fontSize: 'clamp(2.1rem, 9vw, 5.5rem)',
             fontWeight: 800,
             lineHeight: 1.05,
@@ -212,7 +214,7 @@ export default function HomePage() {
           className="reveal"
           style={{
             textAlign: 'center',
-            fontFamily: 'Syne, sans-serif',
+            fontFamily: 'var(--font-syne), sans-serif',
             fontSize: 'clamp(1.7rem, 4vw, 2.6rem)',
             fontWeight: 800,
             letterSpacing: '-0.03em',
@@ -370,7 +372,7 @@ export default function HomePage() {
           className="reveal"
           style={{
             textAlign: 'center',
-            fontFamily: 'Syne, sans-serif',
+            fontFamily: 'var(--font-syne), sans-serif',
             fontSize: 'clamp(1.7rem, 4vw, 2.6rem)',
             fontWeight: 800,
             letterSpacing: '-0.03em',
@@ -447,7 +449,7 @@ export default function HomePage() {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontFamily: 'Syne, sans-serif',
+                  fontFamily: 'var(--font-syne), sans-serif',
                   fontSize: '0.85rem',
                   fontWeight: 700,
                   color: 'var(--muted)',
@@ -458,7 +460,7 @@ export default function HomePage() {
               </div>
               <h4
                 style={{
-                  fontFamily: 'Syne, sans-serif',
+                  fontFamily: 'var(--font-syne), sans-serif',
                   fontSize: '1rem',
                   fontWeight: 700,
                   marginBottom: '8px',
@@ -502,7 +504,7 @@ export default function HomePage() {
           className="reveal"
           style={{
             textAlign: 'center',
-            fontFamily: 'Syne, sans-serif',
+            fontFamily: 'var(--font-syne), sans-serif',
             fontSize: 'clamp(1.7rem, 4vw, 2.6rem)',
             fontWeight: 800,
             letterSpacing: '-0.03em',
@@ -590,7 +592,7 @@ export default function HomePage() {
           className="reveal"
           style={{
             textAlign: 'center',
-            fontFamily: 'Syne, sans-serif',
+            fontFamily: 'var(--font-syne), sans-serif',
             fontSize: 'clamp(1.7rem, 4vw, 2.6rem)',
             fontWeight: 800,
             letterSpacing: '-0.03em',
@@ -721,7 +723,7 @@ export default function HomePage() {
         <h2
           className="reveal"
           style={{
-            fontFamily: 'Syne, sans-serif',
+            fontFamily: 'var(--font-syne), sans-serif',
             fontSize: 'clamp(1.7rem, 4vw, 2.6rem)',
             fontWeight: 800,
             letterSpacing: '-0.03em',
@@ -749,7 +751,7 @@ export default function HomePage() {
             <div key={i} style={{ textAlign: 'center' }}>
               <div
                 style={{
-                  fontFamily: 'Syne, sans-serif',
+                  fontFamily: 'var(--font-syne), sans-serif',
                   fontSize: '2.8rem',
                   fontWeight: 800,
                   color: stat.color,
@@ -943,7 +945,7 @@ function ProductCard({
 
       <h3
         style={{
-          fontFamily: 'Syne, sans-serif',
+          fontFamily: 'var(--font-syne), sans-serif',
           fontSize: '1.15rem',
           fontWeight: 700,
           marginBottom: '8px',
@@ -954,7 +956,7 @@ function ProductCard({
 
       <div
         style={{
-          fontFamily: 'Syne, sans-serif',
+          fontFamily: 'var(--font-syne), sans-serif',
           fontSize: '2.2rem',
           fontWeight: 800,
           lineHeight: 1,
@@ -1033,7 +1035,7 @@ function ProductCard({
           display: 'block',
           width: '100%',
           textAlign: 'center',
-          fontFamily: 'Syne, sans-serif',
+          fontFamily: 'var(--font-syne), sans-serif',
           fontWeight: 700,
           fontSize: '0.92rem',
           padding: '13px',
@@ -1131,7 +1133,7 @@ function TrustCard({
       </div>
       <h3
         style={{
-          fontFamily: 'Syne, sans-serif',
+          fontFamily: 'var(--font-syne), sans-serif',
           fontSize: '1rem',
           fontWeight: 700,
           marginBottom: '8px',

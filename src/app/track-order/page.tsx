@@ -240,7 +240,7 @@ function TrackOrderContent() {
             Suivi de commande
           </div>
           <h1 style={{
-            fontFamily: 'Syne, sans-serif', fontSize: 'clamp(1.8rem, 5vw, 2.4rem)',
+            fontFamily: 'var(--font-syne), sans-serif', fontSize: 'clamp(1.8rem, 5vw, 2.4rem)',
             fontWeight: 800, letterSpacing: '-0.03em', marginBottom: '12px',
           }}>
             Retrouvez vos commandes
@@ -273,7 +273,7 @@ function TrackOrderContent() {
                     flex: 1, background: 'rgba(255,255,255,0.04)',
                     border: '1px solid var(--border2)', borderRadius: '9px',
                     padding: '11px 14px', fontSize: '0.88rem', color: 'var(--text)',
-                    outline: 'none', fontFamily: 'DM Sans, sans-serif',
+                    outline: 'none', fontFamily: 'var(--font-dm-sans), sans-serif',
                   }}
                 />
                 <button
@@ -282,7 +282,7 @@ function TrackOrderContent() {
                   style={{
                     background: 'linear-gradient(135deg,#2563eb,#7c3aed)',
                     color: '#fff', border: 'none', borderRadius: '9px',
-                    padding: '11px 20px', fontFamily: 'Syne, sans-serif',
+                    padding: '11px 20px', fontFamily: 'var(--font-syne), sans-serif',
                     fontWeight: 700, fontSize: '0.88rem', cursor: loading ? 'not-allowed' : 'pointer',
                     opacity: loading ? 0.7 : 1, whiteSpace: 'nowrap' as const,
                   }}
@@ -326,7 +326,7 @@ function TrackOrderContent() {
               }}>
                 <i className="fa-solid fa-envelope-open-text" />
               </div>
-              <p style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '1rem', marginBottom: '6px' }}>
+              <p style={{ fontFamily: 'var(--font-syne), sans-serif', fontWeight: 700, fontSize: '1rem', marginBottom: '6px' }}>
                 Vérification de votre identité
               </p>
               <p style={{ color: 'var(--muted)', fontSize: '0.82rem', lineHeight: 1.5 }}>
@@ -350,7 +350,7 @@ function TrackOrderContent() {
                 autoComplete="one-time-code"
                 style={{
                   textAlign: 'center', letterSpacing: '0.4em',
-                  fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '2rem',
+                  fontFamily: 'var(--font-syne), sans-serif', fontWeight: 800, fontSize: '2rem',
                   background: 'rgba(255,255,255,0.04)',
                   border: `1px solid ${otpError ? 'rgba(255,59,59,0.5)' : 'rgba(99,102,241,0.4)'}`,
                   borderRadius: '12px', padding: '16px',
@@ -368,7 +368,7 @@ function TrackOrderContent() {
                     : 'rgba(255,255,255,0.06)',
                   color: otpCode.length === 6 ? '#fff' : 'var(--muted)',
                   border: 'none', borderRadius: '10px',
-                  padding: '13px', fontFamily: 'Syne, sans-serif',
+                  padding: '13px', fontFamily: 'var(--font-syne), sans-serif',
                   fontWeight: 700, fontSize: '0.92rem',
                   cursor: otpLoading || otpCode.length !== 6 ? 'not-allowed' : 'pointer',
                   transition: 'background 0.2s, color 0.2s',
@@ -402,7 +402,7 @@ function TrackOrderContent() {
                   background: 'none', border: 'none', padding: 0,
                   color: resendCooldown > 0 ? 'var(--muted)' : '#6366f1',
                   fontSize: '0.79rem', cursor: resendCooldown > 0 ? 'default' : 'pointer',
-                  fontFamily: 'DM Sans, sans-serif',
+                  fontFamily: 'var(--font-dm-sans), sans-serif',
                 }}
               >
                 <i className="fa-solid fa-rotate-right" style={{ marginRight: '5px' }} />
@@ -414,7 +414,7 @@ function TrackOrderContent() {
                 style={{
                   background: 'none', border: 'none', padding: 0,
                   color: 'var(--muted)', fontSize: '0.79rem', cursor: 'pointer',
-                  fontFamily: 'DM Sans, sans-serif',
+                  fontFamily: 'var(--font-dm-sans), sans-serif',
                 }}
               >
                 <i className="fa-solid fa-arrow-left" style={{ marginRight: '5px' }} />
@@ -493,7 +493,7 @@ function TrackOrderContent() {
                           <i className={order.service === 'YOUTUBE' ? 'fa-brands fa-youtube' : order.service === 'DISNEY' ? 'fa-solid fa-wand-magic-sparkles' : 'fa-solid fa-shield-halved'} />
                         </div>
                         <div>
-                          <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.92rem' }}>
+                          <div style={{ fontFamily: 'var(--font-syne), sans-serif', fontWeight: 700, fontSize: '0.92rem' }}>
                             {order.service === 'YOUTUBE' ? 'YouTube Premium' : order.service === 'DISNEY' ? 'Disney+ 4K' : 'Surfshark VPN One'}
                           </div>
                           <div style={{ fontSize: '0.74rem', color: 'var(--muted)', fontFamily: 'monospace' }}>
@@ -599,7 +599,7 @@ function TrackOrderContent() {
                             style={{
                               width: '100%', padding: '10px', borderRadius: '8px',
                               background: 'linear-gradient(135deg,#f59e0b,#d97706)',
-                              color: '#000', border: 'none', fontFamily: 'Syne, sans-serif',
+                              color: '#000', border: 'none', fontFamily: 'var(--font-syne), sans-serif',
                               fontWeight: 700, fontSize: '0.83rem', cursor: portalLoading === order.id ? 'not-allowed' : 'pointer',
                               opacity: portalLoading === order.id ? 0.7 : 1,
                             }}
@@ -670,7 +670,7 @@ function TrackOrderContent() {
                             display: 'inline-flex', alignItems: 'center', gap: '7px',
                             background: 'linear-gradient(135deg,#2563eb,#7c3aed)',
                             color: '#fff', borderRadius: '9px', padding: '10px 20px',
-                            fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.85rem',
+                            fontFamily: 'var(--font-syne), sans-serif', fontWeight: 700, fontSize: '0.85rem',
                             textDecoration: 'none',
                           }}
                         >
@@ -689,7 +689,7 @@ function TrackOrderContent() {
                           width: '100%', padding: '10px', borderRadius: '9px', marginBottom: '8px',
                           background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.35)',
                           color: '#f59e0b', fontSize: '0.82rem', fontWeight: 700,
-                          fontFamily: 'Syne, sans-serif', textDecoration: 'none',
+                          fontFamily: 'var(--font-syne), sans-serif', textDecoration: 'none',
                           boxSizing: 'border-box' as const,
                         }}
                       >
@@ -707,7 +707,7 @@ function TrackOrderContent() {
                           border: '1px solid rgba(255,59,59,0.3)',
                           background: 'rgba(255,59,59,0.05)',
                           color: '#ff6b6b', fontSize: '0.79rem', fontWeight: 600,
-                          cursor: 'pointer', fontFamily: 'Syne, sans-serif',
+                          cursor: 'pointer', fontFamily: 'var(--font-syne), sans-serif',
                           marginBottom: '6px',
                         }}
                       >
@@ -732,7 +732,7 @@ function TrackOrderContent() {
                         background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.25)',
                         borderRadius: '10px', padding: '14px 16px', marginBottom: '8px',
                       }}>
-                        <p style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.85rem', marginBottom: '10px' }}>
+                        <p style={{ fontFamily: 'var(--font-syne), sans-serif', fontWeight: 700, fontSize: '0.85rem', marginBottom: '10px' }}>
                           <i className="fa-solid fa-triangle-exclamation" style={{ color: '#f59e0b', marginRight: '7px' }} />
                           Signaler un problème
                         </p>
@@ -743,7 +743,7 @@ function TrackOrderContent() {
                             width: '100%', background: 'rgba(255,255,255,0.05)',
                             border: '1px solid var(--border2)', borderRadius: '7px',
                             padding: '9px 12px', fontSize: '0.82rem', color: 'var(--text)',
-                            fontFamily: 'DM Sans, sans-serif', marginBottom: '8px',
+                            fontFamily: 'var(--font-dm-sans), sans-serif', marginBottom: '8px',
                             outline: 'none',
                           }}
                         >
@@ -761,7 +761,7 @@ function TrackOrderContent() {
                             width: '100%', background: 'rgba(255,255,255,0.04)',
                             border: '1px solid var(--border2)', borderRadius: '7px',
                             padding: '9px 12px', fontSize: '0.8rem', color: 'var(--text)',
-                            fontFamily: 'DM Sans, sans-serif', resize: 'vertical' as const,
+                            fontFamily: 'var(--font-dm-sans), sans-serif', resize: 'vertical' as const,
                             marginBottom: '10px', outline: 'none', boxSizing: 'border-box' as const,
                           }}
                         />
@@ -773,7 +773,7 @@ function TrackOrderContent() {
                               flex: 1, padding: '9px', borderRadius: '7px',
                               background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border2)',
                               color: 'var(--muted)', fontSize: '0.8rem', fontWeight: 600,
-                              cursor: 'pointer', fontFamily: 'Syne, sans-serif',
+                              cursor: 'pointer', fontFamily: 'var(--font-syne), sans-serif',
                             }}
                           >
                             Annuler
@@ -786,7 +786,7 @@ function TrackOrderContent() {
                               background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.4)',
                               color: '#f59e0b', fontSize: '0.8rem', fontWeight: 700,
                               cursor: reportLoading ? 'not-allowed' : 'pointer',
-                              opacity: reportLoading ? 0.7 : 1, fontFamily: 'Syne, sans-serif',
+                              opacity: reportLoading ? 0.7 : 1, fontFamily: 'var(--font-syne), sans-serif',
                             }}
                           >
                             {reportLoading
@@ -804,7 +804,7 @@ function TrackOrderContent() {
                           border: '1px solid rgba(245,158,11,0.25)',
                           background: 'rgba(245,158,11,0.04)',
                           color: 'var(--muted)', fontSize: '0.79rem', fontWeight: 600,
-                          cursor: 'pointer', fontFamily: 'Syne, sans-serif',
+                          cursor: 'pointer', fontFamily: 'var(--font-syne), sans-serif',
                         }}
                       >
                         <i className="fa-solid fa-triangle-exclamation" style={{ marginRight: '6px', color: '#f59e0b' }} />
@@ -820,7 +820,7 @@ function TrackOrderContent() {
                           width: '100%', padding: '10px', borderRadius: '9px',
                           border: '1px solid var(--border2)', background: 'rgba(255,255,255,0.03)',
                           color: 'var(--muted)', fontSize: '0.82rem', fontWeight: 600,
-                          cursor: 'pointer', fontFamily: 'Syne, sans-serif',
+                          cursor: 'pointer', fontFamily: 'var(--font-syne), sans-serif',
                           transition: 'background 0.2s, color 0.2s',
                         }}
                         onMouseEnter={(e) => {
@@ -869,7 +869,7 @@ function TrackOrderContent() {
               }}>
                 <i className="fa-solid fa-ban" />
               </div>
-              <h3 style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '1.1rem', marginBottom: '10px' }}>
+              <h3 style={{ fontFamily: 'var(--font-syne), sans-serif', fontWeight: 800, fontSize: '1.1rem', marginBottom: '10px' }}>
                 Résilier l&apos;abonnement ?
               </h3>
               <p style={{ color: 'var(--muted)', fontSize: '0.85rem', lineHeight: 1.6, marginBottom: '22px' }}>
@@ -883,7 +883,7 @@ function TrackOrderContent() {
                   style={{
                     flex: 1, padding: '12px', borderRadius: '9px',
                     border: '1px solid var(--border2)', background: 'rgba(255,255,255,0.04)',
-                    color: 'var(--muted)', fontFamily: 'Syne, sans-serif',
+                    color: 'var(--muted)', fontFamily: 'var(--font-syne), sans-serif',
                     fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer',
                   }}
                 >
@@ -896,7 +896,7 @@ function TrackOrderContent() {
                     flex: 1, padding: '12px', borderRadius: '9px',
                     background: cancelLoading ? 'rgba(255,59,59,0.4)' : 'rgba(255,59,59,0.15)',
                     border: '1px solid rgba(255,59,59,0.4)',
-                    color: '#ff6b6b', fontFamily: 'Syne, sans-serif',
+                    color: '#ff6b6b', fontFamily: 'var(--font-syne), sans-serif',
                     fontWeight: 700, fontSize: '0.85rem',
                     cursor: cancelLoading ? 'not-allowed' : 'pointer',
                   }}
@@ -928,7 +928,7 @@ function TrackOrderContent() {
               display: 'inline-flex', alignItems: 'center', gap: '8px',
               background: 'rgba(37,99,235,0.1)', border: '1px solid rgba(37,99,235,0.3)',
               color: '#3b82f6', borderRadius: '10px', padding: '10px 20px',
-              fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.85rem',
+              fontFamily: 'var(--font-syne), sans-serif', fontWeight: 700, fontSize: '0.85rem',
               textDecoration: 'none',
             }}
           >

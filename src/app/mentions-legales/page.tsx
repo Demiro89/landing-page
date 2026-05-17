@@ -37,7 +37,7 @@ export default function MentionsLegalesPage() {
 
         <h1
           style={{
-            fontFamily: 'Syne, sans-serif',
+            fontFamily: 'var(--font-syne), sans-serif',
             fontSize: 'clamp(1.8rem, 5vw, 2.4rem)',
             fontWeight: 800,
             letterSpacing: '-0.03em',
@@ -202,7 +202,7 @@ function SectionTitle({ n, children }: { n: number; children: React.ReactNode })
   return (
     <h2
       style={{
-        fontFamily: 'Syne, sans-serif',
+        fontFamily: 'var(--font-syne), sans-serif',
         fontSize: '1rem',
         fontWeight: 700,
         color: 'var(--text)',

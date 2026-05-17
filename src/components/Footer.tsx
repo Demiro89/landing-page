@@ -22,7 +22,7 @@ export default function Footer() {
             display: 'flex',
             alignItems: 'center',
             gap: '9px',
-            fontFamily: 'Syne, sans-serif',
+            fontFamily: 'var(--font-syne), sans-serif',
             fontWeight: 800,
             fontSize: '0.95rem',
             color: 'var(--text)',

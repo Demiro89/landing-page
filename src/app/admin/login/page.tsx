@@ -81,7 +81,7 @@ export default function AdminLoginPage() {
 
         <h1
           style={{
-            fontFamily: 'Syne, sans-serif',
+            fontFamily: 'var(--font-syne), sans-serif',
             fontSize:   '1.35rem',
             fontWeight: 800,
             marginBottom: '6px',
@@ -141,7 +141,7 @@ export default function AdminLoginPage() {
               ? 'rgba(124,58,237,0.4)'
               : 'linear-gradient(135deg,#2563eb,#7c3aed)',
             color:        '#fff',
-            fontFamily:   'Syne, sans-serif',
+            fontFamily:   'var(--font-syne), sans-serif',
             fontWeight:   700,
             fontSize:     '0.92rem',
             padding:      '13px',

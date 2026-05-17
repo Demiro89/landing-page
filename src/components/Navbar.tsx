@@ -77,7 +77,7 @@ export default function Navbar({
             display: 'flex',
             alignItems: 'center',
             gap: '9px',
-            fontFamily: 'Syne, sans-serif',
+            fontFamily: 'var(--font-syne), sans-serif',
             fontWeight: 800,
             fontSize: '1rem',
             color: 'var(--text)',
@@ -155,7 +155,7 @@ export default function Navbar({
                 fontSize: '0.78rem',
                 fontWeight: 700,
                 textDecoration: 'none',
-                fontFamily: 'Syne, sans-serif',
+                fontFamily: 'var(--font-syne), sans-serif',
                 transition: 'background 0.2s',
               }}
               onMouseEnter={(e) =>
@@ -219,7 +219,7 @@ export default function Navbar({
               cursor: 'pointer',
               border: 'none',
               transition: 'opacity 0.2s',
-              fontFamily: 'Syne, sans-serif',
+              fontFamily: 'var(--font-syne), sans-serif',
               whiteSpace: 'nowrap',
             }}
             onMouseEnter={(e) =>

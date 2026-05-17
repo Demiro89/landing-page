@@ -232,7 +232,7 @@ function DashboardContent() {
           </div>
           <h1
             style={{
-              fontFamily: 'Syne, sans-serif',
+              fontFamily: 'var(--font-syne), sans-serif',
               fontSize: 'clamp(1.8rem, 5vw, 2.8rem)',
               fontWeight: 800,
               letterSpacing: '-0.03em',
@@ -283,7 +283,7 @@ function DashboardContent() {
                   fontSize: '0.88rem',
                   color: 'var(--text)',
                   outline: 'none',
-                  fontFamily: 'DM Sans, sans-serif',
+                  fontFamily: 'var(--font-dm-sans), sans-serif',
                 }}
               />
               <button
@@ -292,7 +292,7 @@ function DashboardContent() {
                 style={{
                   background: 'linear-gradient(135deg, #2563eb, #7c3aed)',
                   color: '#fff',
-                  fontFamily: 'Syne, sans-serif',
+                  fontFamily: 'var(--font-syne), sans-serif',
                   fontWeight: 700,
                   fontSize: '0.85rem',
                   padding: '11px 20px',
@@ -406,7 +406,7 @@ function DashboardContent() {
           <div style={{ flex: 1 }}>
             <div
               style={{
-                fontFamily: 'Syne, sans-serif',
+                fontFamily: 'var(--font-syne), sans-serif',
                 fontWeight: 700,
                 fontSize: '0.92rem',
                 marginBottom: '2px',
@@ -425,7 +425,7 @@ function DashboardContent() {
             style={{
               background: '#3b82f6',
               color: '#fff',
-              fontFamily: 'Syne, sans-serif',
+              fontFamily: 'var(--font-syne), sans-serif',
               fontWeight: 700,
               fontSize: '0.82rem',
               padding: '9px 16px',
@@ -510,7 +510,7 @@ function OrderCard({
           <div>
             <div
               style={{
-                fontFamily: 'Syne, sans-serif',
+                fontFamily: 'var(--font-syne), sans-serif',
                 fontWeight: 700,
                 fontSize: '0.92rem',
               }}
@@ -537,7 +537,7 @@ function OrderCard({
             fontSize: '0.75rem',
             fontWeight: 700,
             color: config.color,
-            fontFamily: 'Syne, sans-serif',
+            fontFamily: 'var(--font-syne), sans-serif',
           }}
         >
           <i className={`fa-solid ${config.icon}`} />
@@ -572,7 +572,7 @@ function OrderCard({
           >
             <p
               style={{
-                fontFamily: 'Syne, sans-serif',
+                fontFamily: 'var(--font-syne), sans-serif',
                 fontWeight: 700,
                 fontSize: '0.88rem',
                 color: '#a78bfa',
@@ -671,7 +671,7 @@ function OrderCard({
           >
             <p
               style={{
-                fontFamily: 'Syne, sans-serif',
+                fontFamily: 'var(--font-syne), sans-serif',
                 fontWeight: 700,
                 fontSize: '0.88rem',
                 color: 'var(--yt)',
@@ -700,7 +700,7 @@ function OrderCard({
                   fontSize: '0.85rem',
                   color: 'var(--text)',
                   outline: 'none',
-                  fontFamily: 'DM Sans, sans-serif',
+                  fontFamily: 'var(--font-dm-sans), sans-serif',
                 }}
               />
               <button
@@ -709,7 +709,7 @@ function OrderCard({
                 style={{
                   background: 'var(--yt)',
                   color: '#fff',
-                  fontFamily: 'Syne, sans-serif',
+                  fontFamily: 'var(--font-syne), sans-serif',
                   fontWeight: 700,
                   fontSize: '0.82rem',
                   padding: '9px 16px',
@@ -743,7 +743,7 @@ function OrderCard({
           >
             <p
               style={{
-                fontFamily: 'Syne, sans-serif',
+                fontFamily: 'var(--font-syne), sans-serif',
                 fontWeight: 700,
                 fontSize: '0.85rem',
                 color: 'var(--yt)',
@@ -801,7 +801,7 @@ function ExpiryCountdown({
         <a href="/#offres" style={{
           display: 'inline-flex', alignItems: 'center', gap: '6px',
           background: renewColor, color: '#fff',
-          fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.82rem',
+          fontFamily: 'var(--font-syne), sans-serif', fontWeight: 700, fontSize: '0.82rem',
           padding: '9px 16px', borderRadius: '8px', textDecoration: 'none',
         }}>
           <i className="fa-solid fa-rotate-right" />
@@ -836,7 +836,7 @@ function ExpiryCountdown({
         <span style={{
           marginLeft: 6, background: 'rgba(0,255,170,0.12)',
           border: '1px solid rgba(0,255,170,0.25)', borderRadius: '999px',
-          padding: '1px 8px', fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.72rem',
+          padding: '1px 8px', fontFamily: 'var(--font-syne), sans-serif', fontWeight: 700, fontSize: '0.72rem',
         }}>
           {daysLeft} jour{daysLeft > 1 ? 's' : ''}
         </span>
@@ -875,7 +875,7 @@ function ExpiryCountdown({
       <a href="/#offres" style={{
         display: 'inline-flex', alignItems: 'center', gap: '6px',
         background: renewColor, color: '#fff',
-        fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.85rem',
+        fontFamily: 'var(--font-syne), sans-serif', fontWeight: 700, fontSize: '0.85rem',
         padding: '10px 20px', borderRadius: '9px', textDecoration: 'none',
         boxShadow: '0 4px 20px rgba(255,59,59,0.3)',
       }}>

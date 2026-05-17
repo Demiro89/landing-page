@@ -227,7 +227,7 @@ export default function InventoryPage() {
               <i className={s.icon} style={{ color: s.color, fontSize: '0.85rem' }} />
               <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>{s.label}</span>
             </div>
-            <div style={{ fontFamily: 'Syne, sans-serif', fontSize: '1.8rem', fontWeight: 800, color: s.color }}>
+            <div style={{ fontFamily: 'var(--font-syne), sans-serif', fontSize: '1.8rem', fontWeight: 800, color: s.color }}>
               {s.value}
             </div>
           </div>
@@ -237,7 +237,7 @@ export default function InventoryPage() {
       {/* ── Formulaire d'ajout ── */}
       {showAddForm && (
         <form onSubmit={handleAdd} style={styles.addForm}>
-          <h3 style={{ fontFamily: 'Syne, sans-serif', fontSize: '1rem', fontWeight: 700, marginBottom: 20 }}>
+          <h3 style={{ fontFamily: 'var(--font-syne), sans-serif', fontSize: '1rem', fontWeight: 700, marginBottom: 20 }}>
             <i className="fa-solid fa-plus" style={{ color: '#00ffaa', marginRight: 8 }} />
             Ajouter un nouveau compte maître
           </h3>
@@ -263,7 +263,7 @@ export default function InventoryPage() {
                       color: form.service === svc
                         ? svc === 'YOUTUBE' ? '#ff3b3b' : '#a78bfa'
                         : 'var(--muted)',
-                      fontFamily: 'Syne, sans-serif',
+                      fontFamily: 'var(--font-syne), sans-serif',
                       fontWeight: 700,
                       fontSize: '0.82rem',
                       cursor: 'pointer',
@@ -358,7 +358,7 @@ export default function InventoryPage() {
             background: filter === tab.key ? 'rgba(124,58,237,0.2)' : 'rgba(255,255,255,0.04)',
             border: filter === tab.key ? '1px solid rgba(124,58,237,0.5)' : '1px solid var(--border)',
             color: filter === tab.key ? '#a78bfa' : 'var(--muted)',
-            fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.8rem',
+            fontFamily: 'var(--font-syne), sans-serif', fontWeight: 700, fontSize: '0.8rem',
             padding: '8px 14px', borderRadius: 8, cursor: 'pointer',
           }}>
             {tab.label}
@@ -442,7 +442,7 @@ function AccountRow({
 
         {/* Email + password */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.88rem', marginBottom: 2 }}>
+          <div style={{ fontFamily: 'var(--font-syne), sans-serif', fontWeight: 700, fontSize: '0.88rem', marginBottom: 2 }}>
             <code style={{ color: 'var(--text)' }}>{account.email}</code>
             {!account.active && (
               <span style={{ marginLeft: 8, fontSize: '0.7rem', color: 'var(--muted)', background: 'rgba(136,136,170,0.1)', padding: '1px 7px', borderRadius: 999 }}>
@@ -511,7 +511,7 @@ function AccountRow({
                 border: `1px solid ${slot.isAvailable ? 'rgba(0,255,170,0.2)' : 'rgba(245,158,11,0.2)'}`,
                 borderRadius: 8, padding: '10px 12px',
               }}>
-                <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.8rem', marginBottom: 4 }}>
+                <div style={{ fontFamily: 'var(--font-syne), sans-serif', fontWeight: 700, fontSize: '0.8rem', marginBottom: 4 }}>
                   Profil {slot.profileNumber}
                   <span style={{
                     marginLeft: 6, fontSize: '0.65rem', padding: '1px 6px', borderRadius: 999,
@@ -549,23 +549,23 @@ const styles: Record<string, React.CSSProperties> = {
   centerPage: { minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', padding: 24 },
   loginBox: { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 20, padding: 36, width: '100%', maxWidth: 380, textAlign: 'center' },
   loginIcon: { width: 56, height: 56, borderRadius: 14, background: 'rgba(124,58,237,0.15)', color: '#a78bfa', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', margin: '0 auto 20px' },
-  loginTitle: { fontFamily: 'Syne, sans-serif', fontSize: '1.4rem', fontWeight: 800, marginBottom: 6 },
+  loginTitle: { fontFamily: 'var(--font-syne), sans-serif', fontSize: '1.4rem', fontWeight: 800, marginBottom: 6 },
   loginSub: { fontSize: '0.85rem', color: 'var(--muted)', marginBottom: 24 },
   header: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 12 },
   breadcrumb: { display: 'flex', alignItems: 'center', fontSize: '0.78rem', marginBottom: 8 },
   breadcrumbLink: { color: 'var(--muted)', textDecoration: 'none', transition: 'color 0.2s' },
-  pageTitle: { fontFamily: 'Syne, sans-serif', fontSize: '1.6rem', fontWeight: 800, marginBottom: 4 },
+  pageTitle: { fontFamily: 'var(--font-syne), sans-serif', fontSize: '1.6rem', fontWeight: 800, marginBottom: 4 },
   statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 24 },
   statCard: { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 16px' },
   addForm: { background: 'var(--card)', border: '1px solid var(--border2)', borderRadius: 16, padding: 24, marginBottom: 24 },
   formGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 },
   fieldGroup: { display: 'flex', flexDirection: 'column', gap: 6 },
   label: { fontSize: '0.8rem', fontWeight: 600, color: 'var(--text)' },
-  input: { width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border2)', borderRadius: 8, padding: '10px 12px', fontSize: '0.88rem', color: 'var(--text)', outline: 'none', fontFamily: 'DM Sans, sans-serif' },
-  submitBtn: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg,#2563eb,#7c3aed)', color: '#fff', fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.88rem', padding: '11px 20px', borderRadius: 10, border: 'none', cursor: 'pointer' },
-  cancelBtn: { background: 'none', border: '1px solid var(--border2)', color: 'var(--muted)', fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.85rem', padding: '11px 16px', borderRadius: 10, cursor: 'pointer' },
-  refreshBtn: { background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border2)', color: 'var(--text)', fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.82rem', padding: '9px 16px', borderRadius: 8, cursor: 'pointer' },
-  addBtn: { display: 'inline-flex', alignItems: 'center', background: 'linear-gradient(135deg,#2563eb,#7c3aed)', color: '#fff', fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.82rem', padding: '9px 16px', borderRadius: 8, border: 'none', cursor: 'pointer' },
+  input: { width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border2)', borderRadius: 8, padding: '10px 12px', fontSize: '0.88rem', color: 'var(--text)', outline: 'none', fontFamily: 'var(--font-dm-sans), sans-serif' },
+  submitBtn: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg,#2563eb,#7c3aed)', color: '#fff', fontFamily: 'var(--font-syne), sans-serif', fontWeight: 700, fontSize: '0.88rem', padding: '11px 20px', borderRadius: 10, border: 'none', cursor: 'pointer' },
+  cancelBtn: { background: 'none', border: '1px solid var(--border2)', color: 'var(--muted)', fontFamily: 'var(--font-syne), sans-serif', fontWeight: 700, fontSize: '0.85rem', padding: '11px 16px', borderRadius: 10, cursor: 'pointer' },
+  refreshBtn: { background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border2)', color: 'var(--text)', fontFamily: 'var(--font-syne), sans-serif', fontWeight: 700, fontSize: '0.82rem', padding: '9px 16px', borderRadius: 8, cursor: 'pointer' },
+  addBtn: { display: 'inline-flex', alignItems: 'center', background: 'linear-gradient(135deg,#2563eb,#7c3aed)', color: '#fff', fontFamily: 'var(--font-syne), sans-serif', fontWeight: 700, fontSize: '0.82rem', padding: '9px 16px', borderRadius: 8, border: 'none', cursor: 'pointer' },
   iconBtn: { width: 32, height: 32, borderRadius: 7, background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)', color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '0.8rem', transition: 'background 0.2s' },
   errorBox: { background: 'rgba(255,59,59,0.08)', border: '1px solid rgba(255,59,59,0.3)', borderRadius: 8, padding: '10px 14px', fontSize: '0.82rem', color: '#ff3b3b' },
 };
