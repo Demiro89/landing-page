@@ -1,3 +1,4 @@
+import Icon from '@/components/Icon';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 
@@ -31,13 +32,13 @@ export default function MentionsLegalesPage() {
             marginBottom: '32px',
           }}
         >
-          <i className="fa-solid fa-arrow-left" style={{ fontSize: '0.75rem' }} />
+          <Icon className="fa-solid fa-arrow-left" style={{ fontSize: '0.75rem' }} />
           Retour à l&apos;accueil
         </a>
 
         <h1
           style={{
-            fontFamily: 'Syne, sans-serif',
+            fontFamily: 'var(--font-syne), sans-serif',
             fontSize: 'clamp(1.8rem, 5vw, 2.4rem)',
             fontWeight: 800,
             letterSpacing: '-0.03em',
@@ -202,7 +203,7 @@ function SectionTitle({ n, children }: { n: number; children: React.ReactNode })
   return (
     <h2
       style={{
-        fontFamily: 'Syne, sans-serif',
+        fontFamily: 'var(--font-syne), sans-serif',
         fontSize: '1rem',
         fontWeight: 700,
         color: 'var(--text)',

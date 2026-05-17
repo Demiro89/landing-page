@@ -1,5 +1,7 @@
 'use client';
 
+import Icon from './Icon';
+
 export default function Footer() {
   return (
     <footer style={{ position: 'relative', zIndex: 1 }}>
@@ -22,7 +24,7 @@ export default function Footer() {
             display: 'flex',
             alignItems: 'center',
             gap: '9px',
-            fontFamily: 'Syne, sans-serif',
+            fontFamily: 'var(--font-syne), sans-serif',
             fontWeight: 800,
             fontSize: '0.95rem',
             color: 'var(--text)',
@@ -42,7 +44,7 @@ export default function Footer() {
               fontSize: '0.75rem',
             }}
           >
-            <i className="fa-solid fa-bolt" />
+            <Icon className="fa-solid fa-bolt" />
           </span>
           StreamMalin
         </a>

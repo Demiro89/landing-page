@@ -1,5 +1,6 @@
 'use client';
 
+import Icon from '@/components/Icon';
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 
@@ -150,7 +151,7 @@ export default function InventoryPage() {
       <div style={styles.centerPage}>
         <form onSubmit={handleLogin} style={styles.loginBox}>
           <div style={styles.loginIcon}>
-            <i className="fa-solid fa-boxes-stacked" />
+            <Icon className="fa-solid fa-boxes-stacked" />
           </div>
           <h1 style={styles.loginTitle}>Gestion des stocks</h1>
           <p style={styles.loginSub}>Entrez votre token d'administration</p>
@@ -164,7 +165,7 @@ export default function InventoryPage() {
           />
           {error && <div style={styles.errorBox}>{error}</div>}
           <button type="submit" style={styles.submitBtn}>
-            <i className="fa-solid fa-right-to-bracket" style={{ marginRight: 8 }} />
+            <Icon className="fa-solid fa-right-to-bracket" style={{ marginRight: 8 }} />
             Accéder
           </button>
         </form>
@@ -188,13 +189,13 @@ export default function InventoryPage() {
         <div>
           <div style={styles.breadcrumb}>
             <Link href="/admin" style={styles.breadcrumbLink}>
-              <i className="fa-solid fa-gauge-high" style={{ marginRight: 6 }} />Admin
+              <Icon className="fa-solid fa-gauge-high" style={{ marginRight: 6 }} />Admin
             </Link>
-            <i className="fa-solid fa-chevron-right" style={{ fontSize: '0.6rem', color: 'var(--muted)', margin: '0 8px' }} />
+            <Icon className="fa-solid fa-chevron-right" style={{ fontSize: '0.6rem', color: 'var(--muted)', margin: '0 8px' }} />
             <span style={{ color: 'var(--text)' }}>Inventaire</span>
           </div>
           <h1 style={styles.pageTitle}>
-            <i className="fa-solid fa-boxes-stacked" style={{ color: '#a78bfa', marginRight: 10 }} />
+            <Icon className="fa-solid fa-boxes-stacked" style={{ color: '#a78bfa', marginRight: 10 }} />
             Gestion des stocks
           </h1>
           <p style={{ fontSize: '0.82rem', color: 'var(--muted)' }}>
@@ -203,11 +204,11 @@ export default function InventoryPage() {
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <button onClick={() => fetchAccounts(token)} disabled={loading} style={styles.refreshBtn}>
-            <i className={`fa-solid fa-rotate-right ${loading ? 'fa-spin' : ''}`} style={{ marginRight: 6 }} />
+            <Icon className={`fa-solid fa-rotate-right ${loading ? 'fa-spin' : ''}`} style={{ marginRight: 6 }} />
             Actualiser
           </button>
           <button onClick={() => setShowAddForm(!showAddForm)} style={styles.addBtn}>
-            <i className={`fa-solid ${showAddForm ? 'fa-xmark' : 'fa-plus'}`} style={{ marginRight: 6 }} />
+            <Icon className={`fa-solid ${showAddForm ? 'fa-xmark' : 'fa-plus'}`} style={{ marginRight: 6 }} />
             {showAddForm ? 'Annuler' : 'Ajouter un compte'}
           </button>
         </div>
@@ -224,10 +225,10 @@ export default function InventoryPage() {
         ].map((s, i) => (
           <div key={i} style={styles.statCard}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <i className={s.icon} style={{ color: s.color, fontSize: '0.85rem' }} />
+              <Icon className={s.icon} style={{ color: s.color, fontSize: '0.85rem' }} />
               <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>{s.label}</span>
             </div>
-            <div style={{ fontFamily: 'Syne, sans-serif', fontSize: '1.8rem', fontWeight: 800, color: s.color }}>
+            <div style={{ fontFamily: 'var(--font-syne), sans-serif', fontSize: '1.8rem', fontWeight: 800, color: s.color }}>
               {s.value}
             </div>
           </div>
@@ -237,8 +238,8 @@ export default function InventoryPage() {
       {/* ── Formulaire d'ajout ── */}
       {showAddForm && (
         <form onSubmit={handleAdd} style={styles.addForm}>
-          <h3 style={{ fontFamily: 'Syne, sans-serif', fontSize: '1rem', fontWeight: 700, marginBottom: 20 }}>
-            <i className="fa-solid fa-plus" style={{ color: '#00ffaa', marginRight: 8 }} />
+          <h3 style={{ fontFamily: 'var(--font-syne), sans-serif', fontSize: '1rem', fontWeight: 700, marginBottom: 20 }}>
+            <Icon className="fa-solid fa-plus" style={{ color: '#00ffaa', marginRight: 8 }} />
             Ajouter un nouveau compte maître
           </h3>
 
@@ -263,13 +264,13 @@ export default function InventoryPage() {
                       color: form.service === svc
                         ? svc === 'YOUTUBE' ? '#ff3b3b' : '#a78bfa'
                         : 'var(--muted)',
-                      fontFamily: 'Syne, sans-serif',
+                      fontFamily: 'var(--font-syne), sans-serif',
                       fontWeight: 700,
                       fontSize: '0.82rem',
                       cursor: 'pointer',
                     }}
                   >
-                    <i className={svc === 'YOUTUBE' ? 'fa-brands fa-youtube' : 'fa-solid fa-wand-magic-sparkles'} style={{ marginRight: 6 }} />
+                    <Icon className={svc === 'YOUTUBE' ? 'fa-brands fa-youtube' : 'fa-solid fa-wand-magic-sparkles'} style={{ marginRight: 6 }} />
                     {svc === 'YOUTUBE' ? 'YouTube' : 'Disney+'}
                   </button>
                 ))}
@@ -337,8 +338,8 @@ export default function InventoryPage() {
           <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
             <button type="submit" disabled={adding} style={styles.submitBtn}>
               {adding
-                ? <><i className="fa-solid fa-spinner fa-spin" style={{ marginRight: 8 }} />Ajout en cours...</>
-                : <><i className="fa-solid fa-plus" style={{ marginRight: 8 }} />Ajouter le compte</>}
+                ? <><Icon className="fa-solid fa-spinner fa-spin" style={{ marginRight: 8 }} />Ajout en cours...</>
+                : <><Icon className="fa-solid fa-plus" style={{ marginRight: 8 }} />Ajouter le compte</>}
             </button>
             <button type="button" onClick={() => setShowAddForm(false)} style={styles.cancelBtn}>
               Annuler
@@ -358,7 +359,7 @@ export default function InventoryPage() {
             background: filter === tab.key ? 'rgba(124,58,237,0.2)' : 'rgba(255,255,255,0.04)',
             border: filter === tab.key ? '1px solid rgba(124,58,237,0.5)' : '1px solid var(--border)',
             color: filter === tab.key ? '#a78bfa' : 'var(--muted)',
-            fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.8rem',
+            fontFamily: 'var(--font-syne), sans-serif', fontWeight: 700, fontSize: '0.8rem',
             padding: '8px 14px', borderRadius: 8, cursor: 'pointer',
           }}>
             {tab.label}
@@ -369,16 +370,16 @@ export default function InventoryPage() {
       {/* ── Liste des comptes ── */}
       {loading ? (
         <div style={{ textAlign: 'center', padding: 48, color: 'var(--muted)' }}>
-          <i className="fa-solid fa-spinner fa-spin" style={{ fontSize: '2rem', display: 'block', marginBottom: 12 }} />
+          <Icon className="fa-solid fa-spinner fa-spin" style={{ fontSize: '2rem', display: 'block', marginBottom: 12 }} />
           Chargement...
         </div>
       ) : filtered.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 48, color: 'var(--muted)' }}>
-          <i className="fa-solid fa-box-open" style={{ fontSize: '2.5rem', display: 'block', marginBottom: 12 }} />
+          <Icon className="fa-solid fa-box-open" style={{ fontSize: '2.5rem', display: 'block', marginBottom: 12 }} />
           Aucun compte dans cette catégorie.
           <br />
           <button onClick={() => setShowAddForm(true)} style={{ ...styles.addBtn, marginTop: 16 }}>
-            <i className="fa-solid fa-plus" style={{ marginRight: 6 }} /> Ajouter un compte
+            <Icon className="fa-solid fa-plus" style={{ marginRight: 6 }} /> Ajouter un compte
           </button>
         </div>
       ) : (
@@ -437,12 +438,12 @@ function AccountRow({
           color: accentColor, display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: '1rem', flexShrink: 0,
         }}>
-          <i className={isYt ? 'fa-brands fa-youtube' : 'fa-solid fa-wand-magic-sparkles'} />
+          <Icon className={isYt ? 'fa-brands fa-youtube' : 'fa-solid fa-wand-magic-sparkles'} />
         </div>
 
         {/* Email + password */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.88rem', marginBottom: 2 }}>
+          <div style={{ fontFamily: 'var(--font-syne), sans-serif', fontWeight: 700, fontSize: '0.88rem', marginBottom: 2 }}>
             <code style={{ color: 'var(--text)' }}>{account.email}</code>
             {!account.active && (
               <span style={{ marginLeft: 8, fontSize: '0.7rem', color: 'var(--muted)', background: 'rgba(136,136,170,0.1)', padding: '1px 7px', borderRadius: 999 }}>
@@ -474,7 +475,7 @@ function AccountRow({
         {/* Actions */}
         <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
           <button onClick={onToggleExpand} style={styles.iconBtn} title="Voir les slots">
-            <i className={`fa-solid fa-chevron-${expanded ? 'up' : 'down'}`} />
+            <Icon className={`fa-solid fa-chevron-${expanded ? 'up' : 'down'}`} />
           </button>
           <button
             onClick={onToggleActive}
@@ -482,7 +483,7 @@ function AccountRow({
             style={{ ...styles.iconBtn, color: account.active ? '#f59e0b' : '#00ffaa' }}
             title={account.active ? 'Désactiver' : 'Activer'}
           >
-            <i className={`fa-solid ${toggling ? 'fa-spinner fa-spin' : account.active ? 'fa-pause' : 'fa-play'}`} />
+            <Icon className={`fa-solid ${toggling ? 'fa-spinner fa-spin' : account.active ? 'fa-pause' : 'fa-play'}`} />
           </button>
           <button
             onClick={onDelete}
@@ -495,7 +496,7 @@ function AccountRow({
             }}
             title={account.occupiedSlots > 0 ? 'Impossible : des slots sont occupés' : 'Supprimer'}
           >
-            <i className={`fa-solid ${deleting ? 'fa-spinner fa-spin' : 'fa-trash'}`} />
+            <Icon className={`fa-solid ${deleting ? 'fa-spinner fa-spin' : 'fa-trash'}`} />
           </button>
         </div>
       </div>
@@ -511,7 +512,7 @@ function AccountRow({
                 border: `1px solid ${slot.isAvailable ? 'rgba(0,255,170,0.2)' : 'rgba(245,158,11,0.2)'}`,
                 borderRadius: 8, padding: '10px 12px',
               }}>
-                <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.8rem', marginBottom: 4 }}>
+                <div style={{ fontFamily: 'var(--font-syne), sans-serif', fontWeight: 700, fontSize: '0.8rem', marginBottom: 4 }}>
                   Profil {slot.profileNumber}
                   <span style={{
                     marginLeft: 6, fontSize: '0.65rem', padding: '1px 6px', borderRadius: 999,
@@ -528,7 +529,7 @@ function AccountRow({
                 )}
                 {slot.order && (
                   <div style={{ fontSize: '0.7rem', color: 'var(--muted)', marginTop: 4 }}>
-                    <i className="fa-solid fa-user" style={{ marginRight: 4 }} />
+                    <Icon className="fa-solid fa-user" style={{ marginRight: 4 }} />
                     {slot.order.userEmail}
                   </div>
                 )}
@@ -549,23 +550,23 @@ const styles: Record<string, React.CSSProperties> = {
   centerPage: { minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', padding: 24 },
   loginBox: { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 20, padding: 36, width: '100%', maxWidth: 380, textAlign: 'center' },
   loginIcon: { width: 56, height: 56, borderRadius: 14, background: 'rgba(124,58,237,0.15)', color: '#a78bfa', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', margin: '0 auto 20px' },
-  loginTitle: { fontFamily: 'Syne, sans-serif', fontSize: '1.4rem', fontWeight: 800, marginBottom: 6 },
+  loginTitle: { fontFamily: 'var(--font-syne), sans-serif', fontSize: '1.4rem', fontWeight: 800, marginBottom: 6 },
   loginSub: { fontSize: '0.85rem', color: 'var(--muted)', marginBottom: 24 },
   header: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 12 },
   breadcrumb: { display: 'flex', alignItems: 'center', fontSize: '0.78rem', marginBottom: 8 },
   breadcrumbLink: { color: 'var(--muted)', textDecoration: 'none', transition: 'color 0.2s' },
-  pageTitle: { fontFamily: 'Syne, sans-serif', fontSize: '1.6rem', fontWeight: 800, marginBottom: 4 },
+  pageTitle: { fontFamily: 'var(--font-syne), sans-serif', fontSize: '1.6rem', fontWeight: 800, marginBottom: 4 },
   statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 24 },
   statCard: { background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 16px' },
   addForm: { background: 'var(--card)', border: '1px solid var(--border2)', borderRadius: 16, padding: 24, marginBottom: 24 },
   formGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 },
   fieldGroup: { display: 'flex', flexDirection: 'column', gap: 6 },
   label: { fontSize: '0.8rem', fontWeight: 600, color: 'var(--text)' },
-  input: { width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border2)', borderRadius: 8, padding: '10px 12px', fontSize: '0.88rem', color: 'var(--text)', outline: 'none', fontFamily: 'DM Sans, sans-serif' },
-  submitBtn: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg,#2563eb,#7c3aed)', color: '#fff', fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.88rem', padding: '11px 20px', borderRadius: 10, border: 'none', cursor: 'pointer' },
-  cancelBtn: { background: 'none', border: '1px solid var(--border2)', color: 'var(--muted)', fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.85rem', padding: '11px 16px', borderRadius: 10, cursor: 'pointer' },
-  refreshBtn: { background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border2)', color: 'var(--text)', fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.82rem', padding: '9px 16px', borderRadius: 8, cursor: 'pointer' },
-  addBtn: { display: 'inline-flex', alignItems: 'center', background: 'linear-gradient(135deg,#2563eb,#7c3aed)', color: '#fff', fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: '0.82rem', padding: '9px 16px', borderRadius: 8, border: 'none', cursor: 'pointer' },
+  input: { width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border2)', borderRadius: 8, padding: '10px 12px', fontSize: '0.88rem', color: 'var(--text)', outline: 'none', fontFamily: 'var(--font-dm-sans), sans-serif' },
+  submitBtn: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg,#2563eb,#7c3aed)', color: '#fff', fontFamily: 'var(--font-syne), sans-serif', fontWeight: 700, fontSize: '0.88rem', padding: '11px 20px', borderRadius: 10, border: 'none', cursor: 'pointer' },
+  cancelBtn: { background: 'none', border: '1px solid var(--border2)', color: 'var(--muted)', fontFamily: 'var(--font-syne), sans-serif', fontWeight: 700, fontSize: '0.85rem', padding: '11px 16px', borderRadius: 10, cursor: 'pointer' },
+  refreshBtn: { background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border2)', color: 'var(--text)', fontFamily: 'var(--font-syne), sans-serif', fontWeight: 700, fontSize: '0.82rem', padding: '9px 16px', borderRadius: 8, cursor: 'pointer' },
+  addBtn: { display: 'inline-flex', alignItems: 'center', background: 'linear-gradient(135deg,#2563eb,#7c3aed)', color: '#fff', fontFamily: 'var(--font-syne), sans-serif', fontWeight: 700, fontSize: '0.82rem', padding: '9px 16px', borderRadius: 8, border: 'none', cursor: 'pointer' },
   iconBtn: { width: 32, height: 32, borderRadius: 7, background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)', color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '0.8rem', transition: 'background 0.2s' },
   errorBox: { background: 'rgba(255,59,59,0.08)', border: '1px solid rgba(255,59,59,0.3)', borderRadius: 8, padding: '10px 14px', fontSize: '0.82rem', color: '#ff3b3b' },
 };

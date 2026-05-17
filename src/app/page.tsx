@@ -1,9 +1,12 @@
 'use client';
 
+import Icon from '@/components/Icon';
 import { useState, useEffect, useRef } from 'react';
-import CheckoutModal from '@/components/CheckoutModal';
+import dynamic from 'next/dynamic';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+
+const CheckoutModal = dynamic(() => import('@/components/CheckoutModal'), { ssr: false });
 
 // --------------------------------------
 // Types
@@ -107,7 +110,7 @@ export default function HomePage() {
 
         <h1
           style={{
-            fontFamily: 'Syne, sans-serif',
+            fontFamily: 'var(--font-syne), sans-serif',
             fontSize: 'clamp(2.1rem, 9vw, 5.5rem)',
             fontWeight: 800,
             lineHeight: 1.05,
@@ -140,7 +143,7 @@ export default function HomePage() {
           className="cta-btn"
           onClick={() => document.getElementById('offres')?.scrollIntoView({ behavior: 'smooth' })}
         >
-          <i className="fa-solid fa-bolt" style={{ fontSize: '1.2rem' }} />
+          <Icon className="fa-solid fa-bolt" style={{ fontSize: '1.2rem' }} />
           Voir les offres
         </button>
 
@@ -175,7 +178,7 @@ export default function HomePage() {
                 backdropFilter: 'blur(6px)',
               }}
             >
-              <i className={`fa-solid ${pill.icon}`} style={{ color: pill.color }} />
+              <Icon className={`fa-solid ${pill.icon}`} style={{ color: pill.color }} />
               {pill.label && <span>{pill.label} </span>}
               <span style={{ color: 'var(--text)', fontWeight: 600 }}>{pill.text}</span>
             </div>
@@ -212,7 +215,7 @@ export default function HomePage() {
           className="reveal"
           style={{
             textAlign: 'center',
-            fontFamily: 'Syne, sans-serif',
+            fontFamily: 'var(--font-syne), sans-serif',
             fontSize: 'clamp(1.7rem, 4vw, 2.6rem)',
             fontWeight: 800,
             letterSpacing: '-0.03em',
@@ -317,7 +320,7 @@ export default function HomePage() {
             className="cta-btn"
             onClick={() => setCheckoutService('YOUTUBE')}
           >
-            <i className="fa-solid fa-bolt" />
+            <Icon className="fa-solid fa-bolt" />
             Obtenir mon accès maintenant
           </button>
         </div>
@@ -370,7 +373,7 @@ export default function HomePage() {
           className="reveal"
           style={{
             textAlign: 'center',
-            fontFamily: 'Syne, sans-serif',
+            fontFamily: 'var(--font-syne), sans-serif',
             fontSize: 'clamp(1.7rem, 4vw, 2.6rem)',
             fontWeight: 800,
             letterSpacing: '-0.03em',
@@ -447,7 +450,7 @@ export default function HomePage() {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontFamily: 'Syne, sans-serif',
+                  fontFamily: 'var(--font-syne), sans-serif',
                   fontSize: '0.85rem',
                   fontWeight: 700,
                   color: 'var(--muted)',
@@ -458,7 +461,7 @@ export default function HomePage() {
               </div>
               <h4
                 style={{
-                  fontFamily: 'Syne, sans-serif',
+                  fontFamily: 'var(--font-syne), sans-serif',
                   fontSize: '1rem',
                   fontWeight: 700,
                   marginBottom: '8px',
@@ -502,7 +505,7 @@ export default function HomePage() {
           className="reveal"
           style={{
             textAlign: 'center',
-            fontFamily: 'Syne, sans-serif',
+            fontFamily: 'var(--font-syne), sans-serif',
             fontSize: 'clamp(1.7rem, 4vw, 2.6rem)',
             fontWeight: 800,
             letterSpacing: '-0.03em',
@@ -590,7 +593,7 @@ export default function HomePage() {
           className="reveal"
           style={{
             textAlign: 'center',
-            fontFamily: 'Syne, sans-serif',
+            fontFamily: 'var(--font-syne), sans-serif',
             fontSize: 'clamp(1.7rem, 4vw, 2.6rem)',
             fontWeight: 800,
             letterSpacing: '-0.03em',
@@ -721,7 +724,7 @@ export default function HomePage() {
         <h2
           className="reveal"
           style={{
-            fontFamily: 'Syne, sans-serif',
+            fontFamily: 'var(--font-syne), sans-serif',
             fontSize: 'clamp(1.7rem, 4vw, 2.6rem)',
             fontWeight: 800,
             letterSpacing: '-0.03em',
@@ -749,7 +752,7 @@ export default function HomePage() {
             <div key={i} style={{ textAlign: 'center' }}>
               <div
                 style={{
-                  fontFamily: 'Syne, sans-serif',
+                  fontFamily: 'var(--font-syne), sans-serif',
                   fontSize: '2.8rem',
                   fontWeight: 800,
                   color: stat.color,
@@ -770,7 +773,7 @@ export default function HomePage() {
             style={{ fontSize: '1.05rem', padding: '18px 36px' }}
             onClick={() => setCheckoutService('YOUTUBE')}
           >
-            <i className="fa-solid fa-bolt" style={{ fontSize: '1.2rem' }} />
+            <Icon className="fa-solid fa-bolt" style={{ fontSize: '1.2rem' }} />
             Rejoindre maintenant
           </button>
           <p style={{ marginTop: '16px', fontSize: '0.78rem', color: 'var(--muted)' }}>
@@ -938,12 +941,12 @@ function ProductCard({
           marginBottom: '16px',
         }}
       >
-        <i className={icon} />
+        <Icon className={icon} />
       </div>
 
       <h3
         style={{
-          fontFamily: 'Syne, sans-serif',
+          fontFamily: 'var(--font-syne), sans-serif',
           fontSize: '1.15rem',
           fontWeight: 700,
           marginBottom: '8px',
@@ -954,7 +957,7 @@ function ProductCard({
 
       <div
         style={{
-          fontFamily: 'Syne, sans-serif',
+          fontFamily: 'var(--font-syne), sans-serif',
           fontSize: '2.2rem',
           fontWeight: 800,
           lineHeight: 1,
@@ -1017,7 +1020,7 @@ function ProductCard({
               fontSize: '0.88rem',
             }}
           >
-            <i
+            <Icon
               className="fa-solid fa-circle-check"
               style={{ fontSize: '0.72rem', color: accentColor, flexShrink: 0 }}
             />
@@ -1033,7 +1036,7 @@ function ProductCard({
           display: 'block',
           width: '100%',
           textAlign: 'center',
-          fontFamily: 'Syne, sans-serif',
+          fontFamily: 'var(--font-syne), sans-serif',
           fontWeight: 700,
           fontSize: '0.92rem',
           padding: '13px',
@@ -1063,12 +1066,12 @@ function ProductCard({
       >
         {isFull ? (
           <>
-            <i className="fa-solid fa-lock" style={{ marginRight: '8px' }} />
+            <Icon className="fa-solid fa-lock" style={{ marginRight: '8px' }} />
             COMPLET
           </>
         ) : (
           <>
-            <i className="fa-solid fa-bolt" style={{ marginRight: '8px' }} />
+            <Icon className="fa-solid fa-bolt" style={{ marginRight: '8px' }} />
             S&apos;abonner maintenant
           </>
         )}
@@ -1127,11 +1130,11 @@ function TrustCard({
           margin: '0 auto 14px',
         }}
       >
-        <i className={`fa-solid ${icon}`} style={{ color: iconColor }} />
+        <Icon className={`fa-solid ${icon}`} style={{ color: iconColor }} />
       </div>
       <h3
         style={{
-          fontFamily: 'Syne, sans-serif',
+          fontFamily: 'var(--font-syne), sans-serif',
           fontSize: '1rem',
           fontWeight: 700,
           marginBottom: '8px',
@@ -1159,7 +1162,7 @@ function TrustCard({
                 color: 'var(--muted)',
               }}
             >
-              <i className={c.icon} style={{ color: c.color }} /> {c.label}
+              <Icon className={c.icon} style={{ color: c.color }} /> {c.label}
             </span>
           ))}
         </div>

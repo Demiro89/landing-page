@@ -8,8 +8,8 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        syne: ['Syne', 'sans-serif'],
-        sans: ['DM Sans', 'sans-serif'],
+        syne: ['var(--font-syne)', 'sans-serif'],
+        sans: ['var(--font-dm-sans)', 'sans-serif'],
       },
       colors: {
         bg: '#0a0a0f',

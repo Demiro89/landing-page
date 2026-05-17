@@ -1,5 +1,6 @@
 'use client';
 
+import Icon from './Icon';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
@@ -77,7 +78,7 @@ export default function Navbar({
             display: 'flex',
             alignItems: 'center',
             gap: '9px',
-            fontFamily: 'Syne, sans-serif',
+            fontFamily: 'var(--font-syne), sans-serif',
             fontWeight: 800,
             fontSize: '1rem',
             color: 'var(--text)',
@@ -98,7 +99,7 @@ export default function Navbar({
               fontSize: '0.8rem',
             }}
           >
-            <i className="fa-solid fa-bolt" />
+            <Icon className="fa-solid fa-bolt" />
           </span>
           StreamMalin
         </a>
@@ -155,7 +156,7 @@ export default function Navbar({
                 fontSize: '0.78rem',
                 fontWeight: 700,
                 textDecoration: 'none',
-                fontFamily: 'Syne, sans-serif',
+                fontFamily: 'var(--font-syne), sans-serif',
                 transition: 'background 0.2s',
               }}
               onMouseEnter={(e) =>
@@ -201,7 +202,7 @@ export default function Navbar({
                 ((e.currentTarget as HTMLAnchorElement).style.color = 'var(--muted)')
               }
             >
-              <i className="fa-solid fa-magnifying-glass" style={{ fontSize: '0.75rem' }} />
+              <Icon className="fa-solid fa-magnifying-glass" style={{ fontSize: '0.75rem' }} />
               Suivre ma commande
             </Link>
           )}
@@ -219,7 +220,7 @@ export default function Navbar({
               cursor: 'pointer',
               border: 'none',
               transition: 'opacity 0.2s',
-              fontFamily: 'Syne, sans-serif',
+              fontFamily: 'var(--font-syne), sans-serif',
               whiteSpace: 'nowrap',
             }}
             onMouseEnter={(e) =>
@@ -229,7 +230,7 @@ export default function Navbar({
               ((e.currentTarget as HTMLButtonElement).style.opacity = '1')
             }
           >
-            <i className="fa-solid fa-bolt" style={{ marginRight: '6px' }} />
+            <Icon className="fa-solid fa-bolt" style={{ marginRight: '6px' }} />
             S'abonner
           </button>
         </div>

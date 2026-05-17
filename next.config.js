@@ -1,9 +1,15 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  swcMinify: true,
-  // Disable font optimization - fonts are loaded via CDN at runtime
-  optimizeFonts: false,
+  poweredByHeader: false,
+  compiler: {
+    removeConsole:
+      process.env.NODE_ENV === 'production' ? { exclude: ['error', 'warn'] } : false,
+  },
+  experimental: {
+    // Inline le CSS critique — nécessite la dépendance "critters"
+    optimizeCss: true,
+  },
   // Increase static generation timeout
   staticPageGenerationTimeout: 120,
 };
