@@ -1,5 +1,6 @@
 'use client';
 
+import Icon from '@/components/Icon';
 import { useState, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import Navbar from '@/components/Navbar';
@@ -142,7 +143,7 @@ export default function HomePage() {
           className="cta-btn"
           onClick={() => document.getElementById('offres')?.scrollIntoView({ behavior: 'smooth' })}
         >
-          <i className="fa-solid fa-bolt" style={{ fontSize: '1.2rem' }} />
+          <Icon className="fa-solid fa-bolt" style={{ fontSize: '1.2rem' }} />
           Voir les offres
         </button>
 
@@ -177,7 +178,7 @@ export default function HomePage() {
                 backdropFilter: 'blur(6px)',
               }}
             >
-              <i className={`fa-solid ${pill.icon}`} style={{ color: pill.color }} />
+              <Icon className={`fa-solid ${pill.icon}`} style={{ color: pill.color }} />
               {pill.label && <span>{pill.label} </span>}
               <span style={{ color: 'var(--text)', fontWeight: 600 }}>{pill.text}</span>
             </div>
@@ -319,7 +320,7 @@ export default function HomePage() {
             className="cta-btn"
             onClick={() => setCheckoutService('YOUTUBE')}
           >
-            <i className="fa-solid fa-bolt" />
+            <Icon className="fa-solid fa-bolt" />
             Obtenir mon accès maintenant
           </button>
         </div>
@@ -772,7 +773,7 @@ export default function HomePage() {
             style={{ fontSize: '1.05rem', padding: '18px 36px' }}
             onClick={() => setCheckoutService('YOUTUBE')}
           >
-            <i className="fa-solid fa-bolt" style={{ fontSize: '1.2rem' }} />
+            <Icon className="fa-solid fa-bolt" style={{ fontSize: '1.2rem' }} />
             Rejoindre maintenant
           </button>
           <p style={{ marginTop: '16px', fontSize: '0.78rem', color: 'var(--muted)' }}>
@@ -940,7 +941,7 @@ function ProductCard({
           marginBottom: '16px',
         }}
       >
-        <i className={icon} />
+        <Icon className={icon} />
       </div>
 
       <h3
@@ -1019,7 +1020,7 @@ function ProductCard({
               fontSize: '0.88rem',
             }}
           >
-            <i
+            <Icon
               className="fa-solid fa-circle-check"
               style={{ fontSize: '0.72rem', color: accentColor, flexShrink: 0 }}
             />
@@ -1065,12 +1066,12 @@ function ProductCard({
       >
         {isFull ? (
           <>
-            <i className="fa-solid fa-lock" style={{ marginRight: '8px' }} />
+            <Icon className="fa-solid fa-lock" style={{ marginRight: '8px' }} />
             COMPLET
           </>
         ) : (
           <>
-            <i className="fa-solid fa-bolt" style={{ marginRight: '8px' }} />
+            <Icon className="fa-solid fa-bolt" style={{ marginRight: '8px' }} />
             S&apos;abonner maintenant
           </>
         )}
@@ -1129,7 +1130,7 @@ function TrustCard({
           margin: '0 auto 14px',
         }}
       >
-        <i className={`fa-solid ${icon}`} style={{ color: iconColor }} />
+        <Icon className={`fa-solid ${icon}`} style={{ color: iconColor }} />
       </div>
       <h3
         style={{
@@ -1161,7 +1162,7 @@ function TrustCard({
                 color: 'var(--muted)',
               }}
             >
-              <i className={c.icon} style={{ color: c.color }} /> {c.label}
+              <Icon className={c.icon} style={{ color: c.color }} /> {c.label}
             </span>
           ))}
         </div>

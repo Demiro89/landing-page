@@ -1,5 +1,6 @@
 'use client';
 
+import Icon from '@/components/Icon';
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Navbar from '@/components/Navbar';
@@ -236,7 +237,7 @@ function TrackOrderContent() {
             letterSpacing: '0.08em', textTransform: 'uppercase' as const,
             color: 'var(--green)', marginBottom: '20px',
           }}>
-            <i className="fa-solid fa-magnifying-glass" />
+            <Icon className="fa-solid fa-magnifying-glass" />
             Suivi de commande
           </div>
           <h1 style={{
@@ -288,8 +289,8 @@ function TrackOrderContent() {
                   }}
                 >
                   {loading
-                    ? <><i className="fa-solid fa-spinner fa-spin" style={{ marginRight: '6px' }} />Envoi...</>
-                    : <><i className="fa-solid fa-paper-plane" style={{ marginRight: '6px' }} />Recevoir le code</>
+                    ? <><Icon className="fa-solid fa-spinner fa-spin" style={{ marginRight: '6px' }} />Envoi...</>
+                    : <><Icon className="fa-solid fa-paper-plane" style={{ marginRight: '6px' }} />Recevoir le code</>
                   }
                 </button>
               </div>
@@ -300,7 +301,7 @@ function TrackOrderContent() {
                 border: '1px solid rgba(255,59,59,0.25)', borderRadius: '8px',
                 padding: '10px 14px', fontSize: '0.82rem', color: '#ff6b6b',
               }}>
-                <i className="fa-solid fa-triangle-exclamation" style={{ marginRight: '6px' }} />
+                <Icon className="fa-solid fa-triangle-exclamation" style={{ marginRight: '6px' }} />
                 {error}
               </div>
             )}
@@ -324,7 +325,7 @@ function TrackOrderContent() {
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: '1.4rem', margin: '0 auto 14px',
               }}>
-                <i className="fa-solid fa-envelope-open-text" />
+                <Icon className="fa-solid fa-envelope-open-text" />
               </div>
               <p style={{ fontFamily: 'var(--font-syne), sans-serif', fontWeight: 700, fontSize: '1rem', marginBottom: '6px' }}>
                 Vérification de votre identité
@@ -375,8 +376,8 @@ function TrackOrderContent() {
                 }}
               >
                 {otpLoading
-                  ? <><i className="fa-solid fa-spinner fa-spin" style={{ marginRight: '7px' }} />Vérification...</>
-                  : <><i className="fa-solid fa-unlock" style={{ marginRight: '7px' }} />Accéder à mes commandes</>
+                  ? <><Icon className="fa-solid fa-spinner fa-spin" style={{ marginRight: '7px' }} />Vérification...</>
+                  : <><Icon className="fa-solid fa-unlock" style={{ marginRight: '7px' }} />Accéder à mes commandes</>
                 }
               </button>
             </div>
@@ -387,7 +388,7 @@ function TrackOrderContent() {
                 borderRadius: '8px', padding: '10px 14px',
                 fontSize: '0.82rem', color: '#ff6b6b', marginBottom: '12px',
               }}>
-                <i className="fa-solid fa-triangle-exclamation" style={{ marginRight: '6px' }} />
+                <Icon className="fa-solid fa-triangle-exclamation" style={{ marginRight: '6px' }} />
                 {otpError}
               </div>
             )}
@@ -405,7 +406,7 @@ function TrackOrderContent() {
                   fontFamily: 'var(--font-dm-sans), sans-serif',
                 }}
               >
-                <i className="fa-solid fa-rotate-right" style={{ marginRight: '5px' }} />
+                <Icon className="fa-solid fa-rotate-right" style={{ marginRight: '5px' }} />
                 {resendCooldown > 0 ? `Renvoyer dans ${resendCooldown}s` : loading ? 'Envoi...' : 'Renvoyer le code'}
               </button>
               <button
@@ -417,7 +418,7 @@ function TrackOrderContent() {
                   fontFamily: 'var(--font-dm-sans), sans-serif',
                 }}
               >
-                <i className="fa-solid fa-arrow-left" style={{ marginRight: '5px' }} />
+                <Icon className="fa-solid fa-arrow-left" style={{ marginRight: '5px' }} />
                 Changer d&apos;email
               </button>
             </div>
@@ -444,7 +445,7 @@ function TrackOrderContent() {
               textAlign: 'center', padding: '40px 24px',
               background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '16px',
             }}>
-              <i className="fa-solid fa-inbox" style={{ fontSize: '2rem', color: 'var(--muted)', marginBottom: '12px', display: 'block' }} />
+              <Icon className="fa-solid fa-inbox" style={{ fontSize: '2rem', color: 'var(--muted)', marginBottom: '12px', display: 'block' }} />
               <p style={{ color: 'var(--muted)', fontSize: '0.9rem' }}>
                 Aucune commande trouvée pour cet email.
               </p>
@@ -490,7 +491,7 @@ function TrackOrderContent() {
                           color: order.service === 'YOUTUBE' ? 'var(--yt)' : order.service === 'DISNEY' ? '#a78bfa' : '#00c7e0',
                           display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.95rem',
                         }}>
-                          <i className={order.service === 'YOUTUBE' ? 'fa-brands fa-youtube' : order.service === 'DISNEY' ? 'fa-solid fa-wand-magic-sparkles' : 'fa-solid fa-shield-halved'} />
+                          <Icon className={order.service === 'YOUTUBE' ? 'fa-brands fa-youtube' : order.service === 'DISNEY' ? 'fa-solid fa-wand-magic-sparkles' : 'fa-solid fa-shield-halved'} />
                         </div>
                         <div>
                           <div style={{ fontFamily: 'var(--font-syne), sans-serif', fontWeight: 700, fontSize: '0.92rem' }}>
@@ -510,16 +511,16 @@ function TrackOrderContent() {
                         borderRadius: '999px', padding: '4px 10px',
                         fontSize: '0.74rem', fontWeight: 700,
                       }}>
-                        <i className={`fa-solid ${cfg.icon}`} style={{ fontSize: '0.65rem' }} />
+                        <Icon className={`fa-solid ${cfg.icon}`} style={{ fontSize: '0.65rem' }} />
                         {cfg.label}
                       </span>
                     </div>
 
                     {/* Details row */}
                     <div style={{ display: 'flex', flexWrap: 'wrap' as const, gap: '16px', fontSize: '0.8rem', color: 'var(--muted)', marginBottom: '14px' }}>
-                      <span><i className="fa-solid fa-calendar" style={{ marginRight: '5px' }} />Commandé le {formatDate(order.createdAt)}</span>
-                      <span><i className="fa-solid fa-euro-sign" style={{ marginRight: '5px' }} />{order.amount.toFixed(2).replace('.', ',')}€/mois</span>
-                      <span><i className="fa-solid fa-credit-card" style={{ marginRight: '5px' }} />{METHOD_LABELS[order.paymentMethod] ?? order.paymentMethod}</span>
+                      <span><Icon className="fa-solid fa-calendar" style={{ marginRight: '5px' }} />Commandé le {formatDate(order.createdAt)}</span>
+                      <span><Icon className="fa-solid fa-euro-sign" style={{ marginRight: '5px' }} />{order.amount.toFixed(2).replace('.', ',')}€/mois</span>
+                      <span><Icon className="fa-solid fa-credit-card" style={{ marginRight: '5px' }} />{METHOD_LABELS[order.paymentMethod] ?? order.paymentMethod}</span>
                     </div>
 
                     {/* YouTube invitation status */}
@@ -533,7 +534,7 @@ function TrackOrderContent() {
                       }}>
                         {order.invitationSentAt ? (
                           <>
-                            <i className="fa-solid fa-circle-check" style={{ color: '#00ffaa', flexShrink: 0 }} />
+                            <Icon className="fa-solid fa-circle-check" style={{ color: '#00ffaa', flexShrink: 0 }} />
                             <span>
                               <span style={{ color: '#00ffaa', fontWeight: 600 }}>
                                 L&apos;invitation a été envoyée sur votre adresse Gmail !
@@ -544,7 +545,7 @@ function TrackOrderContent() {
                           </>
                         ) : (
                           <>
-                            <i className="fa-solid fa-clock" style={{ color: '#f59e0b', flexShrink: 0 }} />
+                            <Icon className="fa-solid fa-clock" style={{ color: '#f59e0b', flexShrink: 0 }} />
                             <span style={{ color: '#f59e0b' }}>
                               En attente de l&apos;envoi de l&apos;invitation YouTube Premium
                             </span>
@@ -564,7 +565,7 @@ function TrackOrderContent() {
                         flexWrap: 'wrap' as const, gap: '6px',
                       }}>
                         <span style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>
-                          <i className="fa-solid fa-clock" style={{ marginRight: '5px' }} />
+                          <Icon className="fa-solid fa-clock" style={{ marginRight: '5px' }} />
                           Expire le {formatDate(order.expiresAt)}
                         </span>
                         <span style={{ fontSize: '0.74rem', fontWeight: 700, color: urgent ? '#f59e0b' : 'var(--green)' }}>
@@ -582,7 +583,7 @@ function TrackOrderContent() {
                         marginBottom: '10px',
                       }}>
                         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '10px' }}>
-                          <i className="fa-solid fa-triangle-exclamation" style={{ color: '#f59e0b', fontSize: '1.1rem', marginTop: '2px', flexShrink: 0 }} />
+                          <Icon className="fa-solid fa-triangle-exclamation" style={{ color: '#f59e0b', fontSize: '1.1rem', marginTop: '2px', flexShrink: 0 }} />
                           <div>
                             <p style={{ color: '#f59e0b', fontWeight: 700, fontSize: '0.86rem', margin: '0 0 4px' }}>
                               Échec de prélèvement
@@ -605,8 +606,8 @@ function TrackOrderContent() {
                             }}
                           >
                             {portalLoading === order.id
-                              ? <><i className="fa-solid fa-spinner fa-spin" style={{ marginRight: '7px' }} />Chargement...</>
-                              : <><i className="fa-solid fa-credit-card" style={{ marginRight: '7px' }} />Mettre à jour ma carte bancaire</>
+                              ? <><Icon className="fa-solid fa-spinner fa-spin" style={{ marginRight: '7px' }} />Chargement...</>
+                              : <><Icon className="fa-solid fa-credit-card" style={{ marginRight: '7px' }} />Mettre à jour ma carte bancaire</>
                             }
                           </button>
                         )}
@@ -622,7 +623,7 @@ function TrackOrderContent() {
                         display: 'flex', alignItems: 'flex-start', gap: '10px',
                         marginBottom: '10px', fontSize: '0.82rem',
                       }}>
-                        <i className="fa-solid fa-calendar-xmark" style={{ color: '#ff6b6b', marginTop: '2px', flexShrink: 0 }} />
+                        <Icon className="fa-solid fa-calendar-xmark" style={{ color: '#ff6b6b', marginTop: '2px', flexShrink: 0 }} />
                         <span style={{ color: '#ff6b6b', lineHeight: 1.5 }}>
                           <strong>Résiliation enregistrée.</strong> Aucun futur prélèvement.
                           {order.expiresAt && (
@@ -641,7 +642,7 @@ function TrackOrderContent() {
                         display: 'flex', alignItems: 'flex-start', gap: '10px',
                         marginTop: '8px', marginBottom: '14px', fontSize: '0.82rem',
                       }}>
-                        <i className="fa-solid fa-triangle-exclamation" style={{ color: '#f59e0b', marginTop: '2px', flexShrink: 0 }} />
+                        <Icon className="fa-solid fa-triangle-exclamation" style={{ color: '#f59e0b', marginTop: '2px', flexShrink: 0 }} />
                         <span style={{ color: '#f59e0b', lineHeight: 1.5 }}>
                           <strong>Attention, votre accès expire bientôt.</strong>
                           {' '}Pensez à renouveler pour éviter une coupure de service.
@@ -657,7 +658,7 @@ function TrackOrderContent() {
                         borderRadius: '10px', padding: '16px',
                         marginBottom: '14px', textAlign: 'center' as const,
                       }}>
-                        <i className="fa-solid fa-circle-xmark" style={{ fontSize: '1.6rem', color: '#ff6b6b', marginBottom: '8px', display: 'block' }} />
+                        <Icon className="fa-solid fa-circle-xmark" style={{ fontSize: '1.6rem', color: '#ff6b6b', marginBottom: '8px', display: 'block' }} />
                         <p style={{ color: '#ff6b6b', fontWeight: 700, fontSize: '0.88rem', marginBottom: '6px' }}>
                           Accès expiré
                         </p>
@@ -674,7 +675,7 @@ function TrackOrderContent() {
                             textDecoration: 'none',
                           }}
                         >
-                          <i className="fa-solid fa-rotate-right" />
+                          <Icon className="fa-solid fa-rotate-right" />
                           Renouveler mon abonnement
                         </a>
                       </div>
@@ -693,7 +694,7 @@ function TrackOrderContent() {
                           boxSizing: 'border-box' as const,
                         }}
                       >
-                        <i className="fa-solid fa-rotate-right" />
+                        <Icon className="fa-solid fa-rotate-right" />
                         Renouveler maintenant
                       </a>
                     )}
@@ -711,7 +712,7 @@ function TrackOrderContent() {
                           marginBottom: '6px',
                         }}
                       >
-                        <i className="fa-solid fa-ban" style={{ marginRight: '6px' }} />
+                        <Icon className="fa-solid fa-ban" style={{ marginRight: '6px' }} />
                         Résilier l&apos;abonnement
                       </button>
                     )}
@@ -724,7 +725,7 @@ function TrackOrderContent() {
                         borderRadius: '8px', padding: '10px 14px',
                         fontSize: '0.8rem', color: '#00ffaa', marginBottom: '8px',
                       }}>
-                        <i className="fa-solid fa-circle-check" />
+                        <Icon className="fa-solid fa-circle-check" />
                         Signalement envoyé — nous allons traiter votre demande rapidement.
                       </div>
                     ) : reportOrderId === order.id ? (
@@ -733,7 +734,7 @@ function TrackOrderContent() {
                         borderRadius: '10px', padding: '14px 16px', marginBottom: '8px',
                       }}>
                         <p style={{ fontFamily: 'var(--font-syne), sans-serif', fontWeight: 700, fontSize: '0.85rem', marginBottom: '10px' }}>
-                          <i className="fa-solid fa-triangle-exclamation" style={{ color: '#f59e0b', marginRight: '7px' }} />
+                          <Icon className="fa-solid fa-triangle-exclamation" style={{ color: '#f59e0b', marginRight: '7px' }} />
                           Signaler un problème
                         </p>
                         <select
@@ -790,8 +791,8 @@ function TrackOrderContent() {
                             }}
                           >
                             {reportLoading
-                              ? <><i className="fa-solid fa-spinner fa-spin" style={{ marginRight: '6px' }} />Envoi...</>
-                              : <><i className="fa-solid fa-paper-plane" style={{ marginRight: '6px' }} />Envoyer le signalement</>
+                              ? <><Icon className="fa-solid fa-spinner fa-spin" style={{ marginRight: '6px' }} />Envoi...</>
+                              : <><Icon className="fa-solid fa-paper-plane" style={{ marginRight: '6px' }} />Envoyer le signalement</>
                             }
                           </button>
                         </div>
@@ -807,7 +808,7 @@ function TrackOrderContent() {
                           cursor: 'pointer', fontFamily: 'var(--font-syne), sans-serif',
                         }}
                       >
-                        <i className="fa-solid fa-triangle-exclamation" style={{ marginRight: '6px', color: '#f59e0b' }} />
+                        <Icon className="fa-solid fa-triangle-exclamation" style={{ marginRight: '6px', color: '#f59e0b' }} />
                         Signaler un problème
                       </button>
                     )}
@@ -832,7 +833,7 @@ function TrackOrderContent() {
                           (e.currentTarget as HTMLButtonElement).style.color = 'var(--muted)';
                         }}
                       >
-                        <i className="fa-solid fa-gauge-high" style={{ marginRight: '7px' }} />
+                        <Icon className="fa-solid fa-gauge-high" style={{ marginRight: '7px' }} />
                         Voir le détail dans mon espace client
                       </button>
                     )}
@@ -867,7 +868,7 @@ function TrackOrderContent() {
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: '1.4rem', margin: '0 auto 20px',
               }}>
-                <i className="fa-solid fa-ban" />
+                <Icon className="fa-solid fa-ban" />
               </div>
               <h3 style={{ fontFamily: 'var(--font-syne), sans-serif', fontWeight: 800, fontSize: '1.1rem', marginBottom: '10px' }}>
                 Résilier l&apos;abonnement ?
@@ -902,7 +903,7 @@ function TrackOrderContent() {
                   }}
                 >
                   {cancelLoading
-                    ? <><i className="fa-solid fa-spinner fa-spin" style={{ marginRight: '6px' }} />Traitement...</>
+                    ? <><Icon className="fa-solid fa-spinner fa-spin" style={{ marginRight: '6px' }} />Traitement...</>
                     : 'Confirmer la résiliation'
                   }
                 </button>
@@ -932,7 +933,7 @@ function TrackOrderContent() {
               textDecoration: 'none',
             }}
           >
-            <i className="fa-brands fa-telegram" />
+            <Icon className="fa-brands fa-telegram" />
             Contacter le support Telegram
           </a>
         </div>
@@ -948,7 +949,7 @@ export default function TrackOrderPage() {
   return (
     <Suspense fallback={
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <i className="fa-solid fa-spinner fa-spin" style={{ fontSize: '1.5rem', color: 'var(--muted)' }} />
+        <Icon className="fa-solid fa-spinner fa-spin" style={{ fontSize: '1.5rem', color: 'var(--muted)' }} />
       </div>
     }>
       <TrackOrderContent />

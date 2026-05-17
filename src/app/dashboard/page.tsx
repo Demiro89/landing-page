@@ -1,5 +1,6 @@
 'use client';
 
+import Icon from '@/components/Icon';
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Navbar from '@/components/Navbar';
@@ -111,7 +112,7 @@ function DashboardLoading() {
         }}
       >
         <div style={{ textAlign: 'center', color: 'var(--muted)' }}>
-          <i className="fa-solid fa-spinner fa-spin" style={{ fontSize: '2rem', marginBottom: '16px', display: 'block' }} />
+          <Icon className="fa-solid fa-spinner fa-spin" style={{ fontSize: '2rem', marginBottom: '16px', display: 'block' }} />
           Chargement...
         </div>
       </main>
@@ -227,7 +228,7 @@ function DashboardContent() {
               marginBottom: '16px',
             }}
           >
-            <i className="fa-solid fa-gauge-high" />
+            <Icon className="fa-solid fa-gauge-high" />
             Espace Client
           </div>
           <h1
@@ -304,10 +305,10 @@ function DashboardContent() {
                 }}
               >
                 {loading ? (
-                  <i className="fa-solid fa-spinner fa-spin" />
+                  <Icon className="fa-solid fa-spinner fa-spin" />
                 ) : (
                   <>
-                    <i className="fa-solid fa-magnifying-glass" style={{ marginRight: '6px' }} />
+                    <Icon className="fa-solid fa-magnifying-glass" style={{ marginRight: '6px' }} />
                     Rechercher
                   </>
                 )}
@@ -329,7 +330,7 @@ function DashboardContent() {
               color: 'var(--yt)',
             }}
           >
-            <i className="fa-solid fa-triangle-exclamation" style={{ marginRight: '8px' }} />
+            <Icon className="fa-solid fa-triangle-exclamation" style={{ marginRight: '8px' }} />
             {error}
           </div>
         )}
@@ -343,7 +344,7 @@ function DashboardContent() {
               color: 'var(--muted)',
             }}
           >
-            <i
+            <Icon
               className="fa-regular fa-folder-open"
               style={{ fontSize: '2.5rem', marginBottom: '16px', display: 'block' }}
             />
@@ -401,7 +402,7 @@ function DashboardContent() {
               flexShrink: 0,
             }}
           >
-            <i className="fa-brands fa-telegram" />
+            <Icon className="fa-brands fa-telegram" />
           </div>
           <div style={{ flex: 1 }}>
             <div
@@ -505,7 +506,7 @@ function OrderCard({
               flexShrink: 0,
             }}
           >
-            <i className={isYoutube ? 'fa-brands fa-youtube' : 'fa-solid fa-wand-magic-sparkles'} />
+            <Icon className={isYoutube ? 'fa-brands fa-youtube' : 'fa-solid fa-wand-magic-sparkles'} />
           </div>
           <div>
             <div
@@ -540,7 +541,7 @@ function OrderCard({
             fontFamily: 'var(--font-syne), sans-serif',
           }}
         >
-          <i className={`fa-solid ${config.icon}`} />
+          <Icon className={`fa-solid ${config.icon}`} />
           {config.label}
         </div>
       </div>
@@ -579,7 +580,7 @@ function OrderCard({
                 marginBottom: '12px',
               }}
             >
-              <i className="fa-solid fa-key" style={{ marginRight: '6px' }} />
+              <Icon className="fa-solid fa-key" style={{ marginRight: '6px' }} />
               Vos accès Disney+
             </p>
 
@@ -623,9 +624,9 @@ function OrderCard({
                     style={{ flexShrink: 0 }}
                   >
                     {copiedKey === field.key ? (
-                      <><i className="fa-solid fa-check" /> Copié</>
+                      <><Icon className="fa-solid fa-check" /> Copié</>
                     ) : (
-                      <><i className="fa-regular fa-copy" /> Copier</>
+                      <><Icon className="fa-regular fa-copy" /> Copier</>
                     )}
                   </button>
                 )}
@@ -642,7 +643,7 @@ function OrderCard({
                 color: 'var(--muted)',
               }}
             >
-              <i className="fa-solid fa-circle-info" style={{ marginRight: '6px', color: 'var(--green)' }} />
+              <Icon className="fa-solid fa-circle-info" style={{ marginRight: '6px', color: 'var(--green)' }} />
               Connectez-vous sur{' '}
               <a
                 href="https://disneyplus.com"
@@ -678,7 +679,7 @@ function OrderCard({
                 marginBottom: '8px',
               }}
             >
-              <i className="fa-brands fa-google" style={{ marginRight: '6px' }} />
+              <Icon className="fa-brands fa-google" style={{ marginRight: '6px' }} />
               Renseignez votre Gmail
             </p>
             <p style={{ fontSize: '0.8rem', color: 'var(--muted)', marginBottom: '12px' }}>
@@ -721,7 +722,7 @@ function OrderCard({
                 }}
               >
                 {gmailSaving ? (
-                  <i className="fa-solid fa-spinner fa-spin" />
+                  <Icon className="fa-solid fa-spinner fa-spin" />
                 ) : (
                   'Envoyer'
                 )}
@@ -750,7 +751,7 @@ function OrderCard({
                 marginBottom: '6px',
               }}
             >
-              <i className="fa-solid fa-circle-check" style={{ marginRight: '6px' }} />
+              <Icon className="fa-solid fa-circle-check" style={{ marginRight: '6px' }} />
               Gmail enregistré
             </p>
             <code style={{ fontSize: '0.85rem', color: 'var(--text)' }}>{order.gmail}</code>
@@ -794,7 +795,7 @@ function ExpiryCountdown({
           borderRadius: '8px', padding: '8px 12px',
           fontSize: '0.8rem', color: 'var(--yt)', marginBottom: '10px',
         }}>
-          <i className="fa-solid fa-triangle-exclamation" />
+          <Icon className="fa-solid fa-triangle-exclamation" />
           Abonnement expiré — votre accès a été désactivé.
         </div>
         <br />
@@ -804,7 +805,7 @@ function ExpiryCountdown({
           fontFamily: 'var(--font-syne), sans-serif', fontWeight: 700, fontSize: '0.82rem',
           padding: '9px 16px', borderRadius: '8px', textDecoration: 'none',
         }}>
-          <i className="fa-solid fa-rotate-right" />
+          <Icon className="fa-solid fa-rotate-right" />
           Se réabonner
         </a>
       </div>
@@ -831,7 +832,7 @@ function ExpiryCountdown({
         borderRadius: '8px', padding: '7px 12px',
         fontSize: '0.78rem', color: 'var(--green)',
       }}>
-        <i className="fa-regular fa-calendar-check" />
+        <Icon className="fa-regular fa-calendar-check" />
         Expire le <strong style={{ marginLeft: 3 }}>{expiryLabel}</strong>
         <span style={{
           marginLeft: 6, background: 'rgba(0,255,170,0.12)',
@@ -861,7 +862,7 @@ function ExpiryCountdown({
         animation: 'urgentPulse 1.8s ease-in-out infinite',
         marginBottom: '10px',
       }}>
-        <i className="fa-solid fa-triangle-exclamation" />
+        <Icon className="fa-solid fa-triangle-exclamation" />
         <span>
           <strong>
             {daysLeft <= 0
@@ -879,7 +880,7 @@ function ExpiryCountdown({
         padding: '10px 20px', borderRadius: '9px', textDecoration: 'none',
         boxShadow: '0 4px 20px rgba(255,59,59,0.3)',
       }}>
-        <i className="fa-solid fa-rotate-right" />
+        <Icon className="fa-solid fa-rotate-right" />
         Se réabonner maintenant
       </a>
     </div>

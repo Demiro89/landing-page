@@ -1,3 +1,4 @@
+import Icon from '@/components/Icon';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 
@@ -31,7 +32,7 @@ export default function PolitiqueConfidentialitePage() {
             marginBottom: '32px',
           }}
         >
-          <i className="fa-solid fa-arrow-left" style={{ fontSize: '0.75rem' }} />
+          <Icon className="fa-solid fa-arrow-left" style={{ fontSize: '0.75rem' }} />
           Retour à l&apos;accueil
         </a>
 
@@ -138,7 +139,7 @@ export default function PolitiqueConfidentialitePage() {
               textDecoration: 'none',
             }}
           >
-            <i className="fa-solid fa-envelope" />
+            <Icon className="fa-solid fa-envelope" />
             hello@streammalin.fr
           </a>
         </div>

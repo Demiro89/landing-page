@@ -1,5 +1,6 @@
 'use client';
 
+import Icon from '@/components/Icon';
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 // ── Helper : lit un cookie côté client ──────────────────────────────────────
@@ -587,7 +588,7 @@ export default function AdminPage() {
               margin: '0 auto 20px',
             }}
           >
-            <i className="fa-solid fa-shield-halved" />
+            <Icon className="fa-solid fa-shield-halved" />
           </div>
 
           <h1
@@ -655,7 +656,7 @@ export default function AdminPage() {
               cursor: 'pointer',
             }}
           >
-            <i className="fa-solid fa-right-to-bracket" style={{ marginRight: '8px' }} />
+            <Icon className="fa-solid fa-right-to-bracket" style={{ marginRight: '8px' }} />
             Accéder
           </button>
         </form>
@@ -700,7 +701,7 @@ export default function AdminPage() {
               marginBottom: '4px',
             }}
           >
-            <i className="fa-solid fa-bolt" style={{ color: '#a78bfa', marginRight: '10px' }} />
+            <Icon className="fa-solid fa-bolt" style={{ color: '#a78bfa', marginRight: '10px' }} />
             Admin StreamMalin
           </h1>
           <p style={{ fontSize: '0.82rem', color: 'var(--muted)' }}>
@@ -725,7 +726,7 @@ export default function AdminPage() {
               textDecoration: 'none',
             }}
           >
-            <i className="fa-solid fa-boxes-stacked" />
+            <Icon className="fa-solid fa-boxes-stacked" />
             Gérer les stocks
           </a>
           <button
@@ -743,7 +744,7 @@ export default function AdminPage() {
               cursor: 'pointer',
             }}
           >
-            <i className={`fa-solid fa-rotate-right ${loading ? 'fa-spin' : ''}`} style={{ marginRight: '6px' }} />
+            <Icon className={`fa-solid fa-rotate-right ${loading ? 'fa-spin' : ''}`} style={{ marginRight: '6px' }} />
             Actualiser
           </button>
           <button
@@ -763,7 +764,7 @@ export default function AdminPage() {
               cursor: 'pointer',
             }}
           >
-            <i className="fa-solid fa-right-from-bracket" style={{ marginRight: '6px' }} />
+            <Icon className="fa-solid fa-right-from-bracket" style={{ marginRight: '6px' }} />
             Déconnexion
           </button>
         </div>
@@ -794,7 +795,7 @@ export default function AdminPage() {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-              <i className={`fa-solid ${stat.icon}`} style={{ color: stat.color, fontSize: '0.9rem' }} />
+              <Icon className={`fa-solid ${stat.icon}`} style={{ color: stat.color, fontSize: '0.9rem' }} />
               <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>{stat.label}</span>
             </div>
             <div
@@ -878,7 +879,7 @@ export default function AdminPage() {
           {/* Add account form */}
           <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '16px', padding: '22px', marginBottom: '20px' }}>
             <h3 style={{ fontFamily: 'var(--font-syne), sans-serif', fontWeight: 700, fontSize: '1rem', marginBottom: '16px' }}>
-              <i className="fa-solid fa-plus" style={{ color: '#00ffaa', marginRight: '8px' }} />
+              <Icon className="fa-solid fa-plus" style={{ color: '#00ffaa', marginRight: '8px' }} />
               Ajouter un compte maître
             </h3>
             <form onSubmit={handleAddAccount}>
@@ -935,8 +936,8 @@ export default function AdminPage() {
                 }}
               >
                 {addAccLoading
-                  ? <><i className="fa-solid fa-spinner fa-spin" style={{ marginRight: '6px' }} />Ajout...</>
-                  : <><i className="fa-solid fa-plus" style={{ marginRight: '6px' }} />Créer le compte + slots</>
+                  ? <><Icon className="fa-solid fa-spinner fa-spin" style={{ marginRight: '6px' }} />Ajout...</>
+                  : <><Icon className="fa-solid fa-plus" style={{ marginRight: '6px' }} />Créer le compte + slots</>
                 }
               </button>
             </form>
@@ -945,7 +946,7 @@ export default function AdminPage() {
           {/* Accounts list */}
           {accLoading ? (
             <div style={{ textAlign: 'center', padding: '40px', color: 'var(--muted)' }}>
-              <i className="fa-solid fa-spinner fa-spin" style={{ fontSize: '1.5rem' }} />
+              <Icon className="fa-solid fa-spinner fa-spin" style={{ fontSize: '1.5rem' }} />
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -975,7 +976,7 @@ export default function AdminPage() {
                     {/* Service name + status badge */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
                       <span style={{ fontFamily: 'var(--font-syne), sans-serif', fontWeight: 700, fontSize: '0.9rem', color: svcColor }}>
-                        <i className={svcIcon} style={{ marginRight: '6px' }} />
+                        <Icon className={svcIcon} style={{ marginRight: '6px' }} />
                         {acc.service}
                       </span>
                       {!acc.active && <span style={{ fontSize: '0.7rem', background: 'rgba(255,59,59,0.1)', color: '#ff3b3b', border: '1px solid rgba(255,59,59,0.3)', padding: '2px 8px', borderRadius: '4px' }}>Désactivé</span>}
@@ -1030,7 +1031,7 @@ export default function AdminPage() {
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                         }}
                       >
-                        {isLoadingMinus ? <i className="fa-solid fa-spinner fa-spin" style={{ fontSize: '0.6rem' }} /> : '−'}
+                        {isLoadingMinus ? <Icon className="fa-solid fa-spinner fa-spin" style={{ fontSize: '0.6rem' }} /> : '−'}
                       </button>
                       <button
                         onClick={() => handleAdjustSlots(acc.id, 1)}
@@ -1045,7 +1046,7 @@ export default function AdminPage() {
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                         }}
                       >
-                        {isLoadingPlus ? <i className="fa-solid fa-spinner fa-spin" style={{ fontSize: '0.6rem' }} /> : '+'}
+                        {isLoadingPlus ? <Icon className="fa-solid fa-spinner fa-spin" style={{ fontSize: '0.6rem' }} /> : '+'}
                       </button>
                     </div>
 
@@ -1106,7 +1107,7 @@ export default function AdminPage() {
                                     title="Modifier l'email du slot"
                                     style={{ background: 'transparent', color: 'var(--muted)', border: 'none', cursor: 'pointer', padding: '2px 4px', fontSize: '0.72rem', opacity: 0.7, lineHeight: 1 }}
                                   >
-                                    <i className="fa-solid fa-pen" />
+                                    <Icon className="fa-solid fa-pen" />
                                   </button>
                                 </>
                               )}
@@ -1127,13 +1128,13 @@ export default function AdminPage() {
                       onClick={() => setEditAcc({ id: acc.id, email: acc.email, password: acc.password ?? '' })}
                       style={btnStyle('#3b82f6', 'rgba(59,130,246,0.08)', false)}
                     >
-                      <i className="fa-solid fa-pen" style={{ marginRight: '5px' }} />Modifier
+                      <Icon className="fa-solid fa-pen" style={{ marginRight: '5px' }} />Modifier
                     </button>
                     <button
                       onClick={() => setDeleteAccConfirm(acc.id)}
                       style={btnStyle('#ff3b3b', 'rgba(255,59,59,0.08)', false)}
                     >
-                      <i className="fa-solid fa-trash" style={{ marginRight: '5px' }} />Supprimer
+                      <Icon className="fa-solid fa-trash" style={{ marginRight: '5px' }} />Supprimer
                     </button>
                   </div>
                 </div>
@@ -1157,7 +1158,7 @@ export default function AdminPage() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
             <div>
               <h2 style={{ fontFamily: 'var(--font-syne), sans-serif', fontWeight: 800, fontSize: '1.1rem', marginBottom: '2px' }}>
-                <i className="fa-solid fa-triangle-exclamation" style={{ color: '#ff3b3b', marginRight: '8px' }} />
+                <Icon className="fa-solid fa-triangle-exclamation" style={{ color: '#ff3b3b', marginRight: '8px' }} />
                 Signalements clients
               </h2>
               {reports.length > 0 && (
@@ -1171,19 +1172,19 @@ export default function AdminPage() {
               disabled={reportsLoading}
               style={{ background: 'transparent', border: '1px solid var(--border)', color: 'var(--muted)', borderRadius: '8px', padding: '7px 14px', fontSize: '0.78rem', cursor: 'pointer', fontFamily: 'var(--font-syne), sans-serif' }}
             >
-              <i className="fa-solid fa-rotate-right" style={{ marginRight: '5px' }} />
+              <Icon className="fa-solid fa-rotate-right" style={{ marginRight: '5px' }} />
               Actualiser
             </button>
           </div>
 
           {reportsLoading ? (
             <div style={{ textAlign: 'center', padding: '60px', color: 'var(--muted)' }}>
-              <i className="fa-solid fa-spinner fa-spin" style={{ fontSize: '1.8rem', marginBottom: '12px', display: 'block' }} />
+              <Icon className="fa-solid fa-spinner fa-spin" style={{ fontSize: '1.8rem', marginBottom: '12px', display: 'block' }} />
               Chargement...
             </div>
           ) : reports.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '60px', color: 'var(--muted)' }}>
-              <i className="fa-solid fa-circle-check" style={{ fontSize: '2.4rem', marginBottom: '14px', display: 'block', color: '#00ffaa', opacity: 0.5 }} />
+              <Icon className="fa-solid fa-circle-check" style={{ fontSize: '2.4rem', marginBottom: '14px', display: 'block', color: '#00ffaa', opacity: 0.5 }} />
               <p style={{ fontWeight: 700 }}>Aucun signalement</p>
               <p style={{ fontSize: '0.8rem', marginTop: '4px' }}>Vos clients n&apos;ont signalé aucun problème.</p>
             </div>
@@ -1224,7 +1225,7 @@ export default function AdminPage() {
                           borderRadius: '6px', padding: '3px 9px',
                           fontSize: '0.74rem', fontWeight: 700, flexShrink: 0,
                         }}>
-                          <i className={`fa-solid ${cfg.icon}`} style={{ fontSize: '0.65rem' }} />
+                          <Icon className={`fa-solid ${cfg.icon}`} style={{ fontSize: '0.65rem' }} />
                           {cfg.label}
                         </span>
                         {/* Email */}
@@ -1238,7 +1239,7 @@ export default function AdminPage() {
                           fontSize: '0.74rem', color: '#00ffaa', fontWeight: 700,
                           display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0,
                         }}>
-                          <i className="fa-solid fa-circle-check" />
+                          <Icon className="fa-solid fa-circle-check" />
                           Résolu
                         </span>
                       ) : (
@@ -1254,8 +1255,8 @@ export default function AdminPage() {
                           }}
                         >
                           {resolvingId === report.id
-                            ? <><i className="fa-solid fa-spinner fa-spin" style={{ marginRight: '5px' }} />...</>
-                            : <><i className="fa-solid fa-check" style={{ marginRight: '5px' }} />Marquer résolu</>
+                            ? <><Icon className="fa-solid fa-spinner fa-spin" style={{ marginRight: '5px' }} />...</>
+                            : <><Icon className="fa-solid fa-check" style={{ marginRight: '5px' }} />Marquer résolu</>
                           }
                         </button>
                       )}
@@ -1264,11 +1265,11 @@ export default function AdminPage() {
                     {/* Order ID + date */}
                     <div style={{ display: 'flex', gap: '16px', fontSize: '0.73rem', color: 'var(--muted)', marginBottom: report.message ? '10px' : '0', flexWrap: 'wrap' as const }}>
                       <span>
-                        <i className="fa-solid fa-hashtag" style={{ marginRight: '4px' }} />
+                        <Icon className="fa-solid fa-hashtag" style={{ marginRight: '4px' }} />
                         Commande <code style={{ fontSize: '0.72rem' }}>{report.orderId.slice(0, 16).toUpperCase()}</code>
                       </span>
                       <span>
-                        <i className="fa-regular fa-clock" style={{ marginRight: '4px' }} />
+                        <Icon className="fa-regular fa-clock" style={{ marginRight: '4px' }} />
                         {dateStr}
                       </span>
                     </div>
@@ -1281,7 +1282,7 @@ export default function AdminPage() {
                         fontSize: '0.82rem', color: 'var(--muted)', lineHeight: 1.55,
                         fontStyle: 'italic',
                       }}>
-                        <i className="fa-solid fa-quote-left" style={{ marginRight: '6px', fontSize: '0.7rem', opacity: 0.5 }} />
+                        <Icon className="fa-solid fa-quote-left" style={{ marginRight: '6px', fontSize: '0.7rem', opacity: 0.5 }} />
                         {report.message}
                       </div>
                     )}
@@ -1304,7 +1305,7 @@ export default function AdminPage() {
 
           {statsLoading ? (
             <div style={{ textAlign: 'center', padding: '60px', color: 'var(--muted)' }}>
-              <i className="fa-solid fa-spinner fa-spin" style={{ fontSize: '1.8rem', marginBottom: '12px', display: 'block' }} />
+              <Icon className="fa-solid fa-spinner fa-spin" style={{ fontSize: '1.8rem', marginBottom: '12px', display: 'block' }} />
               Chargement des statistiques...
             </div>
           ) : stats ? (
@@ -1319,7 +1320,7 @@ export default function AdminPage() {
                 ].map((kpi, i) => (
                   <div key={i} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '14px', padding: '18px 20px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-                      <i className={`fa-solid ${kpi.icon}`} style={{ color: kpi.color, fontSize: '0.85rem' }} />
+                      <Icon className={`fa-solid ${kpi.icon}`} style={{ color: kpi.color, fontSize: '0.85rem' }} />
                       <span style={{ fontSize: '0.74rem', color: 'var(--muted)' }}>{kpi.label}</span>
                     </div>
                     <div style={{ fontFamily: 'var(--font-syne), sans-serif', fontSize: '1.7rem', fontWeight: 800, color: kpi.color, lineHeight: 1 }}>
@@ -1333,7 +1334,7 @@ export default function AdminPage() {
               {/* ── Stats par service ── */}
               <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '14px', padding: '20px', marginBottom: '20px' }}>
                 <h3 style={{ fontFamily: 'var(--font-syne), sans-serif', fontWeight: 700, fontSize: '0.95rem', marginBottom: '16px' }}>
-                  <i className="fa-solid fa-chart-bar" style={{ color: '#a78bfa', marginRight: '8px' }} />
+                  <Icon className="fa-solid fa-chart-bar" style={{ color: '#a78bfa', marginRight: '8px' }} />
                   Par service
                 </h3>
                 <div style={{ display: 'flex', flexDirection: 'column' as const, gap: '10px' }}>
@@ -1346,7 +1347,7 @@ export default function AdminPage() {
                     return (
                       <div key={svc.service} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <div style={{ width: '28px', height: '28px', borderRadius: '7px', background: `${color}18`, color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', flexShrink: 0 }}>
-                          <i className={icon} />
+                          <Icon className={icon} />
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
@@ -1370,7 +1371,7 @@ export default function AdminPage() {
               {/* ── Méthodes de paiement ── */}
               <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '14px', padding: '20px', marginBottom: '20px' }}>
                 <h3 style={{ fontFamily: 'var(--font-syne), sans-serif', fontWeight: 700, fontSize: '0.95rem', marginBottom: '14px' }}>
-                  <i className="fa-solid fa-credit-card" style={{ color: '#3b82f6', marginRight: '8px' }} />
+                  <Icon className="fa-solid fa-credit-card" style={{ color: '#3b82f6', marginRight: '8px' }} />
                   Méthodes de paiement
                 </h3>
                 <div style={{ display: 'flex', flexWrap: 'wrap' as const, gap: '10px' }}>
@@ -1390,14 +1391,14 @@ export default function AdminPage() {
               <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: '14px', padding: '20px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
                   <h3 style={{ fontFamily: 'var(--font-syne), sans-serif', fontWeight: 700, fontSize: '0.95rem' }}>
-                    <i className="fa-solid fa-clock-rotate-left" style={{ color: '#f59e0b', marginRight: '8px' }} />
+                    <Icon className="fa-solid fa-clock-rotate-left" style={{ color: '#f59e0b', marginRight: '8px' }} />
                     10 dernières ventes
                   </h3>
                   <button
                     onClick={fetchStats}
                     style={{ background: 'transparent', border: '1px solid var(--border)', color: 'var(--muted)', borderRadius: '7px', padding: '6px 12px', fontSize: '0.75rem', cursor: 'pointer', fontFamily: 'var(--font-syne), sans-serif' }}
                   >
-                    <i className="fa-solid fa-rotate-right" style={{ marginRight: '5px' }} />
+                    <Icon className="fa-solid fa-rotate-right" style={{ marginRight: '5px' }} />
                     Actualiser
                   </button>
                 </div>
@@ -1433,7 +1434,7 @@ export default function AdminPage() {
             </>
           ) : (
             <div style={{ textAlign: 'center', padding: '60px', color: 'var(--muted)' }}>
-              <i className="fa-solid fa-chart-bar" style={{ fontSize: '2rem', marginBottom: '12px', display: 'block', opacity: 0.4 }} />
+              <Icon className="fa-solid fa-chart-bar" style={{ fontSize: '2rem', marginBottom: '12px', display: 'block', opacity: 0.4 }} />
               Aucune donnée
             </div>
           )}
@@ -1484,12 +1485,12 @@ export default function AdminPage() {
       {/* Orders list */}
       {loading ? (
         <div style={{ textAlign: 'center', padding: '48px', color: 'var(--muted)' }}>
-          <i className="fa-solid fa-spinner fa-spin" style={{ fontSize: '2rem', marginBottom: '12px', display: 'block' }} />
+          <Icon className="fa-solid fa-spinner fa-spin" style={{ fontSize: '2rem', marginBottom: '12px', display: 'block' }} />
           Chargement...
         </div>
       ) : filtered.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '48px', color: 'var(--muted)' }}>
-          <i className="fa-regular fa-folder-open" style={{ fontSize: '2.5rem', marginBottom: '12px', display: 'block' }} />
+          <Icon className="fa-regular fa-folder-open" style={{ fontSize: '2.5rem', marginBottom: '12px', display: 'block' }} />
           Aucune commande dans cette catégorie
         </div>
       ) : (
@@ -1524,7 +1525,7 @@ export default function AdminPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ width: '52px', height: '52px', borderRadius: '50%', background: 'rgba(255,59,59,0.12)', color: '#ff3b3b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem', margin: '0 auto 16px' }}>
-              <i className="fa-brands fa-youtube" />
+              <Icon className="fa-brands fa-youtube" />
             </div>
             <h3 style={{ fontFamily: 'var(--font-syne), sans-serif', fontWeight: 800, marginBottom: '8px' }}>
               Confirmer l'envoi de l'invitation ?
@@ -1537,7 +1538,7 @@ export default function AdminPage() {
                 Annuler
               </button>
               <button onClick={() => handleSendYouTubeInvite(inviteConfirm)} style={{ flex: 1, padding: '11px', borderRadius: '9px', background: '#ff3b3b', border: 'none', color: '#fff', fontFamily: 'var(--font-syne), sans-serif', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer' }}>
-                <i className="fa-solid fa-paper-plane" style={{ marginRight: '6px' }} />
+                <Icon className="fa-solid fa-paper-plane" style={{ marginRight: '6px' }} />
                 Envoyer l'invitation
               </button>
             </div>
@@ -1573,7 +1574,7 @@ export default function AdminPage() {
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: '1.4rem', margin: '0 auto 16px',
             }}>
-              <i className="fa-solid fa-server" />
+              <Icon className="fa-solid fa-server" />
             </div>
             <h3 style={{ fontFamily: 'var(--font-syne), sans-serif', fontWeight: 800, marginBottom: '8px' }}>
               Supprimer ce compte maître ?
@@ -1606,7 +1607,7 @@ export default function AdminPage() {
                   fontSize: '0.85rem', cursor: 'pointer',
                 }}
               >
-                <i className="fa-solid fa-trash" style={{ marginRight: '6px' }} />
+                <Icon className="fa-solid fa-trash" style={{ marginRight: '6px' }} />
                 Supprimer définitivement
               </button>
             </div>
@@ -1639,7 +1640,7 @@ export default function AdminPage() {
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: '1.4rem', margin: '0 auto 16px',
             }}>
-              <i className="fa-solid fa-trash" />
+              <Icon className="fa-solid fa-trash" />
             </div>
             <h3 style={{ fontFamily: 'var(--font-syne), sans-serif', fontWeight: 800, marginBottom: '8px' }}>
               Supprimer cette commande ?
@@ -1672,7 +1673,7 @@ export default function AdminPage() {
                   fontSize: '0.85rem', cursor: 'pointer',
                 }}
               >
-                <i className="fa-solid fa-trash" style={{ marginRight: '6px' }} />
+                <Icon className="fa-solid fa-trash" style={{ marginRight: '6px' }} />
                 Supprimer
               </button>
             </div>
@@ -1691,7 +1692,7 @@ export default function AdminPage() {
 
           {settingsLoading || !settings ? (
             <div style={{ textAlign: 'center', padding: '40px', color: 'var(--muted)' }}>
-              <i className="fa-solid fa-spinner fa-spin" style={{ fontSize: '1.4rem' }} />
+              <Icon className="fa-solid fa-spinner fa-spin" style={{ fontSize: '1.4rem' }} />
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -1756,7 +1757,7 @@ export default function AdminPage() {
                     { label: 'CRON_SECRET',             status: true },
                   ].map(({ label, status }) => (
                     <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                      <i className={`fa-solid fa-circle-${status ? 'check' : 'xmark'}`} style={{ color: status ? '#00ffaa' : '#ff3b3b', fontSize: '0.75rem' }} />
+                      <Icon className={`fa-solid fa-circle-${status ? 'check' : 'xmark'}`} style={{ color: status ? '#00ffaa' : '#ff3b3b', fontSize: '0.75rem' }} />
                       <code style={{ fontSize: '0.78rem', color: 'var(--text)', fontFamily: 'monospace' }}>{label}</code>
                       <span style={{ fontSize: '0.72rem', color: status ? '#00ffaa' : '#ff6b6b' }}>{status ? 'configuré' : 'manquant'}</span>
                     </div>
@@ -1772,7 +1773,7 @@ export default function AdminPage() {
                       fontSize: '0.8rem', fontWeight: 600, textDecoration: 'none',
                     }}
                   >
-                    <i className="fa-solid fa-arrow-up-right-from-square" style={{ fontSize: '0.7rem' }} />
+                    <Icon className="fa-solid fa-arrow-up-right-from-square" style={{ fontSize: '0.7rem' }} />
                     Ouvrir Vercel Dashboard
                   </a>
                 </div>
@@ -1828,7 +1829,7 @@ function SettingRow({
         background: `${iconColor}18`, color: iconColor,
         display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.82rem',
       }}>
-        <i className={icon} />
+        <Icon className={icon} />
       </div>
       <div style={{ flex: 1, minWidth: '180px' }}>
         <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginBottom: '4px' }}>{label}</div>
@@ -1861,9 +1862,9 @@ function SettingRow({
         }}
       >
         {saving
-          ? <><i className="fa-solid fa-spinner fa-spin" style={{ marginRight: '5px' }} />Sauvegarde...</>
+          ? <><Icon className="fa-solid fa-spinner fa-spin" style={{ marginRight: '5px' }} />Sauvegarde...</>
           : saved
-          ? <><i className="fa-solid fa-check" style={{ marginRight: '5px' }} />Sauvegardé</>
+          ? <><Icon className="fa-solid fa-check" style={{ marginRight: '5px' }} />Sauvegardé</>
           : 'Sauvegarder'
         }
       </button>
@@ -1941,7 +1942,7 @@ function AdminOrderCard({
               color: isYoutube ? '#ff3b3b' : '#a78bfa',
             }}
           >
-            <i className={isYoutube ? 'fa-brands fa-youtube' : 'fa-solid fa-wand-magic-sparkles'} style={{ marginRight: '6px' }} />
+            <Icon className={isYoutube ? 'fa-brands fa-youtube' : 'fa-solid fa-wand-magic-sparkles'} style={{ marginRight: '6px' }} />
             {isYoutube ? 'YouTube Premium' : 'Disney+ 4K'}
           </span>
           <span
@@ -1974,7 +1975,7 @@ function AdminOrderCard({
               borderRadius: '999px', padding: '2px 9px',
               fontFamily: 'var(--font-syne), sans-serif', whiteSpace: 'nowrap',
             }}>
-              <i className="fa-solid fa-clock" style={{ marginRight: '4px' }} />
+              <Icon className="fa-solid fa-clock" style={{ marginRight: '4px' }} />
               {daysLeft !== null && daysLeft > 0
                 ? `J-${daysLeft}`
                 : daysLeft === 0
@@ -1992,7 +1993,7 @@ function AdminOrderCard({
               borderRadius: '999px', padding: '2px 9px',
               fontFamily: 'var(--font-syne), sans-serif', whiteSpace: 'nowrap',
             }}>
-              <i className="fa-solid fa-credit-card" style={{ marginRight: '4px' }} />
+              <Icon className="fa-solid fa-credit-card" style={{ marginRight: '4px' }} />
               ÉCHEC PAIEMENT
             </span>
           )}
@@ -2006,7 +2007,7 @@ function AdminOrderCard({
               borderRadius: '999px', padding: '2px 9px',
               fontFamily: 'var(--font-syne), sans-serif', whiteSpace: 'nowrap',
             }}>
-              <i className="fa-solid fa-ban" style={{ marginRight: '4px' }} />
+              <Icon className="fa-solid fa-ban" style={{ marginRight: '4px' }} />
               RÉSILIÉ FIN PÉRIODE
             </span>
           )}
@@ -2105,7 +2106,7 @@ function AdminOrderCard({
                   disabled={busy}
                   style={btnStyle('#ff3b3b', 'rgba(255,59,59,0.08)', busy)}
                 >
-                  <i className="fa-solid fa-paper-plane" style={{ marginRight: '6px' }} />
+                  <Icon className="fa-solid fa-paper-plane" style={{ marginRight: '6px' }} />
                   Envoyer l'invitation
                 </button>
 
@@ -2117,7 +2118,7 @@ function AdminOrderCard({
                     borderRadius: '7px', padding: '5px 10px',
                     textAlign: 'center', whiteSpace: 'nowrap',
                   }}>
-                    <i className="fa-solid fa-circle-check" style={{ marginRight: '5px' }} />
+                    <Icon className="fa-solid fa-circle-check" style={{ marginRight: '5px' }} />
                     Envoyée le {new Date(order.invitationSentAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
                   </div>
                 ) : (
@@ -2126,7 +2127,7 @@ function AdminOrderCard({
                     disabled={busy}
                     style={btnStyle('#00ffaa', 'rgba(0,255,170,0.06)', busy)}
                   >
-                    <i className="fa-solid fa-envelope-circle-check" style={{ marginRight: '6px' }} />
+                    <Icon className="fa-solid fa-envelope-circle-check" style={{ marginRight: '6px' }} />
                     Marquer envoyée
                   </button>
                 )}
@@ -2140,7 +2141,7 @@ function AdminOrderCard({
                 disabled={busy}
                 style={btnStyle('#3b82f6', 'rgba(59,130,246,0.08)', busy)}
               >
-                <i className="fa-solid fa-bell" style={{ marginRight: '6px' }} />
+                <Icon className="fa-solid fa-bell" style={{ marginRight: '6px' }} />
                 Notifier accès
               </button>
             )}
@@ -2153,8 +2154,8 @@ function AdminOrderCard({
                 style={btnStyle('#00ffaa', 'rgba(0,255,170,0.12)', busy)}
               >
                 {busy && (confirming || actionLoading)
-                  ? <><i className="fa-solid fa-spinner fa-spin" style={{ marginRight: '6px' }} />Traitement...</>
-                  : <><i className="fa-solid fa-circle-check" style={{ marginRight: '6px' }} />Valider</>
+                  ? <><Icon className="fa-solid fa-spinner fa-spin" style={{ marginRight: '6px' }} />Traitement...</>
+                  : <><Icon className="fa-solid fa-circle-check" style={{ marginRight: '6px' }} />Valider</>
                 }
               </button>
             )}
@@ -2166,7 +2167,7 @@ function AdminOrderCard({
                 disabled={busy}
                 style={btnStyle('#f59e0b', 'rgba(245,158,11,0.1)', busy)}
               >
-                <i className="fa-solid fa-ban" style={{ marginRight: '6px' }} />
+                <Icon className="fa-solid fa-ban" style={{ marginRight: '6px' }} />
                 Annuler
               </button>
             )}
@@ -2179,7 +2180,7 @@ function AdminOrderCard({
           disabled={busy}
           style={btnStyle('#ff3b3b', 'rgba(255,59,59,0.08)', busy)}
         >
-          <i className="fa-solid fa-trash" style={{ marginRight: '6px' }} />
+          <Icon className="fa-solid fa-trash" style={{ marginRight: '6px' }} />
           Supprimer
         </button>
       </div>

@@ -1,5 +1,6 @@
 'use client';
 
+import Icon from '@/components/Icon';
 import { useState, useRef } from 'react';
 
 export default function AdminLoginPage() {
@@ -76,7 +77,7 @@ export default function AdminLoginPage() {
             fontSize: '1.5rem', margin: '0 auto 22px',
           }}
         >
-          <i className="fa-solid fa-shield-halved" />
+          <Icon className="fa-solid fa-shield-halved" />
         </div>
 
         <h1
@@ -127,7 +128,7 @@ export default function AdminLoginPage() {
               textAlign:    'left',
             }}
           >
-            <i className="fa-solid fa-triangle-exclamation" style={{ marginRight: '7px' }} />
+            <Icon className="fa-solid fa-triangle-exclamation" style={{ marginRight: '7px' }} />
             {error}
           </div>
         )}
@@ -152,9 +153,9 @@ export default function AdminLoginPage() {
           }}
         >
           {loading ? (
-            <><i className="fa-solid fa-spinner fa-spin" style={{ marginRight: '8px' }} />Vérification...</>
+            <><Icon className="fa-solid fa-spinner fa-spin" style={{ marginRight: '8px' }} />Vérification...</>
           ) : (
-            <><i className="fa-solid fa-right-to-bracket" style={{ marginRight: '8px' }} />Accéder</>
+            <><Icon className="fa-solid fa-right-to-bracket" style={{ marginRight: '8px' }} />Accéder</>
           )}
         </button>
       </form>

@@ -1,5 +1,6 @@
 'use client';
 
+import Icon from './Icon';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
@@ -98,7 +99,7 @@ export default function Navbar({
               fontSize: '0.8rem',
             }}
           >
-            <i className="fa-solid fa-bolt" />
+            <Icon className="fa-solid fa-bolt" />
           </span>
           StreamMalin
         </a>
@@ -201,7 +202,7 @@ export default function Navbar({
                 ((e.currentTarget as HTMLAnchorElement).style.color = 'var(--muted)')
               }
             >
-              <i className="fa-solid fa-magnifying-glass" style={{ fontSize: '0.75rem' }} />
+              <Icon className="fa-solid fa-magnifying-glass" style={{ fontSize: '0.75rem' }} />
               Suivre ma commande
             </Link>
           )}
@@ -229,7 +230,7 @@ export default function Navbar({
               ((e.currentTarget as HTMLButtonElement).style.opacity = '1')
             }
           >
-            <i className="fa-solid fa-bolt" style={{ marginRight: '6px' }} />
+            <Icon className="fa-solid fa-bolt" style={{ marginRight: '6px' }} />
             S'abonner
           </button>
         </div>

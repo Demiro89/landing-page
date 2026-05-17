@@ -1,5 +1,6 @@
 'use client';
 
+import Icon from '@/components/Icon';
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 
@@ -150,7 +151,7 @@ export default function InventoryPage() {
       <div style={styles.centerPage}>
         <form onSubmit={handleLogin} style={styles.loginBox}>
           <div style={styles.loginIcon}>
-            <i className="fa-solid fa-boxes-stacked" />
+            <Icon className="fa-solid fa-boxes-stacked" />
           </div>
           <h1 style={styles.loginTitle}>Gestion des stocks</h1>
           <p style={styles.loginSub}>Entrez votre token d'administration</p>
@@ -164,7 +165,7 @@ export default function InventoryPage() {
           />
           {error && <div style={styles.errorBox}>{error}</div>}
           <button type="submit" style={styles.submitBtn}>
-            <i className="fa-solid fa-right-to-bracket" style={{ marginRight: 8 }} />
+            <Icon className="fa-solid fa-right-to-bracket" style={{ marginRight: 8 }} />
             Accéder
           </button>
         </form>
@@ -188,13 +189,13 @@ export default function InventoryPage() {
         <div>
           <div style={styles.breadcrumb}>
             <Link href="/admin" style={styles.breadcrumbLink}>
-              <i className="fa-solid fa-gauge-high" style={{ marginRight: 6 }} />Admin
+              <Icon className="fa-solid fa-gauge-high" style={{ marginRight: 6 }} />Admin
             </Link>
-            <i className="fa-solid fa-chevron-right" style={{ fontSize: '0.6rem', color: 'var(--muted)', margin: '0 8px' }} />
+            <Icon className="fa-solid fa-chevron-right" style={{ fontSize: '0.6rem', color: 'var(--muted)', margin: '0 8px' }} />
             <span style={{ color: 'var(--text)' }}>Inventaire</span>
           </div>
           <h1 style={styles.pageTitle}>
-            <i className="fa-solid fa-boxes-stacked" style={{ color: '#a78bfa', marginRight: 10 }} />
+            <Icon className="fa-solid fa-boxes-stacked" style={{ color: '#a78bfa', marginRight: 10 }} />
             Gestion des stocks
           </h1>
           <p style={{ fontSize: '0.82rem', color: 'var(--muted)' }}>
@@ -203,11 +204,11 @@ export default function InventoryPage() {
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <button onClick={() => fetchAccounts(token)} disabled={loading} style={styles.refreshBtn}>
-            <i className={`fa-solid fa-rotate-right ${loading ? 'fa-spin' : ''}`} style={{ marginRight: 6 }} />
+            <Icon className={`fa-solid fa-rotate-right ${loading ? 'fa-spin' : ''}`} style={{ marginRight: 6 }} />
             Actualiser
           </button>
           <button onClick={() => setShowAddForm(!showAddForm)} style={styles.addBtn}>
-            <i className={`fa-solid ${showAddForm ? 'fa-xmark' : 'fa-plus'}`} style={{ marginRight: 6 }} />
+            <Icon className={`fa-solid ${showAddForm ? 'fa-xmark' : 'fa-plus'}`} style={{ marginRight: 6 }} />
             {showAddForm ? 'Annuler' : 'Ajouter un compte'}
           </button>
         </div>
@@ -224,7 +225,7 @@ export default function InventoryPage() {
         ].map((s, i) => (
           <div key={i} style={styles.statCard}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <i className={s.icon} style={{ color: s.color, fontSize: '0.85rem' }} />
+              <Icon className={s.icon} style={{ color: s.color, fontSize: '0.85rem' }} />
               <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>{s.label}</span>
             </div>
             <div style={{ fontFamily: 'var(--font-syne), sans-serif', fontSize: '1.8rem', fontWeight: 800, color: s.color }}>
@@ -238,7 +239,7 @@ export default function InventoryPage() {
       {showAddForm && (
         <form onSubmit={handleAdd} style={styles.addForm}>
           <h3 style={{ fontFamily: 'var(--font-syne), sans-serif', fontSize: '1rem', fontWeight: 700, marginBottom: 20 }}>
-            <i className="fa-solid fa-plus" style={{ color: '#00ffaa', marginRight: 8 }} />
+            <Icon className="fa-solid fa-plus" style={{ color: '#00ffaa', marginRight: 8 }} />
             Ajouter un nouveau compte maître
           </h3>
 
@@ -269,7 +270,7 @@ export default function InventoryPage() {
                       cursor: 'pointer',
                     }}
                   >
-                    <i className={svc === 'YOUTUBE' ? 'fa-brands fa-youtube' : 'fa-solid fa-wand-magic-sparkles'} style={{ marginRight: 6 }} />
+                    <Icon className={svc === 'YOUTUBE' ? 'fa-brands fa-youtube' : 'fa-solid fa-wand-magic-sparkles'} style={{ marginRight: 6 }} />
                     {svc === 'YOUTUBE' ? 'YouTube' : 'Disney+'}
                   </button>
                 ))}
@@ -337,8 +338,8 @@ export default function InventoryPage() {
           <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
             <button type="submit" disabled={adding} style={styles.submitBtn}>
               {adding
-                ? <><i className="fa-solid fa-spinner fa-spin" style={{ marginRight: 8 }} />Ajout en cours...</>
-                : <><i className="fa-solid fa-plus" style={{ marginRight: 8 }} />Ajouter le compte</>}
+                ? <><Icon className="fa-solid fa-spinner fa-spin" style={{ marginRight: 8 }} />Ajout en cours...</>
+                : <><Icon className="fa-solid fa-plus" style={{ marginRight: 8 }} />Ajouter le compte</>}
             </button>
             <button type="button" onClick={() => setShowAddForm(false)} style={styles.cancelBtn}>
               Annuler
@@ -369,16 +370,16 @@ export default function InventoryPage() {
       {/* ── Liste des comptes ── */}
       {loading ? (
         <div style={{ textAlign: 'center', padding: 48, color: 'var(--muted)' }}>
-          <i className="fa-solid fa-spinner fa-spin" style={{ fontSize: '2rem', display: 'block', marginBottom: 12 }} />
+          <Icon className="fa-solid fa-spinner fa-spin" style={{ fontSize: '2rem', display: 'block', marginBottom: 12 }} />
           Chargement...
         </div>
       ) : filtered.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 48, color: 'var(--muted)' }}>
-          <i className="fa-solid fa-box-open" style={{ fontSize: '2.5rem', display: 'block', marginBottom: 12 }} />
+          <Icon className="fa-solid fa-box-open" style={{ fontSize: '2.5rem', display: 'block', marginBottom: 12 }} />
           Aucun compte dans cette catégorie.
           <br />
           <button onClick={() => setShowAddForm(true)} style={{ ...styles.addBtn, marginTop: 16 }}>
-            <i className="fa-solid fa-plus" style={{ marginRight: 6 }} /> Ajouter un compte
+            <Icon className="fa-solid fa-plus" style={{ marginRight: 6 }} /> Ajouter un compte
           </button>
         </div>
       ) : (
@@ -437,7 +438,7 @@ function AccountRow({
           color: accentColor, display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: '1rem', flexShrink: 0,
         }}>
-          <i className={isYt ? 'fa-brands fa-youtube' : 'fa-solid fa-wand-magic-sparkles'} />
+          <Icon className={isYt ? 'fa-brands fa-youtube' : 'fa-solid fa-wand-magic-sparkles'} />
         </div>
 
         {/* Email + password */}
@@ -474,7 +475,7 @@ function AccountRow({
         {/* Actions */}
         <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
           <button onClick={onToggleExpand} style={styles.iconBtn} title="Voir les slots">
-            <i className={`fa-solid fa-chevron-${expanded ? 'up' : 'down'}`} />
+            <Icon className={`fa-solid fa-chevron-${expanded ? 'up' : 'down'}`} />
           </button>
           <button
             onClick={onToggleActive}
@@ -482,7 +483,7 @@ function AccountRow({
             style={{ ...styles.iconBtn, color: account.active ? '#f59e0b' : '#00ffaa' }}
             title={account.active ? 'Désactiver' : 'Activer'}
           >
-            <i className={`fa-solid ${toggling ? 'fa-spinner fa-spin' : account.active ? 'fa-pause' : 'fa-play'}`} />
+            <Icon className={`fa-solid ${toggling ? 'fa-spinner fa-spin' : account.active ? 'fa-pause' : 'fa-play'}`} />
           </button>
           <button
             onClick={onDelete}
@@ -495,7 +496,7 @@ function AccountRow({
             }}
             title={account.occupiedSlots > 0 ? 'Impossible : des slots sont occupés' : 'Supprimer'}
           >
-            <i className={`fa-solid ${deleting ? 'fa-spinner fa-spin' : 'fa-trash'}`} />
+            <Icon className={`fa-solid ${deleting ? 'fa-spinner fa-spin' : 'fa-trash'}`} />
           </button>
         </div>
       </div>
@@ -528,7 +529,7 @@ function AccountRow({
                 )}
                 {slot.order && (
                   <div style={{ fontSize: '0.7rem', color: 'var(--muted)', marginTop: 4 }}>
-                    <i className="fa-solid fa-user" style={{ marginRight: 4 }} />
+                    <Icon className="fa-solid fa-user" style={{ marginRight: 4 }} />
                     {slot.order.userEmail}
                   </div>
                 )}

@@ -52,11 +52,6 @@ export default function RootLayout({
 
         {children}
 
-        {/* Font Awesome — injecté dynamiquement, non render-blocking */}
-        <Script id="fa-loader" strategy="afterInteractive">
-          {`(function(){var l=document.createElement('link');l.rel='stylesheet';l.href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css';document.head.appendChild(l);})();`}
-        </Script>
-
         {/* Google Analytics */}
         <Script
           src="https://www.googletagmanager.com/gtag/js?id=G-S29G36JGQJ"

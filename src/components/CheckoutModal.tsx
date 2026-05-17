@@ -1,5 +1,6 @@
 'use client';
 
+import Icon from './Icon';
 import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
@@ -224,7 +225,7 @@ export default function CheckoutModal({
                 fontSize: '1.1rem',
               }}
             >
-              <i
+              <Icon
                 className={
                   service === 'YOUTUBE' ? 'fa-brands fa-youtube' : service === 'DISNEY' ? 'fa-solid fa-wand-magic-sparkles' : 'fa-solid fa-shield-halved'
                 }
@@ -269,7 +270,7 @@ export default function CheckoutModal({
               ((e.currentTarget as HTMLButtonElement).style.color = 'var(--muted)')
             }
           >
-            <i className="fa-solid fa-xmark" />
+            <Icon className="fa-solid fa-xmark" />
           </button>
         </div>
 
@@ -371,7 +372,7 @@ export default function CheckoutModal({
                   style={inputStyle}
                 />
                 <span style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: '4px' }}>
-                  <i className="fa-solid fa-circle-info" style={{ marginRight: '4px' }} />
+                  <Icon className="fa-solid fa-circle-info" style={{ marginRight: '4px' }} />
                   Doit être un compte Google/Gmail. L'invitation sera envoyée sur cette adresse.
                 </span>
               </label>
@@ -430,7 +431,7 @@ export default function CheckoutModal({
 
             <button type="submit" style={{ ...submitBtnStyle(service), marginTop: '20px' }}>
               Continuer vers le paiement
-              <i className="fa-solid fa-arrow-right" style={{ marginLeft: '8px' }} />
+              <Icon className="fa-solid fa-arrow-right" style={{ marginLeft: '8px' }} />
             </button>
           </form>
         )}
@@ -509,7 +510,7 @@ export default function CheckoutModal({
                 borderRadius: '12px', padding: '16px', marginBottom: '20px',
               }}>
                 <p style={{ fontFamily: 'var(--font-syne), sans-serif', fontWeight: 700, fontSize: '0.88rem', marginBottom: '8px', color: '#635bff' }}>
-                  <i className="fa-solid fa-lock" style={{ marginRight: '6px' }} />
+                  <Icon className="fa-solid fa-lock" style={{ marginRight: '6px' }} />
                   Paiement 100% sécurisé — Stripe
                 </p>
                 <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '5px' }}>
@@ -545,7 +546,7 @@ export default function CheckoutModal({
                     color: '#009cde',
                   }}
                 >
-                  <i className="fa-brands fa-paypal" style={{ marginRight: '6px' }} />
+                  <Icon className="fa-brands fa-paypal" style={{ marginRight: '6px' }} />
                   Instructions PayPal importantes
                 </p>
                 <ul
@@ -595,9 +596,9 @@ export default function CheckoutModal({
                     ((e.currentTarget as HTMLAnchorElement).style.opacity = '1')
                   }
                 >
-                  <i className="fa-brands fa-paypal" />
+                  <Icon className="fa-brands fa-paypal" />
                   Payer {totalPrice.toFixed(2).replace('.', ',')}€ via PayPal.Me
-                  <i className="fa-solid fa-arrow-up-right-from-square" style={{ fontSize: '0.7rem' }} />
+                  <Icon className="fa-solid fa-arrow-up-right-from-square" style={{ fontSize: '0.7rem' }} />
                 </a>
               </div>
             )}
@@ -610,7 +611,7 @@ export default function CheckoutModal({
                   borderRadius: '10px', padding: '12px 14px', marginBottom: '12px',
                   display: 'flex', alignItems: 'flex-start', gap: '10px',
                 }}>
-                  <i className="fa-solid fa-triangle-exclamation" style={{ color: '#ff3b3b', fontSize: '1rem', marginTop: '2px', flexShrink: 0 }} />
+                  <Icon className="fa-solid fa-triangle-exclamation" style={{ color: '#ff3b3b', fontSize: '1rem', marginTop: '2px', flexShrink: 0 }} />
                   <p style={{ margin: 0, fontSize: '0.8rem', color: '#ff6b6b', lineHeight: 1.6, fontWeight: 600 }}>
                     <strong style={{ color: '#ff3b3b' }}>Attention :</strong> Utilisez exclusivement le réseau mentionné, sinon vos fonds seront <strong>définitivement perdus</strong>.
                   </p>
@@ -632,7 +633,7 @@ export default function CheckoutModal({
                     color: '#f59e0b',
                   }}
                 >
-                  <i className="fa-solid fa-coins" style={{ marginRight: '6px' }} />
+                  <Icon className="fa-solid fa-coins" style={{ marginRight: '6px' }} />
                   Adresse de réception
                 </p>
 
@@ -665,7 +666,7 @@ export default function CheckoutModal({
                 )}
 
                 <p style={{ fontSize: '0.78rem', color: 'var(--muted)', marginTop: '10px' }}>
-                  <i className="fa-solid fa-circle-info" style={{ marginRight: '4px' }} />
+                  <Icon className="fa-solid fa-circle-info" style={{ marginRight: '4px' }} />
                   Envoyez exactement{' '}
                   <strong style={{ color: 'var(--text)' }}>{totalPrice.toFixed(2).replace('.', ',')}€</strong>{' '}
                   ({duration} mois) en équivalent {paymentMethod.replace('_TRC20', '')}. Conservez le hash de
@@ -737,7 +738,7 @@ export default function CheckoutModal({
                   cursor: 'pointer',
                 }}
               >
-                <i className="fa-solid fa-arrow-left" />
+                <Icon className="fa-solid fa-arrow-left" />
               </button>
               {paymentMethod === 'STRIPE' ? (
                 <button
@@ -747,9 +748,9 @@ export default function CheckoutModal({
                   style={{ ...submitBtnStyle(service), flex: 1, background: 'linear-gradient(135deg,#635bff,#4f46e5)', opacity: (loading || !legalAccepted) ? 0.45 : 1, cursor: (loading || !legalAccepted) ? 'not-allowed' : 'pointer' }}
                 >
                   {loading ? (
-                    <><i className="fa-solid fa-spinner fa-spin" style={{ marginRight: '8px' }} />Redirection...</>
+                    <><Icon className="fa-solid fa-spinner fa-spin" style={{ marginRight: '8px' }} />Redirection...</>
                   ) : (
-                    <><i className="fa-solid fa-lock" style={{ marginRight: '8px' }} />Payer {totalPrice.toFixed(2).replace('.', ',')}€ en sécurité</>
+                    <><Icon className="fa-solid fa-lock" style={{ marginRight: '8px' }} />Payer {totalPrice.toFixed(2).replace('.', ',')}€ en sécurité</>
                   )}
                 </button>
               ) : (
@@ -760,9 +761,9 @@ export default function CheckoutModal({
                   style={{ ...submitBtnStyle(service), flex: 1, opacity: legalAccepted ? 1 : 0.45, cursor: legalAccepted ? 'pointer' : 'not-allowed' }}
                 >
                   {paymentMethod === 'PAYPAL' ? (
-                    <><i className="fa-brands fa-paypal" style={{ marginRight: '8px' }} />Payer via PayPal</>
+                    <><Icon className="fa-brands fa-paypal" style={{ marginRight: '8px' }} />Payer via PayPal</>
                   ) : 'J\'ai payé — Déclarer le paiement'}
-                  <i className="fa-solid fa-arrow-right" style={{ marginLeft: '8px' }} />
+                  <Icon className="fa-solid fa-arrow-right" style={{ marginLeft: '8px' }} />
                 </button>
               )}
             </div>
@@ -805,7 +806,7 @@ export default function CheckoutModal({
               }}
             >
               <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
-                <i className="fa-solid fa-user" style={{ marginRight: '6px' }} />
+                <Icon className="fa-solid fa-user" style={{ marginRight: '6px' }} />
                 {email}
               </span>
               <span
@@ -855,7 +856,7 @@ export default function CheckoutModal({
                   cursor: 'pointer',
                 }}
               >
-                <i className="fa-solid fa-arrow-left" />
+                <Icon className="fa-solid fa-arrow-left" />
               </button>
               <button
                 type="submit"
@@ -869,12 +870,12 @@ export default function CheckoutModal({
               >
                 {loading ? (
                   <>
-                    <i className="fa-solid fa-spinner fa-spin" style={{ marginRight: '8px' }} />
+                    <Icon className="fa-solid fa-spinner fa-spin" style={{ marginRight: '8px' }} />
                     Envoi en cours...
                   </>
                 ) : (
                   <>
-                    <i className="fa-solid fa-paper-plane" style={{ marginRight: '8px' }} />
+                    <Icon className="fa-solid fa-paper-plane" style={{ marginRight: '8px' }} />
                     Envoyer ma déclaration
                   </>
                 )}
@@ -906,7 +907,7 @@ export default function CheckoutModal({
                 margin: '0 auto 20px',
               }}
             >
-              <i className="fa-solid fa-circle-check" />
+              <Icon className="fa-solid fa-circle-check" />
             </div>
 
             <h3
@@ -952,7 +953,7 @@ export default function CheckoutModal({
                 textAlign: 'left',
               }}
             >
-              <i
+              <Icon
                 className="fa-solid fa-circle-info"
                 style={{ marginRight: '8px', color: '#3b82f6' }}
               />
@@ -965,7 +966,7 @@ export default function CheckoutModal({
               onClick={goToDashboard}
               style={submitBtnStyle(service)}
             >
-              <i className="fa-solid fa-gauge-high" style={{ marginRight: '8px' }} />
+              <Icon className="fa-solid fa-gauge-high" style={{ marginRight: '8px' }} />
               Accéder à mon espace client
             </button>
 
@@ -1017,7 +1018,7 @@ export default function CheckoutModal({
                 background: 'rgba(0,156,222,0.12)', color: '#009cde',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.3rem',
               }}>
-                <i className="fa-brands fa-paypal" />
+                <Icon className="fa-brands fa-paypal" />
               </div>
               <h3 style={{
                 fontFamily: 'var(--font-syne), sans-serif', fontWeight: 800,
@@ -1049,7 +1050,7 @@ export default function CheckoutModal({
                   display: 'flex', alignItems: 'flex-start', gap: '10px',
                   marginBottom: i < 2 ? '10px' : 0,
                 }}>
-                  <i className={`fa-solid ${icon}`} style={{ color, marginTop: '3px', flexShrink: 0, fontSize: '0.82rem' }} />
+                  <Icon className={`fa-solid ${icon}`} style={{ color, marginTop: '3px', flexShrink: 0, fontSize: '0.82rem' }} />
                   <span
                     style={{ fontSize: '0.83rem', color: 'var(--muted)', lineHeight: 1.55 }}
                     dangerouslySetInnerHTML={{ __html: text }}
@@ -1108,9 +1109,9 @@ export default function CheckoutModal({
                 transition: 'opacity 0.2s, background 0.2s',
               }}
             >
-              <i className="fa-brands fa-paypal" />
+              <Icon className="fa-brands fa-paypal" />
               Ouvrir mon PayPal
-              <i className="fa-solid fa-arrow-up-right-from-square" style={{ fontSize: '0.7rem' }} />
+              <Icon className="fa-solid fa-arrow-up-right-from-square" style={{ fontSize: '0.7rem' }} />
             </a>
 
             {/* Avertissement rouge sous le bouton */}
@@ -1132,7 +1133,7 @@ export default function CheckoutModal({
                 fontWeight: 600, fontSize: '0.83rem', cursor: 'pointer',
               }}
             >
-              <i className="fa-solid fa-check" style={{ marginRight: '7px', color: 'var(--green)' }} />
+              <Icon className="fa-solid fa-check" style={{ marginRight: '7px', color: 'var(--green)' }} />
               J&apos;ai payé — Déclarer mon paiement
             </button>
           </div>
@@ -1208,7 +1209,7 @@ function MethodOption({
           flexShrink: 0,
         }}
       >
-        <i className={icon} />
+        <Icon className={icon} />
       </div>
       <div style={{ flex: 1 }}>
         <div
@@ -1284,9 +1285,9 @@ function WalletAddress({
           style={{ flexShrink: 0 }}
         >
           {copiedKey === copyKey ? (
-            <><i className="fa-solid fa-check" /> Copié</>
+            <><Icon className="fa-solid fa-check" /> Copié</>
           ) : (
-            <><i className="fa-regular fa-copy" /> Copier</>
+            <><Icon className="fa-regular fa-copy" /> Copier</>
           )}
         </button>
       </div>
@@ -1307,7 +1308,7 @@ function ErrorBox({ message }: { message: string }) {
         color: 'var(--yt)',
       }}
     >
-      <i className="fa-solid fa-triangle-exclamation" style={{ marginRight: '6px' }} />
+      <Icon className="fa-solid fa-triangle-exclamation" style={{ marginRight: '6px' }} />
       {message}
     </div>
   );
