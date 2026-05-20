@@ -606,15 +606,32 @@ export default function Home() {
 
       {/* ======================== DASHBOARD CLIENT ======================== */}
       {view === 'dashboard' && (
-        <main className="pt-24 pb-16 px-6">
-          <div className="max-w-6xl mx-auto">
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="text-3xl font-black text-white">
-                👤 Espace Client <span className="gradient-text">StreamMalin</span>
-              </h2>
-              <button onClick={() => setView('storefront')} className="btn btn-outline btn-sm rounded-xl text-sm text-[#9ca3af]">← Retour à la boutique</button>
+        <main style={{ paddingTop: 110, paddingBottom: 80, paddingLeft: 24, paddingRight: 24, position: 'relative', minHeight: '100vh' }}>
+          {/* Ambient glow */}
+          <div style={{ position: 'absolute', top: 80, left: '-10%', width: '50%', height: 400, borderRadius: '50%', background: 'radial-gradient(circle, hsla(262,88%,64%,0.18), transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none', zIndex: 0 }} />
+          <div style={{ position: 'absolute', top: 200, right: '-10%', width: '40%', height: 350, borderRadius: '50%', background: 'radial-gradient(circle, hsla(190,95%,50%,0.12), transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none', zIndex: 0 }} />
+
+          <div style={{ maxWidth: 1200, margin: '0 auto', position: 'relative', zIndex: 1 }}>
+            {/* Header */}
+            <div className="fade-in-up" style={{ marginBottom: 36 }}>
+              <div className="hero-badge" style={{ marginBottom: 18 }}>
+                <span className="hero-badge-dot" />
+                ESPACE CLIENT SÉCURISÉ
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
+                <div>
+                  <h1 style={{ fontSize: 'clamp(2rem, 4vw, 3rem)', fontWeight: 900, lineHeight: 1.1, marginBottom: 10 }}>
+                    Bienvenue dans votre <span className="gradient-text">espace client</span>
+                  </h1>
+                  <p style={{ color: 'var(--text-gray)', fontSize: '0.95rem', maxWidth: 560 }}>
+                    Gérez vos abonnements et discutez en direct avec notre équipe support.
+                  </p>
+                </div>
+                <button onClick={() => setView('storefront')} className="btn btn-outline btn-sm">
+                  ← Retour à la boutique
+                </button>
+              </div>
             </div>
-            <p className="text-[#9ca3af] text-sm font-light mb-8">Gérez vos abonnements rejoints et discutez en toute sécurité avec notre équipe de support client.</p>
 
             <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
               {/* Sidebar */}
@@ -773,39 +790,6 @@ export default function Home() {
         </main>
       )}
 
-      {/* FOOTER */}
-      <footer className="py-12 border-t border-white/5 bg-[#060713]">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="grid md:grid-cols-4 gap-8 mb-8">
-            <div>
-              <div className="flex items-center gap-2 font-extrabold text-lg mb-4">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-black" style={{ background: 'var(--gradient-primary)' }}>SM</div>
-                <span className="gradient-text">StreamMalin</span>
-              </div>
-              <p className="text-xs text-[#6b7280] font-light leading-relaxed">La plateforme B2C de confiance pour accéder à des abonnements streaming premium à tarif réduit en France.</p>
-            </div>
-            <div>
-              <h4 className="text-sm font-bold text-white mb-4">Services</h4>
-              {['Netflix Premium', 'YouTube Premium', 'Spotify Premium', 'Disney+', 'Surfshark VPN'].map(s => (
-                <a key={s} href="#offres" className="block text-xs text-[#6b7280] hover:text-white mb-2 transition-colors">{s}</a>
-              ))}
-            </div>
-            <div>
-              <h4 className="text-sm font-bold text-white mb-4">Navigation</h4>
-              <button onClick={() => setView('dashboard')} className="block text-xs text-[#6b7280] hover:text-white mb-2 transition-colors">👤 Mon Espace Client</button>
-              <a href="#faq" className="block text-xs text-[#6b7280] hover:text-white mb-2 transition-colors">FAQ &amp; Centre d&apos;aide</a>
-              <a href="#calculateur" className="block text-xs text-[#6b7280] hover:text-white mb-2 transition-colors">Calculateur d&apos;économies</a>
-            </div>
-            <div>
-              <h4 className="text-sm font-bold text-white mb-4">Sécurité</h4>
-              <p className="text-xs text-[#6b7280] font-light">🔒 Serveurs cryptés AES-256 &amp; Transactions conformes PCI-DSS</p>
-            </div>
-          </div>
-          <div className="border-t border-white/5 pt-6 text-center text-xs text-[#6b7280]">
-            <p>© {new Date().getFullYear()} StreamMalin. Tous droits réservés. Service de courtage d&apos;abonnements de streaming partagés.</p>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }
