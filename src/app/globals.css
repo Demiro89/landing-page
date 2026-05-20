@@ -14,9 +14,23 @@
   --yt-glow: rgba(255, 59, 59, 0.3);
   --dis: #7c3aed;
   --dis-glow: rgba(124, 58, 237, 0.3);
+  --surf: #00c7e0;
+  --surf-glow: rgba(0, 199, 224, 0.3);
   --green: #00ffaa;
   --text: #f0f0f5;
   --muted: #8888aa;
+
+  /* ── StreamingRadins glass design system ── */
+  --glass-bg: hsla(240, 16%, 10%, 0.70);
+  --glass-border: rgba(255, 255, 255, 0.07);
+  --shadow-card: 0 12px 40px rgba(0, 0, 0, 0.45);
+  --gradient-primary: linear-gradient(135deg, hsl(262, 85%, 62%), hsl(190, 95%, 50%));
+  --gradient-yt: linear-gradient(135deg, hsl(0, 100%, 52%), hsl(0, 100%, 34%));
+  --gradient-disney: linear-gradient(135deg, hsl(262, 85%, 62%), hsl(223, 100%, 30%));
+  --gradient-surfshark: linear-gradient(135deg, hsl(188, 100%, 44%), hsl(182, 100%, 24%));
+  --radius: 20px;
+  --radius-sm: 12px;
+  --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
 * {
@@ -201,6 +215,112 @@ body::before {
   max-height: calc(100dvh - max(40px, env(safe-area-inset-bottom, 40px)) - 40px);
   overflow-y: auto;
   animation: slideIn 0.25s ease;
+}
+
+/* ══ Glass panel ══ */
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+}
+
+/* ══ Gradient text utility ══ */
+.gradient-text {
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ══ Service banner backgrounds ══ */
+.banner-yt {
+  background: linear-gradient(135deg, hsl(0, 40%, 10%), hsl(0, 70%, 18%));
+}
+.banner-disney {
+  background: linear-gradient(135deg, hsl(262, 50%, 10%), hsl(262, 75%, 18%));
+}
+.banner-surfshark {
+  background: linear-gradient(135deg, hsl(188, 50%, 8%), hsl(188, 75%, 15%));
+}
+
+/* ══ Filter buttons ══ */
+.filter-btn {
+  padding: 9px 22px;
+  border-radius: 999px;
+  border: 1px solid var(--glass-border);
+  background: rgba(255,255,255,0.03);
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  font-family: var(--font-syne), sans-serif;
+  white-space: nowrap;
+}
+.filter-btn:hover { background: rgba(255,255,255,0.07); color: var(--text); }
+.filter-btn.active {
+  background: var(--gradient-primary);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 4px 15px rgba(138, 92, 247, 0.3);
+}
+
+/* ══ Slot dots ══ */
+.slot-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.15);
+  flex-shrink: 0;
+}
+.slot-dot.filled { background: hsl(262, 85%, 62%); }
+.slot-dot.available { background: var(--green); box-shadow: 0 0 6px rgba(0,255,170,0.5); }
+
+/* ══ FAQ accordion ══ */
+.faq-item {
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  transition: border-color 0.25s;
+}
+.faq-item:hover { border-color: rgba(255,255,255,0.12); }
+.faq-question {
+  width: 100%;
+  padding: 20px 22px;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--font-syne), sans-serif;
+}
+.faq-icon {
+  font-size: 1.3rem;
+  color: hsl(190, 95%, 50%);
+  transition: transform 0.3s;
+  flex-shrink: 0;
+}
+.faq-item.open .faq-icon { transform: rotate(45deg); color: hsl(262, 85%, 62%); }
+.faq-answer {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.35s ease;
+}
+.faq-item.open .faq-answer { max-height: 200px; }
+.faq-answer p {
+  padding: 0 22px 20px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.7;
 }
 
 /* ══ Copy button ══ */

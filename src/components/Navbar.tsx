@@ -4,7 +4,7 @@ import Icon from './Icon';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
-type Service = 'YOUTUBE' | 'DISNEY';
+type Service = 'YOUTUBE' | 'DISNEY' | 'SURFSHARK';
 
 type StoredOrder = {
   orderId: string;
@@ -21,13 +21,11 @@ export default function Navbar({
   const [lastOrder, setLastOrder] = useState<StoredOrder | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Lire le localStorage côté client uniquement
   useEffect(() => {
     try {
       const stored = localStorage.getItem('sm_last_order');
       if (stored) {
         const parsed: StoredOrder = JSON.parse(stored);
-        // Ne montrer que les commandes des 31 derniers jours
         const age = Date.now() - new Date(parsed.createdAt).getTime();
         if (age < 31 * 24 * 60 * 60 * 1000) {
           setLastOrder(parsed);
@@ -44,7 +42,12 @@ export default function Navbar({
     ? `/track-order?email=${encodeURIComponent(lastOrder.email)}`
     : '/track-order';
 
-  const serviceColor = lastOrder?.service === 'YOUTUBE' ? 'var(--yt)' : '#a78bfa';
+  const serviceColor =
+    lastOrder?.service === 'YOUTUBE'
+      ? 'var(--yt)'
+      : lastOrder?.service === 'SURFSHARK'
+      ? 'var(--surf)'
+      : '#a78bfa';
 
   return (
     <nav
@@ -54,11 +57,26 @@ export default function Navbar({
         left: 0,
         right: 0,
         zIndex: 100,
-        background: 'rgba(10,10,15,0.85)',
+        background: 'var(--glass-bg)',
         backdropFilter: 'blur(20px)',
-        borderBottom: '1px solid var(--border)',
+        WebkitBackdropFilter: 'blur(20px)',
+        borderBottom: '1px solid var(--glass-border)',
+        boxShadow: '0 4px 30px rgba(0,0,0,0.3)',
       }}
     >
+      {/* Gradient accent line */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: '1px',
+          background: 'linear-gradient(90deg, transparent, hsl(262,85%,62%), hsl(190,95%,50%), transparent)',
+          opacity: 0.5,
+        }}
+      />
+
       <div
         style={{
           maxWidth: '1100px',
@@ -90,18 +108,19 @@ export default function Navbar({
             style={{
               width: '30px',
               height: '30px',
-              background: '#fff',
-              borderRadius: '7px',
+              background: 'var(--gradient-primary)',
+              borderRadius: '8px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#000',
+              color: '#fff',
               fontSize: '0.8rem',
+              boxShadow: '0 0 12px rgba(138,92,247,0.4)',
             }}
           >
             <Icon className="fa-solid fa-bolt" />
           </span>
-          StreamMalin
+          <span className="gradient-text">StreamMalin</span>
         </a>
 
         {/* Links — hidden on mobile */}
@@ -110,9 +129,9 @@ export default function Navbar({
           style={{ alignItems: 'center', gap: '24px' }}
         >
           {[
-            { href: '/#offres',  label: 'Offres' },
+            { href: '/#offres', label: 'Offres' },
             { href: '/#comment', label: 'Comment ça marche' },
-            { href: '/#avis',    label: 'Avis' },
+            { href: '/#avis', label: 'Avis' },
           ].map((link) => (
             <a
               key={link.href}
@@ -141,7 +160,6 @@ export default function Navbar({
 
           {/* Dynamic order button */}
           {lastOrder ? (
-            // Client has a recent order → "Ma commande en cours" pill
             <Link
               href={trackUrl}
               style={{
@@ -180,7 +198,6 @@ export default function Navbar({
               Ma commande
             </Link>
           ) : (
-            // No stored order → plain "Suivre" link
             <Link
               href="/track-order"
               style={{
@@ -211,27 +228,30 @@ export default function Navbar({
           <button
             onClick={() => onSubscribe?.('YOUTUBE')}
             style={{
-              background: '#fff',
-              color: '#000',
+              background: 'var(--gradient-primary)',
+              color: '#fff',
               fontWeight: 700,
               fontSize: '0.82rem',
               padding: '8px 18px',
               borderRadius: '8px',
               cursor: 'pointer',
               border: 'none',
-              transition: 'opacity 0.2s',
+              transition: 'opacity 0.2s, transform 0.2s',
               fontFamily: 'var(--font-syne), sans-serif',
               whiteSpace: 'nowrap',
+              boxShadow: '0 4px 14px rgba(138,92,247,0.35)',
             }}
-            onMouseEnter={(e) =>
-              ((e.currentTarget as HTMLButtonElement).style.opacity = '0.85')
-            }
-            onMouseLeave={(e) =>
-              ((e.currentTarget as HTMLButtonElement).style.opacity = '1')
-            }
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.opacity = '0.9';
+              (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)';
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.opacity = '1';
+              (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)';
+            }}
           >
             <Icon className="fa-solid fa-bolt" style={{ marginRight: '6px' }} />
-            S'abonner
+            S&apos;abonner
           </button>
         </div>
       </div>
