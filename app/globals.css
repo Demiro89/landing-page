@@ -167,3 +167,196 @@ img { max-width: 100%; height: auto; }
 ::-webkit-scrollbar-track { background: var(--bg-dark); }
 ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 99px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+
+/* ── GRADIENT TEXT ── */
+.gradient-text {
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── FILTER BUTTONS ── */
+.filter-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 20px; border-radius: 50px; font-size: 0.875rem; font-weight: 600;
+  font-family: 'Outfit', sans-serif; cursor: pointer; transition: var(--transition);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-gray);
+}
+.filter-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-white);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+.filter-btn.active {
+  background: var(--gradient-primary);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: var(--shadow-primary);
+}
+
+/* ── SLOT DOTS ── */
+.slot-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  transition: var(--transition);
+}
+.slot-dot.filled {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+.slot-dot.available {
+  background: var(--accent-green);
+  border-color: var(--accent-green);
+  box-shadow: 0 0 8px var(--accent-green-glow);
+  animation: pulse-dot 1.8s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.15); }
+}
+
+/* ── PRODUCT CARDS ── */
+.product-card {
+  display: flex; flex-direction: column; overflow: hidden;
+  transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.3s ease;
+  border-radius: var(--radius);
+}
+.product-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+}
+
+.product-banner {
+  position: relative; height: 100px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.product-banner .badge-discount {
+  position: absolute; top: 10px; right: 10px;
+  background: rgba(0,0,0,0.45); backdrop-filter: blur(4px);
+  color: #fff; font-size: 0.72rem; font-weight: 800;
+  padding: 3px 10px; border-radius: 50px; letter-spacing: 0.03em;
+}
+.product-banner .product-logo {
+  font-size: 2.5rem; line-height: 1;
+  filter: drop-shadow(0 4px 12px rgba(0,0,0,0.4));
+}
+
+.product-body {
+  padding: 20px; flex: 1; display: flex; flex-direction: column;
+}
+.product-body h3 {
+  font-size: 1rem; font-weight: 800; color: var(--text-white); margin-bottom: 4px;
+}
+.product-body .tagline {
+  font-size: 0.8rem; color: var(--text-gray); font-weight: 400; margin-bottom: 12px;
+}
+.product-body .features {
+  list-style: none; padding: 0; margin: 0 0 16px 0; flex: 1;
+}
+.product-body .features li {
+  font-size: 0.78rem; color: var(--text-gray); padding: 3px 0;
+  display: flex; align-items: flex-start; gap: 6px;
+}
+.product-body .features li::before {
+  content: '✓'; color: var(--secondary); font-weight: 700; flex-shrink: 0; margin-top: 1px;
+}
+.product-body .pricing {
+  margin-bottom: 14px;
+}
+.product-body .price-main {
+  font-size: 1.6rem; font-weight: 900; color: var(--text-white); line-height: 1;
+}
+.product-body .price-original {
+  font-size: 0.8rem; color: var(--text-muted); text-decoration: line-through; margin-left: 6px;
+}
+.product-body .price-period { font-size: 0.8rem; color: var(--text-gray); margin-left: 2px; }
+.product-body .price-savings {
+  font-size: 0.78rem; color: var(--secondary); font-weight: 700; margin-top: 2px;
+}
+
+/* ── SHARE (MARKETPLACE) ITEMS ── */
+.shares-list { display: flex; flex-direction: column; gap: 14px; }
+
+.share-item {
+  display: flex; align-items: center; gap: 16px; padding: 18px 22px;
+  border-radius: var(--radius-sm); transition: var(--transition);
+}
+.share-item:hover {
+  background: var(--bg-card-hover);
+  transform: translateX(4px);
+}
+
+.share-logo-wrap {
+  width: 52px; height: 52px; border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.6rem; flex-shrink: 0;
+}
+.share-details { flex: 1; min-width: 0; }
+.share-details .share-name {
+  font-size: 0.95rem; font-weight: 700; color: var(--text-white); margin-bottom: 2px;
+}
+.share-details .share-tag {
+  font-size: 0.75rem; color: var(--text-gray); font-weight: 400;
+}
+.share-slots { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
+.share-slots .slots-label {
+  font-size: 0.75rem; font-weight: 700; color: var(--accent-green);
+}
+.share-dots { display: flex; gap: 5px; align-items: center; }
+.share-price { text-align: right; flex-shrink: 0; margin-left: 12px; }
+.share-price .price-val {
+  font-size: 1.25rem; font-weight: 900; color: var(--text-white); display: block;
+}
+.share-price .price-sub {
+  font-size: 0.7rem; color: var(--text-muted);
+}
+
+/* ── FAQ ── */
+.faq-item {
+  border-radius: var(--radius-sm); overflow: hidden;
+  transition: var(--transition);
+}
+.faq-item button {
+  width: 100%; display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 24px; text-align: left; cursor: pointer; background: transparent; border: none;
+  color: var(--text-white); font-family: 'Inter', sans-serif;
+}
+.faq-item button:hover { background: rgba(255,255,255,0.03); }
+.faq-item.open { border-color: rgba(138, 92, 247, 0.25); }
+.faq-item.open button { color: var(--primary); }
+
+/* ── STEP CARDS ── */
+.step-card {
+  text-align: center; padding: 36px 28px; border-radius: var(--radius);
+}
+.step-number {
+  width: 60px; height: 60px; border-radius: 16px; margin: 0 auto 20px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.4rem; font-weight: 900; color: #fff;
+  background: var(--gradient-primary);
+  box-shadow: var(--shadow-primary);
+}
+
+/* ── GUARANTEE CARDS ── */
+.guarantee-card {
+  padding: 28px 22px; border-radius: var(--radius); text-align: center;
+  transition: var(--transition);
+}
+.guarantee-card:hover { transform: translateY(-4px); }
+.guarantee-icon { font-size: 2.2rem; margin-bottom: 14px; }
+.guarantee-title { font-size: 0.95rem; font-weight: 700; color: var(--text-white); margin-bottom: 8px; }
+.guarantee-text { font-size: 0.78rem; color: var(--text-gray); line-height: 1.6; font-weight: 400; }
+
+/* ── AMBIENT BACKGROUND OVERLAY ── */
+body::before {
+  content: ''; position: fixed; inset: 0; z-index: -2; pointer-events: none;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 10%, hsla(262, 85%, 62%, 0.07) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 80%, hsla(190, 95%, 50%, 0.05) 0%, transparent 60%);
+}

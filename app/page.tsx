@@ -304,42 +304,43 @@ export default function Home() {
                   const savings = (s.original - s.price).toFixed(2);
                   const hasStock = s.availableSlots > 0;
                   return (
-                    <div key={s.id} className="glass-panel rounded-2xl overflow-hidden hover:scale-[1.02] transition-transform duration-300 flex flex-col">
+                    <div key={s.id} className="product-card glass-panel">
                       {/* Banner */}
-                      <div className="relative h-24 flex items-center justify-center" style={{ background: s.gradient }}>
-                        <span className="absolute top-3 right-3 text-xs font-black text-white bg-black/30 px-2 py-0.5 rounded-full">-{discount}%</span>
-                        <span className="text-4xl">{s.icon}</span>
+                      <div className="product-banner" style={{ background: s.gradient }}>
+                        <span className="badge-discount">-{discount}%</span>
+                        <div className="product-logo">{s.icon}</div>
                       </div>
                       {/* Body */}
-                      <div className="p-5 flex flex-col flex-1">
-                        <h3 className="font-extrabold text-white text-base mb-1">{s.name}</h3>
-                        <p className="text-xs text-[#9ca3af] font-light mb-3">{s.tagline}</p>
-                        <ul className="space-y-1.5 mb-4 flex-1">
+                      <div className="product-body">
+                        <h3>{s.name}</h3>
+                        <p className="tagline">{s.tagline}</p>
+                        <ul className="features">
                           {s.features.slice(0, 3).map((f, i) => (
-                            <li key={i} className="flex items-start gap-2 text-xs text-[#9ca3af]">
-                              <span className="text-cyan-400 shrink-0 mt-0.5">✓</span> {f}
-                            </li>
+                            <li key={i}>{f}</li>
                           ))}
                         </ul>
-                        <div className="mb-4">
-                          <div className="flex items-baseline gap-2">
-                            <span className="text-2xl font-black text-white">{s.price.toFixed(2)}€</span>
-                            <span className="text-sm line-through text-[#6b7280]">{s.original.toFixed(2)}€</span>
-                            <span className="text-xs text-[#9ca3af]">/ mois</span>
+                        <div className="pricing">
+                          <div>
+                            <span className="price-main">{s.price.toFixed(2)}€</span>
+                            <span className="price-original">{s.original.toFixed(2)}€</span>
+                            <span className="price-period">/ mois</span>
                           </div>
-                          <p className="text-xs text-cyan-400 font-bold mt-0.5">Économie : {savings}€/mois</p>
+                          <p className="price-savings">Économie : {savings}€/mois</p>
                         </div>
                         {hasStock ? (
                           <a
                             href={`/checkout?service=${s.id}&stock=${s.availableStockId}`}
-                            className="btn btn-primary w-full justify-center text-sm rounded-xl py-2.5"
+                            className="btn btn-primary w-full justify-center text-sm"
+                            style={{ borderRadius: '12px', padding: '10px 0' }}
                           >
-                            Louer un accès
+                            Louer un accès →
                           </a>
                         ) : (
                           <>
-                            <p className="text-xs text-red-400 font-bold mb-2">RUPTURE DE STOCK · {s.availableSlots} places</p>
-                            <button disabled className="w-full py-2.5 rounded-xl bg-white/5 text-[#6b7280] text-sm cursor-not-allowed">Plus disponible</button>
+                            <p style={{ fontSize: '0.75rem', color: 'var(--accent-red)', fontWeight: 700, marginBottom: 8 }}>RUPTURE DE STOCK</p>
+                            <button disabled style={{ width: '100%', padding: '10px', borderRadius: 12, background: 'rgba(255,255,255,0.04)', color: 'var(--text-muted)', fontSize: '0.85rem', cursor: 'not-allowed', border: '1px solid rgba(255,255,255,0.06)' }}>
+                              Indisponible
+                            </button>
                           </>
                         )}
                       </div>
@@ -363,45 +364,40 @@ export default function Home() {
                 <p className="text-[#9ca3af] font-light">Choisissez votre place sécurisée. Vos accès sont gérés en direct et garantis par notre équipe.</p>
               </div>
 
-              <div className="space-y-4 max-w-4xl mx-auto">
+              <div className="shares-list max-w-4xl mx-auto">
                 {filteredStocks.length === 0 ? (
-                  <div className="glass-panel rounded-2xl p-12 text-center text-[#9ca3af] font-light">
+                  <div className="glass-panel p-12 text-center" style={{ borderRadius: 'var(--radius)', color: 'var(--text-gray)', fontWeight: 400 }}>
                     Aucun accès disponible en stock actuellement pour ce service. Notre équipe réapprovisionne régulièrement, revenez d&apos;ici quelques minutes !
                   </div>
                 ) : (
                   filteredStocks.map((stock) => {
                     const avSlots = stock.maxSlots - stock.filledSlots;
                     return (
-                      <div key={stock.id} className="glass-panel rounded-2xl p-5 flex items-center gap-5 hover:scale-[1.01] transition-transform">
-                        <div className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl shrink-0" style={{ background: stock.service.gradient }}>
+                      <div key={stock.id} className="share-item glass-panel">
+                        <div className="share-logo-wrap" style={{ background: stock.service.gradient }}>
                           {stock.service.icon}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between mb-1.5">
-                            <div>
-                              <h4 className="font-bold text-white text-base">{stock.service.name}</h4>
-                              <p className="text-xs text-[#9ca3af]">🛡️ Accès Officiel · Stable &amp; Garanti</p>
+                        <div className="share-details">
+                          <div className="share-name">{stock.service.name}</div>
+                          <div className="share-tag">🛡️ Accès Officiel · Stable &amp; Garanti</div>
+                          <div className="share-slots">
+                            <span className="slots-label">{avSlots} place{avSlots > 1 ? 's' : ''} libre{avSlots > 1 ? 's' : ''}</span>
+                            <div className="share-dots">
+                              {slotDots(stock.maxSlots, stock.filledSlots)}
                             </div>
-                            <div className="text-right shrink-0 ml-4">
-                              <div className="text-xl font-black text-white">{stock.price.toFixed(2)}€</div>
-                              <div className="text-[10px] text-[#9ca3af]">/mois tout inclus</div>
-                            </div>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <span className="text-xs font-bold text-cyan-400">{avSlots} place{avSlots > 1 ? 's' : ''} libre{avSlots > 1 ? 's' : ''}</span>
-                              <div className="flex gap-1">
-                                {slotDots(stock.maxSlots, stock.filledSlots)}
-                              </div>
-                            </div>
-                            <a
-                              href={`/checkout?service=${stock.serviceId}&stock=${stock.id}`}
-                              className="btn btn-primary btn-sm rounded-xl px-4 py-2 text-xs ml-4 shrink-0"
-                            >
-                              Louer mon accès
-                            </a>
                           </div>
                         </div>
+                        <div className="share-price">
+                          <span className="price-val">{stock.price.toFixed(2)}€</span>
+                          <span className="price-sub">/mois tout inclus</span>
+                        </div>
+                        <a
+                          href={`/checkout?service=${stock.serviceId}&stock=${stock.id}`}
+                          className="btn btn-primary btn-sm shrink-0"
+                          style={{ borderRadius: 10, padding: '8px 16px', fontSize: '0.8rem' }}
+                        >
+                          Louer →
+                        </a>
                       </div>
                     );
                   })
