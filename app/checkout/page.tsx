@@ -105,21 +105,23 @@ function CheckoutContent() {
 
   if (loadingService) {
     return (
-      <div className="min-h-screen bg-[#0b0c10] flex items-center justify-center text-[#9ca3af] font-light">
-        Initialisation du tunnel de paiement sécurisé...
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-gray)', fontSize: '0.92rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span className="hero-badge-dot" /> Initialisation du tunnel de paiement sécurisé…
+        </div>
       </div>
     );
   }
 
   if (!service || !stockId) {
     return (
-      <div className="min-h-screen bg-[#0b0c10] flex flex-col items-center justify-center p-6 text-center">
-        <div className="text-5xl mb-4">⚠️</div>
-        <h2 className="text-xl font-bold text-white mb-2">Session de checkout expirée ou invalide</h2>
-        <p className="text-sm text-[#9ca3af] max-w-sm mb-6 font-light">
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center' }}>
+        <div className="dash-empty-icon" style={{ marginBottom: 24 }}>⚠️</div>
+        <h2 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: 10 }}>Session de checkout invalide</h2>
+        <p style={{ fontSize: '0.9rem', color: 'var(--text-gray)', maxWidth: 420, marginBottom: 24 }}>
           Le lien de paiement est erroné ou ce compte de stock n&apos;est plus disponible.
         </p>
-        <a href="/" className="btn btn-primary rounded-xl px-6 py-3">← Retour à la boutique</a>
+        <a href="/" className="btn btn-primary">← Retour à la boutique</a>
       </div>
     );
   }
@@ -128,201 +130,269 @@ function CheckoutContent() {
     coin === 'btc' ? 6 : coin === 'eth' ? 5 : coin === 'usdt' ? 2 : 4;
 
   return (
-    <div className="min-h-screen bg-[#0b0c10] text-[#e5e7eb]">
-      {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl bg-[#0b0c10]/80 border-b border-white/5">
-        <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
-          <a href="/" className="flex items-center gap-2 font-extrabold text-lg">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-black" style={{ background: 'var(--gradient-primary)' }}>SM</div>
+    <div style={{ minHeight: '100vh', position: 'relative' }}>
+      {/* Ambient glows */}
+      <div style={{ position: 'absolute', top: 60, left: '-15%', width: 520, height: 520, borderRadius: '50%', background: 'radial-gradient(circle, hsla(262,88%,64%,0.16), transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none', zIndex: 0 }} />
+      <div style={{ position: 'absolute', top: 300, right: '-12%', width: 460, height: 460, borderRadius: '50%', background: 'radial-gradient(circle, hsla(190,95%,50%,0.12), transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none', zIndex: 0 }} />
+
+      {/* Navbar */}
+      <header className="navbar">
+        <div className="nav-inner">
+          <a href="/" className="nav-logo">
+            <div className="nav-logo-icon">SM</div>
             <span className="gradient-text">StreamMalin</span>
           </a>
-          <a href="/" className="text-sm text-[#9ca3af] hover:text-white transition-colors">← Retour à la boutique</a>
+          <a href="/" className="btn btn-ghost btn-sm">← Boutique</a>
         </div>
       </header>
 
-      <main className="pt-28 pb-16 px-6">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-10">
-            <h2 className="text-4xl font-black text-white mb-2">
-              Finaliser votre <span className="gradient-text">commande</span>
-            </h2>
-            <p className="text-[#9ca3af] font-light">Paiement 100% crypté SSL — Activation immédiate de vos accès Premium</p>
+      <div className="checkout-wrap">
+        {/* Header */}
+        <div className="checkout-head fade-in-up">
+          <div className="eyebrow">
+            <span className="hero-badge-dot" style={{ width: 6, height: 6 }} />
+            CHECKOUT SÉCURISÉ · SSL CHIFFRÉ
           </div>
+          <h1>
+            Finaliser votre <span className="gradient-text">commande</span>
+          </h1>
+          <p>Paiement 100% sécurisé — activation immédiate de vos accès Premium</p>
+        </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-start">
-            {/* Formulaire */}
-            <div className="md:col-span-7 glass-panel rounded-2xl p-8">
-              <h3 className="text-xl font-extrabold text-white mb-6">💳 Choisir un moyen de paiement</h3>
-
-              {errorMsg && (
-                <div className="mb-4 p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs">{errorMsg}</div>
-              )}
-
-              {/* Email */}
-              <div className="mb-6">
-                <label className="block text-xs font-bold text-[#9ca3af] uppercase tracking-wide mb-2">
-                  Adresse email (pour recevoir vos identifiants)
-                </label>
-                <input
-                  type="email"
-                  required
-                  placeholder="votre@email.com"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl bg-[#141524] border border-white/10 text-white placeholder-[#6b7280] focus:outline-none focus:border-purple-500 transition-all text-sm"
-                />
-              </div>
-
-              {/* Tabs */}
-              <div className="flex gap-2 mb-6">
-                {([
-                  { id: 'cb' as PayTab, icon: '💳', label: 'Carte Bancaire' },
-                  { id: 'paypal' as PayTab, icon: '🅿️', label: 'PayPal' },
-                  { id: 'crypto' as PayTab, icon: '₿', label: 'Cryptomonnaies' },
-                ]).map(tab => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setPayTab(tab.id)}
-                    className={`flex-1 flex flex-col items-center gap-1.5 py-3 rounded-xl border text-xs font-bold transition-all ${
-                      payTab === tab.id ? 'text-white border-transparent' : 'border-white/10 bg-[#141524] text-[#9ca3af] hover:bg-white/5'
-                    }`}
-                    style={payTab === tab.id ? { background: 'var(--gradient-primary)' } : {}}
-                  >
-                    <span className="text-xl">{tab.icon}</span>
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* CB */}
-              {payTab === 'cb' && (
-                <form onSubmit={handleStripeCheckout} className="space-y-4">
-                  <div className="p-4 rounded-xl bg-purple-500/5 border border-purple-500/20">
-                    <p className="font-semibold text-white text-sm mb-1">💳 Redirection sécurisée vers Stripe</p>
-                    <p className="text-xs text-[#9ca3af] font-light">Achetez en toute sécurité. Les données bancaires sont cryptées côté serveur par la passerelle Stripe 3D Secure.</p>
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={isSubmitting || !email}
-                    className="w-full btn btn-primary py-4 rounded-xl font-bold text-base disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    🔒 {isSubmitting ? 'Redirection...' : `Régler en toute sécurité — ${service.price.toFixed(2)}€`}
-                  </button>
-                  <p className="text-[10px] text-center text-[#6b7280]">🔒 Cryptage AES-256. Vos coordonnées bancaires ne sont jamais stockées sur nos serveurs.</p>
-                </form>
-              )}
-
-              {/* PayPal */}
-              {payTab === 'paypal' && (
-                <div className="space-y-4">
-                  <div className="p-5 rounded-xl bg-[#141524] border border-white/5">
-                    <p className="font-semibold text-white text-sm mb-3">🅿️ Paiement manuel via PayPal</p>
-                    <div className="mb-4 p-3 rounded-lg bg-orange-500/10 border border-orange-500/20 text-orange-300 text-xs font-semibold">
-                      ⚠️ Obligatoire : Sélectionner &quot;<strong>Biens et Services</strong>&quot; (Goods &amp; Services) lors de l&apos;envoi — jamais &quot;Entre proches&quot;.
-                    </div>
-                    <ol className="list-decimal list-inside space-y-2 text-xs text-[#9ca3af] font-light">
-                      <li>Connectez-vous à votre compte PayPal.</li>
-                      <li>Envoyez <strong className="text-white">{service.price.toFixed(2)}€</strong> à notre email PayPal en mode <strong className="text-white">&quot;Biens et Services&quot;</strong>.</li>
-                      <li>Indiquez dans la note : <strong className="text-white">{email || 'votre email de livraison'}</strong>.</li>
-                      <li>Vos accès seront activés sous 10–30 minutes après vérification du reçu.</li>
-                    </ol>
-                  </div>
-                  <div className="p-4 rounded-xl bg-[#141524] border border-white/5 text-center">
-                    <p className="text-xs text-[#9ca3af] mb-1">Adresse PayPal de réception</p>
-                    <p className="font-bold text-white">paiement@streammalin.fr</p>
-                  </div>
-                  <p className="text-[10px] text-center text-[#6b7280]">🔒 Transaction couverte par la Protection des Achats PayPal (Biens &amp; Services uniquement).</p>
-                </div>
-              )}
-
-              {/* Crypto */}
-              {payTab === 'crypto' && (
-                <div className="space-y-4">
-                  <p className="text-sm font-semibold text-white">Sélectionner la devise crypto :</p>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    {(Object.keys(CRYPTO_META) as CryptoCoin[]).map(coin => (
-                      <button
-                        key={coin}
-                        onClick={() => setActiveCoin(coin)}
-                        className={`flex flex-col items-center gap-1 py-3 rounded-xl border text-xs font-bold transition-all ${
-                          activeCoin === coin ? 'border-transparent scale-[1.04]' : 'border-white/10 bg-[#141524] text-[#9ca3af]'
-                        }`}
-                        style={activeCoin === coin ? { borderColor: CRYPTO_META[coin].color, background: `${CRYPTO_META[coin].color}20` } : {}}
-                      >
-                        <span className="text-2xl" style={{ color: CRYPTO_META[coin].color }}>{CRYPTO_META[coin].symbol}</span>
-                        <span className="text-[10px]">{CRYPTO_META[coin].label}</span>
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="p-5 rounded-xl bg-[#141524] border border-white/5 space-y-3">
-                    <p className="text-xs text-[#9ca3af]">Veuillez effectuer le transfert vers l&apos;adresse publique suivante :</p>
-                    <div className="p-3 bg-black/40 rounded-lg font-mono text-xs text-white break-all">
-                      {cryptoAddr[activeCoin] || 'Adresse non configurée — contactez le support à paiement@streammalin.fr'}
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-bold" style={{ color: CRYPTO_META[activeCoin].color }}>
-                        Montant à envoyer : {(service.price * CRYPTO_RATES[activeCoin]).toFixed(cryptoPrecision(activeCoin))} {activeCoin.toUpperCase()}
-                      </p>
-                      {cryptoAddr[activeCoin] && (
-                        <button onClick={() => copyAddr(cryptoAddr[activeCoin], activeCoin)} className="text-xs text-[#9ca3af] hover:text-white">
-                          {copied === activeCoin ? '✅ Copié !' : '📋 Copier'}
-                        </button>
-                      )}
-                    </div>
-                    <div className="pt-2 border-t border-white/5 text-[10px] text-[#9ca3af]">
-                      ⚠️ <strong className="text-white">IMPORTANT :</strong> Envoyez un e-mail à <strong className="text-white">paiement@streammalin.fr</strong> avec le TXID de votre transaction et votre email de livraison pour activer votre slot sous 1h.
-                    </div>
-                  </div>
-                  <p className="text-[10px] text-center text-[#6b7280]">🔒 Le traitement blockchain nécessite généralement 1 à 3 validations réseau (~10 min).</p>
-                </div>
-              )}
+        <div className="checkout-grid">
+          {/* ── Formulaire ── */}
+          <div className="glass-panel checkout-card fade-in-up">
+            <div className="checkout-card-head">
+              <div className="icon-bubble">💳</div>
+              Choisir un moyen de paiement
             </div>
 
-            {/* Récapitulatif */}
-            <div className="md:col-span-5 glass-panel rounded-2xl p-6">
-              <h3 className="text-lg font-extrabold text-white mb-5">📦 Récapitulatif</h3>
-              <div className="flex items-center gap-4 mb-6">
-                <div className="w-14 h-14 rounded-xl flex items-center justify-center text-3xl shrink-0" style={{ background: service.gradient }}>
-                  {service.icon}
-                </div>
-                <div>
-                  <h4 className="font-extrabold text-white">{service.name}</h4>
-                  <p className="text-xs text-[#9ca3af] font-light mt-0.5">Type : <strong>Accès Officiel</strong> (⭐ 5.0)</p>
-                </div>
-                <div className="ml-auto text-right">
-                  <div className="text-lg font-black text-white">{service.price.toFixed(2)}€</div>
-                </div>
-              </div>
+            {errorMsg && <div className="error-box">⚠️ {errorMsg}</div>}
 
-              <div className="bg-black/20 rounded-xl p-4 space-y-2.5 mb-5 border border-white/5">
-                <div className="flex justify-between text-sm text-[#9ca3af]">
-                  <span>Prix de l&apos;accès</span><span className="text-white font-medium">{service.price.toFixed(2)}€</span>
-                </div>
-                <div className="flex justify-between text-sm text-[#9ca3af]">
-                  <span>Frais d&apos;activation &amp; Garantie</span><span className="text-cyan-400 font-semibold">Gratuit</span>
-                </div>
-                <div className="flex justify-between text-sm text-cyan-400">
-                  <span>Économie mensuelle estimée</span><span className="font-bold">{savings}€</span>
-                </div>
-                <div className="flex justify-between text-xs text-[#6b7280] border-t border-white/5 pt-2.5">
-                  <span>Fréquence</span><span>Mensuelle, sans engagement</span>
-                </div>
-              </div>
+            {/* Pay tabs */}
+            <div className="pay-tabs">
+              {([
+                { id: 'cb' as PayTab, icon: '💳', label: 'Carte Bancaire' },
+                { id: 'paypal' as PayTab, icon: '🅿️', label: 'PayPal' },
+                { id: 'crypto' as PayTab, icon: '₿', label: 'Cryptomonnaies' },
+              ]).map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setPayTab(tab.id)}
+                  className={`pay-tab ${payTab === tab.id ? 'active' : ''}`}
+                >
+                  <span className="pay-icon">{tab.icon}</span>
+                  {tab.label}
+                </button>
+              ))}
+            </div>
 
-              <div className="flex justify-between items-center py-3 border-t border-b border-white/5 mb-5">
-                <span className="font-bold text-white">Total par mois</span>
-                <span className="text-xl font-black gradient-text">{service.price.toFixed(2)}€</span>
-              </div>
+            {/* Email */}
+            <div className="form-field">
+              <label className="form-label">
+                Adresse email <span className="required">*</span>
+                <span style={{ fontWeight: 400, color: 'var(--text-muted)', letterSpacing: 0, textTransform: 'none', marginLeft: 8 }}>(pour recevoir vos identifiants)</span>
+              </label>
+              <input
+                type="email"
+                required
+                placeholder="vous@exemple.com"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                className="dash-input"
+              />
+            </div>
 
-              <div className="p-4 rounded-xl bg-cyan-400/5 border border-cyan-400/20">
-                <p className="text-xs text-cyan-400 font-bold mb-1">🛡️ Garanties StreamMalin incluses :</p>
-                <p className="text-xs text-[#9ca3af] font-light">Remplacement ou remboursement garanti sous 24 heures en cas de dysfonctionnement du compte.</p>
+            {/* CB */}
+            {payTab === 'cb' && (
+              <form onSubmit={handleStripeCheckout}>
+                <div className="info-box">
+                  <div className="info-box-title">🔒 Redirection sécurisée vers Stripe</div>
+                  <div className="info-box-text">
+                    Vous serez redirigé vers la passerelle de paiement <strong style={{ color: 'var(--text-white)' }}>Stripe 3D Secure</strong>. Vos données bancaires sont cryptées et ne transitent jamais par nos serveurs.
+                  </div>
+                </div>
+                <button
+                  type="submit"
+                  disabled={isSubmitting || !email}
+                  className="btn-pay"
+                >
+                  🔒 {isSubmitting ? 'Redirection…' : `Régler ${service.price.toFixed(2)}€ par carte`}
+                </button>
+                <div className="trust-row">
+                  <span>🔐 Cryptage AES-256</span>
+                  <span>✓ 3D Secure</span>
+                  <span>⚡ Activation immédiate</span>
+                </div>
+              </form>
+            )}
+
+            {/* PayPal */}
+            {payTab === 'paypal' && (
+              <div>
+                <div className="warn-box">
+                  <strong>⚠️ OBLIGATOIRE :</strong> Sélectionnez « <strong>Biens et Services</strong> » (Goods &amp; Services) lors de l&apos;envoi.
+                  Jamais « Entre proches / Amis et Famille ».
+                </div>
+
+                <div className="info-box">
+                  <div className="info-box-title">🅿️ Étapes du paiement PayPal</div>
+                  <ol style={{ listStyle: 'decimal', paddingLeft: 20, fontSize: '0.84rem', color: 'var(--text-gray)', lineHeight: 1.8 }}>
+                    <li>Connectez-vous à votre compte PayPal.</li>
+                    <li>Envoyez <strong style={{ color: 'var(--text-white)' }}>{service.price.toFixed(2)}€</strong> en mode <strong style={{ color: 'var(--accent-yellow)' }}>« Biens et Services »</strong>.</li>
+                    <li>Dans la note : indiquez <strong style={{ color: 'var(--text-white)' }}>{email || 'votre email de livraison'}</strong>.</li>
+                    <li>Vos accès sont activés sous <strong style={{ color: 'var(--text-white)' }}>10 à 30 min</strong> après vérification.</li>
+                  </ol>
+                </div>
+
+                <div className="crypto-addr-box" style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>
+                    Adresse PayPal de réception
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+                    <span style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-white)', fontFamily: "'SF Mono', Menlo, monospace" }}>
+                      paiement@streammalin.fr
+                    </span>
+                    <button
+                      onClick={() => { navigator.clipboard.writeText('paiement@streammalin.fr'); setCopied('paypal'); setTimeout(() => setCopied(''), 2000); }}
+                      className={`copy-btn ${copied === 'paypal' ? 'copied' : ''}`}
+                    >
+                      {copied === 'paypal' ? '✅ Copié' : '📋 Copier'}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="trust-row">
+                  <span>🛡️ Protection Achats PayPal</span>
+                  <span>✓ Biens &amp; Services</span>
+                </div>
               </div>
+            )}
+
+            {/* Crypto */}
+            {payTab === 'crypto' && (
+              <div>
+                <label className="form-label">Sélectionner la devise crypto</label>
+                <div className="crypto-grid">
+                  {(Object.keys(CRYPTO_META) as CryptoCoin[]).map(coin => (
+                    <button
+                      key={coin}
+                      onClick={() => setActiveCoin(coin)}
+                      className={`crypto-tile ${activeCoin === coin ? 'active' : ''}`}
+                      style={activeCoin === coin ? {
+                        borderColor: CRYPTO_META[coin].color,
+                        background: `linear-gradient(135deg, ${CRYPTO_META[coin].color}22, ${CRYPTO_META[coin].color}08)`,
+                        boxShadow: `0 8px 24px ${CRYPTO_META[coin].color}30`,
+                      } : {}}
+                    >
+                      <span className="crypto-symbol" style={{ color: CRYPTO_META[coin].color }}>{CRYPTO_META[coin].symbol}</span>
+                      <span>{CRYPTO_META[coin].label}</span>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="crypto-addr-box">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <div>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                        Montant à envoyer
+                      </div>
+                      <div style={{ fontSize: '1.3rem', fontWeight: 900, fontFamily: "'Outfit',sans-serif", color: CRYPTO_META[activeCoin].color, marginTop: 4 }}>
+                        {(service.price * CRYPTO_RATES[activeCoin]).toFixed(cryptoPrecision(activeCoin))} {activeCoin.toUpperCase()}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>≈ EUR</div>
+                      <div style={{ fontSize: '0.95rem', fontWeight: 700 }}>{service.price.toFixed(2)}€</div>
+                    </div>
+                  </div>
+
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: 14, marginBottom: 0 }}>
+                    Adresse de réception
+                  </div>
+                  <div className="crypto-addr">
+                    {cryptoAddr[activeCoin] || '⚠️ Adresse non configurée — contactez paiement@streammalin.fr'}
+                  </div>
+                  {cryptoAddr[activeCoin] && (
+                    <button
+                      onClick={() => copyAddr(cryptoAddr[activeCoin], activeCoin)}
+                      className={`copy-btn ${copied === activeCoin ? 'copied' : ''}`}
+                    >
+                      {copied === activeCoin ? '✅ Adresse copiée' : '📋 Copier l\'adresse'}
+                    </button>
+                  )}
+                </div>
+
+                <div className="warn-box" style={{ marginTop: 16 }}>
+                  <strong>⚠️ Important :</strong> Une fois la transaction envoyée, transmettez le <strong>TXID</strong> à <strong>paiement@streammalin.fr</strong> avec votre email de livraison. Votre slot sera activé sous 1h max après {activeCoin === 'btc' ? '1-3' : '2-12'} confirmation{activeCoin === 'btc' ? 's' : ''} réseau.
+                </div>
+
+                <div className="trust-row">
+                  <span>🔗 Confirmations on-chain</span>
+                  <span>⚡ Activation &lt; 1h</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ── Récapitulatif ── */}
+          <div className="glass-panel checkout-card fade-in-up" style={{ animationDelay: '0.1s' }}>
+            <div className="checkout-card-head">
+              <div className="icon-bubble">📦</div>
+              Récapitulatif
+            </div>
+
+            <div className="recap-service">
+              <div className="recap-service-icon" style={{ background: service.gradient }}>
+                {service.icon}
+              </div>
+              <div className="recap-service-info">
+                <div className="name">{service.name}</div>
+                <div className="sub">⭐ 5.0 · Accès Officiel · Stable</div>
+              </div>
+              <div className="recap-service-price">{service.price.toFixed(2)}€</div>
+            </div>
+
+            <div className="recap-line-list">
+              <div className="recap-line">
+                <span>Prix de l&apos;accès</span>
+                <strong>{service.price.toFixed(2)}€</strong>
+              </div>
+              <div className="recap-line">
+                <span>Frais d&apos;activation</span>
+                <strong style={{ color: 'var(--accent-green)' }}>Gratuit</strong>
+              </div>
+              <div className="recap-line savings">
+                <span>💰 Économie estimée</span>
+                <strong>{savings}€/mois</strong>
+              </div>
+              <div className="recap-divider" />
+              <div className="recap-line" style={{ fontSize: '0.78rem' }}>
+                <span>Fréquence</span>
+                <strong>Mensuelle · Sans engagement</strong>
+              </div>
+            </div>
+
+            <div className="recap-total">
+              <span className="recap-total-label">Total à payer</span>
+              <span className="recap-total-value gradient-text">{service.price.toFixed(2)}€</span>
+            </div>
+
+            <div className="guarantee-box">
+              <div className="guarantee-box-title">🛡️ Garanties StreamMalin incluses</div>
+              <div className="guarantee-box-text">
+                Remplacement ou remboursement garanti sous 24h en cas de dysfonctionnement du compte. Support 7j/7.
+              </div>
+            </div>
+
+            <div className="trust-row" style={{ marginTop: 18 }}>
+              <span>🔒 Paiement SSL</span>
+              <span>⚡ Activation instantanée</span>
+              <span>💬 Support 7j/7</span>
             </div>
           </div>
         </div>
-      </main>
+      </div>
     </div>
   );
 }
