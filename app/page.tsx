@@ -606,176 +606,199 @@ export default function Home() {
 
       {/* ======================== DASHBOARD CLIENT ======================== */}
       {view === 'dashboard' && (
-        <main style={{ paddingTop: 110, paddingBottom: 80, paddingLeft: 24, paddingRight: 24, position: 'relative', minHeight: '100vh' }}>
-          {/* Ambient glow */}
-          <div style={{ position: 'absolute', top: 80, left: '-10%', width: '50%', height: 400, borderRadius: '50%', background: 'radial-gradient(circle, hsla(262,88%,64%,0.18), transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none', zIndex: 0 }} />
-          <div style={{ position: 'absolute', top: 200, right: '-10%', width: '40%', height: 350, borderRadius: '50%', background: 'radial-gradient(circle, hsla(190,95%,50%,0.12), transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none', zIndex: 0 }} />
+        <main style={{ position: 'relative', minHeight: '100vh' }}>
+          {/* Ambient glows */}
+          <div style={{ position: 'absolute', top: 60, left: '-15%', width: 500, height: 500, borderRadius: '50%', background: 'radial-gradient(circle, hsla(262,88%,64%,0.16), transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none', zIndex: 0 }} />
+          <div style={{ position: 'absolute', top: 300, right: '-12%', width: 420, height: 420, borderRadius: '50%', background: 'radial-gradient(circle, hsla(190,95%,50%,0.1), transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none', zIndex: 0 }} />
 
-          <div style={{ maxWidth: 1200, margin: '0 auto', position: 'relative', zIndex: 1 }}>
+          <div className="dash-wrap">
             {/* Header */}
-            <div className="fade-in-up" style={{ marginBottom: 36 }}>
-              <div className="hero-badge" style={{ marginBottom: 18 }}>
-                <span className="hero-badge-dot" />
-                ESPACE CLIENT SÉCURISÉ
-              </div>
-              <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
-                <div>
-                  <h1 style={{ fontSize: 'clamp(2rem, 4vw, 3rem)', fontWeight: 900, lineHeight: 1.1, marginBottom: 10 }}>
-                    Bienvenue dans votre <span className="gradient-text">espace client</span>
-                  </h1>
-                  <p style={{ color: 'var(--text-gray)', fontSize: '0.95rem', maxWidth: 560 }}>
-                    Gérez vos abonnements et discutez en direct avec notre équipe support.
-                  </p>
+            <div className="dash-header fade-in-up">
+              <div>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '5px 12px', borderRadius: 50, background: 'rgba(0,230,118,0.1)', border: '1px solid rgba(0,230,118,0.2)', fontSize: '0.7rem', fontWeight: 700, color: 'var(--accent-green)', letterSpacing: '0.06em', marginBottom: 12 }}>
+                  <span className="hero-badge-dot" style={{ width: 6, height: 6 }} />
+                  CONNECTÉ · SESSION SÉCURISÉE
                 </div>
-                <button onClick={() => setView('storefront')} className="btn btn-outline btn-sm">
-                  ← Retour à la boutique
-                </button>
+                <h1 className="dash-title">
+                  Mon <span className="gradient-text">Espace Client</span>
+                </h1>
+                {searchedEmail && (
+                  <div className="dash-subtitle">
+                    Connecté en tant que <strong style={{ color: 'var(--text-white)' }}>{searchedEmail}</strong>
+                    <button onClick={() => { setSearchedEmail(''); setOrders([]); setClientEmail(''); }} style={{ marginLeft: 10, color: 'var(--secondary)', fontSize: '0.78rem', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
+                      Changer
+                    </button>
+                  </div>
+                )}
               </div>
+              <button onClick={() => setView('storefront')} className="btn btn-ghost btn-sm">
+                ← Boutique
+              </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+            <div className="dash-layout">
               {/* Sidebar */}
-              <aside className="md:col-span-3 glass-panel rounded-2xl p-4 h-fit">
-                <div className="space-y-1">
-                  {([['orders', '📦', 'Mes Abonnements'], ['chat', '💬', 'Support Client']] as [DashTab, string, string][]).map(([tab, icon, label]) => (
-                    <button
-                      key={tab}
-                      onClick={() => setDashTab(tab)}
-                      className={`dash-sidebar-btn ${dashTab === tab ? 'active' : ''}`}
-                    >
-                      <span style={{ fontSize: '1.1rem' }}>{icon}</span> {label}
-                    </button>
-                  ))}
+              <aside className="glass-panel dash-sidebar">
+                <button
+                  onClick={() => setDashTab('orders')}
+                  className={`dash-sidebar-btn ${dashTab === 'orders' ? 'active' : ''}`}
+                >
+                  <span style={{ fontSize: '1.05rem' }}>📦</span> Mes Abonnements
+                  {orders.length > 0 && (
+                    <span style={{ marginLeft: 'auto', fontSize: '0.7rem', padding: '2px 8px', borderRadius: 50, background: dashTab === 'orders' ? 'rgba(255,255,255,0.2)' : 'rgba(138,92,247,0.2)', fontWeight: 800 }}>
+                      {orders.length}
+                    </span>
+                  )}
+                </button>
+                <button
+                  onClick={() => setDashTab('chat')}
+                  className={`dash-sidebar-btn ${dashTab === 'chat' ? 'active' : ''}`}
+                >
+                  <span style={{ fontSize: '1.05rem' }}>💬</span> Support Client
+                </button>
+
+                <div className="dash-sidebar-divider" />
+
+                <div className="dash-sidebar-foot">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, color: 'var(--text-soft)', fontWeight: 600 }}>
+                    🛡️ Sécurité
+                  </div>
+                  Vos accès sont chiffrés AES-256. Notre équipe ne stocke jamais vos identifiants en clair.
                 </div>
               </aside>
 
               {/* Content */}
-              <div className="md:col-span-9">
-                {/* Email lookup */}
+              <div>
+                {/* Email lookup — only shown if not searched yet */}
                 {!searchedEmail && (
-                  <div className="glass-panel rounded-2xl p-8 mb-6">
-                    <h3 className="font-bold text-white mb-4">🔍 Retrouver mes commandes</h3>
-                    <form onSubmit={(e) => { e.preventDefault(); fetchOrders(clientEmail); }} className="flex gap-3">
+                  <div className="glass-panel dash-card fade-in-up">
+                    <div className="dash-card-head">
+                      <div className="icon-bubble">🔍</div>
+                      Retrouver mes commandes
+                    </div>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-gray)', marginBottom: 18 }}>
+                      Saisissez l&apos;email utilisé lors de votre achat. Vous recevrez l&apos;accès à tous vos abonnements actifs et à la messagerie support.
+                    </p>
+                    <form onSubmit={(e) => { e.preventDefault(); fetchOrders(clientEmail); }} style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                       <input
                         type="email"
-                        placeholder="Entrez l&apos;email utilisé lors de votre achat..."
+                        placeholder="vous@exemple.com"
                         value={clientEmail}
                         onChange={(e) => setClientEmail(e.target.value)}
-                        className="flex-1 px-4 py-3 rounded-xl bg-[#141524] border border-white/10 text-white placeholder-[#6b7280] focus:outline-none focus:border-purple-500 transition-all text-sm"
+                        className="dash-input"
+                        style={{ flex: '1 1 240px' }}
                         required
                       />
-                      <button type="submit" disabled={loadingOrders} className="btn btn-primary rounded-xl px-6 py-3 text-sm font-bold shrink-0">
-                        {loadingOrders ? '...' : 'Rechercher'}
+                      <button type="submit" disabled={loadingOrders} className="btn btn-primary">
+                        {loadingOrders ? '⏳ Recherche…' : 'Rechercher →'}
                       </button>
                     </form>
-                    {ordersError && <p className="text-red-400 text-xs mt-3">{ordersError}</p>}
+                    {ordersError && (
+                      <p style={{ color: 'var(--accent-red)', fontSize: '0.8rem', marginTop: 12, padding: '8px 12px', background: 'rgba(255,80,80,0.08)', borderRadius: 8 }}>
+                        ⚠️ {ordersError}
+                      </p>
+                    )}
                   </div>
                 )}
 
                 {/* Orders tab */}
-                {dashTab === 'orders' && (
-                  <div>
-                    {searchedEmail && orders.length === 0 && !loadingOrders && (
-                      <div className="glass-panel rounded-2xl p-12 text-center text-[#9ca3af] font-light">
-                        Aucun abonnement actif trouvé pour <strong className="text-white">{searchedEmail}</strong>.<br />
-                        <button onClick={() => { setSearchedEmail(''); setOrders([]); }} className="text-cyan-400 text-sm mt-2 underline">Chercher un autre email</button>
+                {searchedEmail && dashTab === 'orders' && (
+                  <div className="fade-in-up">
+                    {orders.length === 0 && !loadingOrders ? (
+                      <div className="glass-panel dash-empty">
+                        <div className="dash-empty-icon">📭</div>
+                        <h3>Aucun abonnement actif</h3>
+                        <p>Nous n&apos;avons trouvé aucune commande pour <strong style={{ color: 'var(--text-white)' }}>{searchedEmail}</strong>. Vérifiez l&apos;orthographe ou contactez le support.</p>
                       </div>
+                    ) : (
+                      orders.map((order) => (
+                        <div key={order.id} className="glass-panel order-card">
+                          <div className="order-icon-lg" style={{ background: order.service.gradient }}>
+                            {order.service.icon}
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 6 }}>
+                              <h4 style={{ fontSize: '1.05rem', fontWeight: 800 }}>{order.service.name}</h4>
+                              <span className="order-status">Actif</span>
+                            </div>
+                            <div className="order-meta">
+                              <span>Mensualité <strong>{order.price.toFixed(2)}€</strong></span>
+                              <span>·</span>
+                              <span>Loué le <strong>{new Date(order.date).toLocaleDateString('fr-FR')}</strong></span>
+                            </div>
+                            <div className="creds-box">
+                              <div className="creds-label">🔑 Accès de connexion</div>
+                              <div className="creds-value">{order.details}</div>
+                            </div>
+                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                              <button
+                                onClick={() => { setDashTab('chat'); setActiveChatOrderId(order.id); fetchChat(order.id); }}
+                                className="btn btn-primary btn-sm"
+                              >💬 Contacter le support</button>
+                              <button
+                                onClick={() => navigator.clipboard.writeText(order.details)}
+                                className="btn btn-ghost btn-sm"
+                              >📋 Copier les accès</button>
+                            </div>
+                          </div>
+                        </div>
+                      ))
                     )}
-                    {orders.map((order) => (
-                      <div key={order.id} className="glass-panel rounded-2xl p-6 mb-4 flex flex-col sm:flex-row gap-4">
-                        <div className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl shrink-0" style={{ background: order.service.gradient }}>
-                          {order.service.icon}
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <h4 className="font-bold text-white">{order.service.name}</h4>
-                            <span className="text-xs px-2 py-0.5 rounded-full font-bold" style={{ background: 'rgba(0,230,118,0.15)', color: 'var(--accent-green)' }}>Actif</span>
-                          </div>
-                          <div className="flex flex-wrap gap-4 text-xs text-[#9ca3af] mb-4">
-                            <span>Fournisseur : <strong className="text-white">StreamMalin Support</strong></span>
-                            <span>Mensualité : <strong className="text-white">{order.price.toFixed(2)}€</strong></span>
-                            <span>Loué le : <strong className="text-white">{new Date(order.date).toLocaleDateString('fr-FR')}</strong></span>
-                          </div>
-                          <div className="bg-black/30 border border-white/5 rounded-xl p-4 mb-4">
-                            <div className="text-xs text-[#9ca3af] mb-1.5">🔑 Vos accès de connexion sécurisés</div>
-                            <div className="text-sm text-white font-mono break-all">{order.details}</div>
-                          </div>
-                          <div className="flex gap-2 flex-wrap">
-                            <button
-                              onClick={() => { setDashTab('chat'); setActiveChatOrderId(order.id); fetchChat(order.id); }}
-                              className="btn btn-primary btn-sm rounded-xl text-xs"
-                            >💬 Ouvrir le Support</button>
-                            <button
-                              onClick={() => navigator.clipboard.writeText(order.details)}
-                              className="btn btn-outline btn-sm rounded-xl text-xs text-[#9ca3af]"
-                            >📋 Copier les accès</button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
                   </div>
                 )}
 
                 {/* Chat tab */}
-                {dashTab === 'chat' && (
-                  <div className="glass-panel rounded-2xl overflow-hidden">
+                {searchedEmail && dashTab === 'chat' && (
+                  <div className="glass-panel chat-card fade-in-up">
                     {!activeChatOrderId ? (
-                      <div className="p-16 text-center text-[#9ca3af] font-light">
-                        <div className="text-5xl mb-4">💬</div>
-                        Sélectionnez un abonnement dans l&apos;onglet &quot;Mes Abonnements&quot; pour ouvrir le chat support.
+                      <div className="dash-empty" style={{ borderRadius: 0 }}>
+                        <div className="dash-empty-icon">💬</div>
+                        <h3>Aucune conversation active</h3>
+                        <p>Sélectionnez un abonnement dans l&apos;onglet « Mes Abonnements » et cliquez sur « Contacter le support » pour ouvrir une discussion.</p>
                       </div>
                     ) : (
                       <>
-                        {/* Header */}
-                        <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full bg-cyan-400" />
-                            <span className="font-semibold text-white text-sm">
-                              {orders.find(o => o.id === activeChatOrderId)?.service.name || 'Support'}
-                            </span>
+                        <div className="chat-head">
+                          <div className="status-online">
+                            {orders.find(o => o.id === activeChatOrderId)?.service.name || 'Support'}
                           </div>
-                          <span className="text-xs text-[#6b7280]">🔒 Messagerie chiffrée SSL</span>
+                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>🔒 Chiffré SSL</span>
                         </div>
-                        {/* Messages */}
-                        <div className="h-80 overflow-y-auto p-5 space-y-3">
+                        <div className="chat-messages">
                           {chatMessages.length === 0 ? (
-                            <div className="text-center text-[#9ca3af] text-sm py-12 font-light">Aucun message pour le moment.</div>
+                            <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)', fontSize: '0.88rem' }}>
+                              Démarrez la conversation en envoyant un message.
+                            </div>
                           ) : (
                             chatMessages.map((msg) => {
                               const isSelf = msg.sender === 'Vous';
                               return (
-                                <div key={msg.id} className={`flex ${isSelf ? 'justify-end' : 'justify-start'}`}>
-                                  <div className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
-                                    isSelf
-                                      ? 'text-white rounded-tr-none'
-                                      : 'bg-[#181926] border border-white/5 text-[#e5e7eb] rounded-tl-none'
-                                  }`} style={isSelf ? { background: 'var(--gradient-primary)' } : {}}>
-                                    {!isSelf && <div className="text-xs text-[#9ca3af] mb-1 font-semibold">{msg.sender}</div>}
-                                    <p className="whitespace-pre-wrap font-light">{msg.text}</p>
-                                    <span className="text-[9px] opacity-50 block text-right mt-1">
-                                      {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                    </span>
-                                  </div>
+                                <div key={msg.id} className={`chat-msg ${isSelf ? 'self' : 'other'}`}>
+                                  {!isSelf && <div className="chat-msg-sender">{msg.sender}</div>}
+                                  <div style={{ whiteSpace: 'pre-wrap' }}>{msg.text}</div>
+                                  <span className="chat-msg-time">
+                                    {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  </span>
                                 </div>
                               );
                             })
                           )}
                           <div ref={chatBottomRef} />
                         </div>
-                        {/* Input */}
-                        <form onSubmit={sendMessage} className="p-4 border-t border-white/5 flex gap-2">
+                        <form onSubmit={sendMessage} className="chat-input-bar">
                           <input
                             type="text"
-                            placeholder="Tapez votre message pour le support..."
+                            placeholder="Tapez votre message…"
                             value={chatInput}
                             onChange={(e) => setChatInput(e.target.value)}
-                            className="flex-1 px-4 py-2.5 rounded-xl bg-[#141524] border border-white/10 text-white text-sm focus:outline-none focus:border-purple-500 transition-all"
+                            className="dash-input"
+                            style={{ flex: 1 }}
                           />
                           <button
                             type="submit"
                             disabled={sendingMsg || !chatInput.trim()}
-                            className="px-5 py-2.5 rounded-xl text-white font-bold text-sm disabled:opacity-50"
-                            style={{ background: 'var(--gradient-primary)' }}
+                            className="btn btn-primary"
+                            style={{ opacity: sendingMsg || !chatInput.trim() ? 0.5 : 1 }}
                           >
                             Envoyer
                           </button>
