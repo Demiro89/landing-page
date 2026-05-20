@@ -74,3 +74,9 @@ model Message {
   text      String
   createdAt DateTime   @default(now())
 }
+
+// 6. Paramètres globaux de la plateforme (crypto adresses, gateways, commissions)
+model Setting {
+  key   String @id
+  value String
+}
