@@ -560,32 +560,37 @@ export default function AdminPage() {
           justifyContent: 'center',
           background: 'var(--bg)',
           padding: '24px',
+          position: 'relative',
+          overflow: 'hidden',
         }}
       >
+        <div style={{ position: 'absolute', top: '-20%', left: '-10%', width: '60vw', height: '60vw', background: 'radial-gradient(circle, rgba(124,58,237,0.12) 0%, transparent 65%)', borderRadius: '50%', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', bottom: '-20%', right: '-10%', width: '55vw', height: '55vw', background: 'radial-gradient(circle, rgba(0,199,224,0.08) 0%, transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
         <form
           onSubmit={handleLogin}
+          className="glass-panel"
           style={{
-            background: 'var(--card)',
-            border: '1px solid var(--border)',
-            borderRadius: '20px',
-            padding: '36px',
+            padding: '44px 36px',
             width: '100%',
-            maxWidth: '380px',
+            maxWidth: '400px',
             textAlign: 'center',
+            position: 'relative',
+            zIndex: 1,
           }}
         >
           <div
             style={{
-              width: '56px',
-              height: '56px',
-              borderRadius: '14px',
-              background: 'rgba(124,58,237,0.15)',
-              color: '#a78bfa',
+              width: '64px',
+              height: '64px',
+              borderRadius: '16px',
+              background: 'var(--gradient-primary)',
+              color: '#fff',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: '1.5rem',
-              margin: '0 auto 20px',
+              fontSize: '1.6rem',
+              margin: '0 auto 24px',
+              boxShadow: '0 8px 24px rgba(138,92,247,0.4)',
             }}
           >
             <Icon className="fa-solid fa-shield-halved" />
@@ -594,12 +599,12 @@ export default function AdminPage() {
           <h1
             style={{
               fontFamily: 'var(--font-syne), sans-serif',
-              fontSize: '1.4rem',
+              fontSize: '1.45rem',
               fontWeight: 800,
               marginBottom: '6px',
             }}
           >
-            Admin StreamMalin
+            Admin <span className="gradient-text">StreamMalin</span>
           </h1>
           <p style={{ fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '24px' }}>
             Entrez votre token d'administration
@@ -692,21 +697,39 @@ export default function AdminPage() {
           gap: '12px',
         }}
       >
-        <div>
-          <h1
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <span
             style={{
-              fontFamily: 'var(--font-syne), sans-serif',
-              fontSize: '1.6rem',
-              fontWeight: 800,
-              marginBottom: '4px',
+              width: '40px',
+              height: '40px',
+              borderRadius: '11px',
+              background: 'var(--gradient-primary)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#fff',
+              fontSize: '1rem',
+              boxShadow: '0 4px 14px rgba(138,92,247,0.4)',
+              flexShrink: 0,
             }}
           >
-            <Icon className="fa-solid fa-bolt" style={{ color: '#a78bfa', marginRight: '10px' }} />
-            Admin StreamMalin
-          </h1>
-          <p style={{ fontSize: '0.82rem', color: 'var(--muted)' }}>
-            Tableau de bord de gestion des commandes
-          </p>
+            <Icon className="fa-solid fa-bolt" />
+          </span>
+          <div>
+            <h1
+              style={{
+                fontFamily: 'var(--font-syne), sans-serif',
+                fontSize: '1.6rem',
+                fontWeight: 800,
+                marginBottom: '4px',
+              }}
+            >
+              Admin <span className="gradient-text">StreamMalin</span>
+            </h1>
+            <p style={{ fontSize: '0.82rem', color: 'var(--muted)' }}>
+              Tableau de bord de gestion des commandes
+            </p>
+          </div>
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
           <a
@@ -787,23 +810,40 @@ export default function AdminPage() {
         ].map((stat, i) => (
           <div
             key={i}
+            className="glass-panel"
             style={{
-              background: 'var(--card)',
-              border: '1px solid var(--border)',
-              borderRadius: '14px',
-              padding: '18px 20px',
+              padding: '20px 22px',
+              borderRadius: '16px',
+              transition: 'transform 0.2s, border-color 0.2s',
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)';
+              (e.currentTarget as HTMLDivElement).style.borderColor = `${stat.color}55`;
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)';
+              (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--glass-border)';
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-              <Icon className={`fa-solid ${stat.icon}`} style={{ color: stat.color, fontSize: '0.9rem' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+              <span style={{
+                width: '28px', height: '28px', borderRadius: '8px',
+                background: `${stat.color}18`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: stat.color, fontSize: '0.78rem',
+                flexShrink: 0,
+              }}>
+                <Icon className={`fa-solid ${stat.icon}`} />
+              </span>
               <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>{stat.label}</span>
             </div>
             <div
               style={{
                 fontFamily: 'var(--font-syne), sans-serif',
-                fontSize: '1.8rem',
+                fontSize: '1.9rem',
                 fontWeight: 800,
                 color: stat.color,
+                lineHeight: 1,
               }}
             >
               {stat.value}
@@ -813,27 +853,32 @@ export default function AdminPage() {
       </div>
 
       {/* Main tabs */}
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '24px', borderBottom: '1px solid var(--border)', paddingBottom: '16px', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', borderBottom: '1px solid var(--glass-border)', paddingBottom: '16px', flexWrap: 'wrap' }}>
         {([
           { key: 'orders', label: '📋 Commandes', count: orders.length },
           { key: 'accounts', label: '🗄️ Comptes Maîtres', count: null },
           { key: 'stats', label: '📊 Statistiques', count: null },
           { key: 'settings', label: '⚙️ Paramètres', count: null },
-        ] as const).map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            style={{
-              background: tab === t.key ? 'rgba(124,58,237,0.2)' : 'transparent',
-              border: tab === t.key ? '1px solid rgba(124,58,237,0.5)' : '1px solid transparent',
-              color: tab === t.key ? '#a78bfa' : 'var(--muted)',
-              fontFamily: 'var(--font-syne), sans-serif', fontWeight: 700, fontSize: '0.85rem',
-              padding: '9px 18px', borderRadius: '10px', cursor: 'pointer',
-            }}
-          >
-            {t.label}{t.count !== null ? ` (${t.count})` : ''}
-          </button>
-        ))}
+        ] as const).map((t) => {
+          const active = tab === t.key;
+          return (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              style={{
+                background: active ? 'var(--gradient-primary)' : 'rgba(255,255,255,0.03)',
+                border: active ? '1px solid transparent' : '1px solid var(--glass-border)',
+                color: active ? '#fff' : 'var(--muted)',
+                fontFamily: 'var(--font-syne), sans-serif', fontWeight: 700, fontSize: '0.85rem',
+                padding: '10px 18px', borderRadius: '999px', cursor: 'pointer',
+                transition: 'all 0.2s',
+                boxShadow: active ? '0 4px 14px rgba(138,92,247,0.3)' : 'none',
+              }}
+            >
+              {t.label}{t.count !== null ? ` (${t.count})` : ''}
+            </button>
+          );
+        })}
         {/* Onglet Signalements avec pastille non-résolus */}
         {(() => {
           const unresolvedCount = reports.filter((r) => !r.resolved).length;
@@ -842,11 +887,13 @@ export default function AdminPage() {
               onClick={() => setTab('reports')}
               style={{
                 position: 'relative',
-                background: tab === 'reports' ? 'rgba(255,59,59,0.15)' : 'transparent',
-                border: tab === 'reports' ? '1px solid rgba(255,59,59,0.4)' : '1px solid transparent',
-                color: tab === 'reports' ? '#ff6b6b' : 'var(--muted)',
+                background: tab === 'reports' ? 'linear-gradient(135deg, #ff3b3b, #c92020)' : 'rgba(255,255,255,0.03)',
+                border: tab === 'reports' ? '1px solid transparent' : '1px solid var(--glass-border)',
+                color: tab === 'reports' ? '#fff' : 'var(--muted)',
                 fontFamily: 'var(--font-syne), sans-serif', fontWeight: 700, fontSize: '0.85rem',
-                padding: '9px 18px', borderRadius: '10px', cursor: 'pointer',
+                padding: '10px 18px', borderRadius: '999px', cursor: 'pointer',
+                transition: 'all 0.2s',
+                boxShadow: tab === 'reports' ? '0 4px 14px rgba(255,59,59,0.3)' : 'none',
               }}
             >
               🚨 Signalements
