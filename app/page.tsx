@@ -215,78 +215,86 @@ export default function Home() {
   return (
     <div className="relative min-h-screen">
       {/* NAVBAR */}
-      <header className="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl bg-[#0b0c10]/80 border-b border-white/5">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <button
-            onClick={() => setView('storefront')}
-            className="logo flex items-center gap-2 font-extrabold text-lg"
-          >
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm font-black" style={{ background: 'var(--gradient-primary)' }}>SM</div>
+      <header className="navbar">
+        <div className="nav-inner">
+          <button onClick={() => setView('storefront')} className="nav-logo">
+            <div className="nav-logo-icon">SM</div>
             <span className="gradient-text">StreamMalin</span>
           </button>
 
-          <nav className={`${menuOpen ? 'flex' : 'hidden'} md:flex items-center gap-6 absolute md:relative top-16 md:top-0 left-0 right-0 md:left-auto md:right-auto bg-[#0b0c10] md:bg-transparent p-4 md:p-0 border-b md:border-0 border-white/5 flex-col md:flex-row`}>
-            <a href="#offres" onClick={() => { setView('storefront'); setMenuOpen(false); }} className="text-sm text-[#9ca3af] hover:text-white transition-colors">Offres Premium</a>
-            <a href="#calculateur" onClick={() => setMenuOpen(false)} className="text-sm text-[#9ca3af] hover:text-white transition-colors">Calculateur d&apos;Économies</a>
-            <a href="#faq" onClick={() => setMenuOpen(false)} className="text-sm text-[#9ca3af] hover:text-white transition-colors">FAQ</a>
-            <button
-              onClick={() => { setView('dashboard'); setMenuOpen(false); }}
-              className="flex items-center gap-2 text-sm text-[#9ca3af] hover:text-white transition-colors"
-            >
-              <span>👤</span> Espace Client
+          <nav className="nav-links">
+            <a href="#offres" onClick={() => setView('storefront')} className="nav-link">Offres</a>
+            <a href="#marketplace" className="nav-link">Marketplace</a>
+            <a href="#calculateur" className="nav-link">Calculateur</a>
+            <a href="#faq" className="nav-link">FAQ</a>
+            <button onClick={() => setView('dashboard')} className="btn btn-outline btn-sm" style={{ marginLeft: 8 }}>
+              👤 Espace Client
             </button>
           </nav>
 
-          <button className="md:hidden text-white text-xl" onClick={() => setMenuOpen(!menuOpen)}>☰</button>
+          <button className="md:hidden text-white text-2xl" onClick={() => setMenuOpen(!menuOpen)}>☰</button>
         </div>
+        {menuOpen && (
+          <div className="md:hidden border-t border-white/5 px-6 py-4 flex flex-col gap-3" style={{ background: 'hsla(240,24%,5%,0.95)' }}>
+            <a href="#offres" onClick={() => { setView('storefront'); setMenuOpen(false); }} className="nav-link">Offres</a>
+            <a href="#marketplace" onClick={() => setMenuOpen(false)} className="nav-link">Marketplace</a>
+            <a href="#calculateur" onClick={() => setMenuOpen(false)} className="nav-link">Calculateur</a>
+            <a href="#faq" onClick={() => setMenuOpen(false)} className="nav-link">FAQ</a>
+            <button onClick={() => { setView('dashboard'); setMenuOpen(false); }} className="btn btn-outline btn-sm">👤 Espace Client</button>
+          </div>
+        )}
       </header>
 
       {/* ======================== STOREFRONT ======================== */}
       {view === 'storefront' && (
         <main>
           {/* HERO */}
-          <section className="pt-32 pb-20 px-6 text-center relative overflow-hidden">
-            <div className="max-w-4xl mx-auto">
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 text-xs text-[#9ca3af] mb-8 backdrop-blur-sm bg-white/5">
-                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-                FUSION STREAMING B2C EN DIRECT
+          <section className="hero">
+            <div className="hero-orb hero-orb-1" />
+            <div className="hero-orb hero-orb-2" />
+            <div className="hero-orb hero-orb-3" />
+            <div className="hero-content">
+              <div className="hero-badge">
+                <span className="hero-badge-dot" />
+                STREAMING PREMIUM · LIVRAISON INSTANTANÉE
               </div>
-              <h1 className="text-5xl md:text-7xl font-black text-white mb-6 leading-tight">
-                Le streaming premium,{' '}
+              <h1>
+                Le streaming premium,<br />
                 <span className="gradient-text">version maline.</span>
               </h1>
-              <p className="text-lg text-[#9ca3af] font-light max-w-2xl mx-auto mb-10">
-                Profitez de vos abonnements favoris à l&apos;année ou au mois avec des remises jusqu&apos;à <strong className="text-white">75%</strong> grâce à nos places partagées sécurisées.
+              <p className="hero-subtitle">
+                Vos abonnements favoris à prix coûtant avec des remises jusqu&apos;à <strong style={{ color: '#fff' }}>75%</strong> grâce à nos places partagées 100% officielles et sécurisées.
               </p>
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
-                <a href="#offres" className="btn btn-primary px-8 py-4 text-base font-bold rounded-2xl flex items-center gap-2">
-                  Découvrir les Offres →
+              <div className="hero-cta">
+                <a href="#offres" className="btn btn-primary btn-lg">
+                  Découvrir les Offres <span style={{ fontSize: '1.2em' }}>→</span>
                 </a>
-                <button onClick={() => setView('dashboard')} className="btn btn-outline px-8 py-4 text-base rounded-2xl flex items-center gap-2 text-[#9ca3af]">
-                  <span>👤</span> Mon Espace Client
+                <button onClick={() => setView('dashboard')} className="btn btn-outline btn-lg">
+                  👤 Mon Espace Client
                 </button>
               </div>
-              <div className="flex flex-wrap items-center justify-center gap-8 text-sm text-[#9ca3af]">
-                <span className="flex items-center gap-2"><span className="text-cyan-400">✓</span> Support client 24/7 par Chat</span>
-                <span className="flex items-center gap-2"><span className="text-cyan-400">✓</span> Livraison Instantanée par Mail</span>
-                <span className="flex items-center gap-2"><span className="text-cyan-400">✓</span> Mise en route facile</span>
+              <div className="hero-trust">
+                <span><span className="check">✓</span> Support 24/7 par Chat</span>
+                <span><span className="check">✓</span> Livraison instantanée</span>
+                <span><span className="check">✓</span> Sans engagement</span>
+                <span><span className="check">✓</span> Paiement sécurisé</span>
               </div>
             </div>
           </section>
 
           {/* CATALOGUE */}
-          <section id="offres" className="py-20 px-6">
-            <div className="max-w-7xl mx-auto">
-              <div className="text-center mb-12">
-                <h2 className="text-4xl font-black text-white mb-3">
-                  Catalogue des <span className="gradient-text">Abonnements</span>
+          <section id="offres" className="section">
+            <div className="section-inner">
+              <div className="section-head">
+                <div className="section-eyebrow">— Catalogue —</div>
+                <h2 className="section-title">
+                  Tous vos <span className="gradient-text">abonnements préférés</span>
                 </h2>
-                <p className="text-[#9ca3af] font-light">Sélectionnez votre service. Les accès sécurisés sont envoyés immédiatement après validation.</p>
+                <p className="section-subtitle">Sélectionnez votre service. Les accès sécurisés sont envoyés immédiatement après validation du paiement.</p>
               </div>
 
-              {/* Filtres */}
-              <div className="flex flex-wrap gap-3 justify-center mb-10">
-                {([['all', 'Tous'], ['streaming', 'Streaming Vidéo'], ['musique', 'Musique'], ['securite', 'Sécurité & VPN']] as [FilterType, string][]).map(([key, label]) => (
+              <div className="filters">
+                {([['all', '✨ Tous'], ['streaming', '📺 Streaming Vidéo'], ['musique', '🎵 Musique'], ['securite', '🛡️ Sécurité & VPN']] as [FilterType, string][]).map(([key, label]) => (
                   <button
                     key={key}
                     onClick={() => setFilter(key)}
@@ -297,8 +305,7 @@ export default function Home() {
                 ))}
               </div>
 
-              {/* Grid services */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              <div className="products-grid fade-in-up-stagger">
                 {filteredServices.map((s) => {
                   const discount = Math.round((1 - s.price / s.original) * 100);
                   const savings = (s.original - s.price).toFixed(2);
@@ -330,18 +337,14 @@ export default function Home() {
                         {hasStock ? (
                           <a
                             href={`/checkout?service=${s.id}&stock=${s.availableStockId}`}
-                            className="btn btn-primary w-full justify-center text-sm"
-                            style={{ borderRadius: '12px', padding: '10px 0' }}
+                            className="product-cta"
                           >
                             Louer un accès →
                           </a>
                         ) : (
-                          <>
-                            <p style={{ fontSize: '0.75rem', color: 'var(--accent-red)', fontWeight: 700, marginBottom: 8 }}>RUPTURE DE STOCK</p>
-                            <button disabled style={{ width: '100%', padding: '10px', borderRadius: 12, background: 'rgba(255,255,255,0.04)', color: 'var(--text-muted)', fontSize: '0.85rem', cursor: 'not-allowed', border: '1px solid rgba(255,255,255,0.06)' }}>
-                              Indisponible
-                            </button>
-                          </>
+                          <button disabled className="product-cta disabled">
+                            ✗ Rupture de stock
+                          </button>
                         )}
                       </div>
                     </div>
@@ -355,16 +358,17 @@ export default function Home() {
           </section>
 
           {/* MARKETPLACE */}
-          <section id="marketplace" className="py-20 px-6 bg-[#060713]/60">
-            <div className="max-w-7xl mx-auto">
-              <div className="text-center mb-12">
-                <h2 className="text-4xl font-black text-white mb-3">
-                  Abonnements premium <span className="gradient-text">disponibles</span>
+          <section id="marketplace" className="section section-alt">
+            <div className="section-inner">
+              <div className="section-head">
+                <div className="section-eyebrow">— Marketplace en direct —</div>
+                <h2 className="section-title">
+                  Places <span className="gradient-text">disponibles maintenant</span>
                 </h2>
-                <p className="text-[#9ca3af] font-light">Choisissez votre place sécurisée. Vos accès sont gérés en direct et garantis par notre équipe.</p>
+                <p className="section-subtitle">Vos accès sont gérés en direct par notre équipe et garantis sans coupure.</p>
               </div>
 
-              <div className="shares-list max-w-4xl mx-auto">
+              <div className="shares-list fade-in-up-stagger">
                 {filteredStocks.length === 0 ? (
                   <div className="glass-panel p-12 text-center" style={{ borderRadius: 'var(--radius)', color: 'var(--text-gray)', fontWeight: 400 }}>
                     Aucun accès disponible en stock actuellement pour ce service. Notre équipe réapprovisionne régulièrement, revenez d&apos;ici quelques minutes !
@@ -394,7 +398,6 @@ export default function Home() {
                         <a
                           href={`/checkout?service=${stock.serviceId}&stock=${stock.id}`}
                           className="btn btn-primary btn-sm shrink-0"
-                          style={{ borderRadius: 10, padding: '8px 16px', fontSize: '0.8rem' }}
                         >
                           Louer →
                         </a>
@@ -407,115 +410,109 @@ export default function Home() {
           </section>
 
           {/* CALCULATEUR D'ÉCONOMIES */}
-          <section id="calculateur" className="py-20 px-6">
-            <div className="max-w-5xl mx-auto">
-              <div className="text-center mb-12">
-                <h2 className="text-4xl font-black text-white mb-3">
+          <section id="calculateur" className="section">
+            <div className="section-inner" style={{ maxWidth: 1100 }}>
+              <div className="section-head">
+                <div className="section-eyebrow">— Comparateur de prix —</div>
+                <h2 className="section-title">
                   Pourquoi payer le <span className="gradient-text">tarif plein</span> ?
                 </h2>
-                <p className="text-[#9ca3af] font-light">Comparez les tarifs officiels avec les prix réduits exclusifs de StreamMalin</p>
+                <p className="section-subtitle">Comparez les tarifs officiels avec les prix réduits exclusifs de StreamMalin.</p>
               </div>
 
-              <div className="glass-panel rounded-2xl p-8">
-                {/* Header tableau */}
-                <div className="grid grid-cols-4 pb-4 border-b border-white/10 text-xs font-bold text-[#9ca3af] uppercase tracking-wider">
-                  <div>Service Streaming</div>
-                  <div className="text-center">Tarif Public France</div>
-                  <div className="text-center text-cyan-400">StreamMalin</div>
-                  <div className="text-center text-cyan-400">Votre Économie</div>
+              <div className="glass-panel comparison">
+                <div className="comparison-row comparison-head">
+                  <div>Service</div>
+                  <div style={{ textAlign: 'center' }}>Tarif Public</div>
+                  <div style={{ textAlign: 'center' }}>StreamMalin</div>
+                  <div style={{ textAlign: 'center' }}>Économie</div>
                 </div>
 
                 {services.map((s) => {
                   const savings = (s.original - s.price).toFixed(2);
                   const pct = Math.round((1 - s.price / s.original) * 100);
                   return (
-                    <div key={s.id} className="grid grid-cols-4 py-5 border-b border-white/5 items-center">
-                      <div className="flex items-center gap-3">
-                        <span className="text-2xl">{s.icon}</span>
+                    <div key={s.id} className="comparison-row">
+                      <div className="comparison-service">
+                        <div className="comparison-icon" style={{ background: s.gradient }}>{s.icon}</div>
                         <div>
-                          <div className="font-semibold text-white text-sm">{s.name}</div>
-                          <div className="text-xs text-[#9ca3af] font-light">{s.tagline.slice(0, 35)}</div>
+                          <div style={{ fontWeight: 700, color: 'var(--text-white)', fontSize: '0.92rem' }}>{s.name}</div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{s.tagline.slice(0, 38)}</div>
                         </div>
                       </div>
-                      <div className="text-center line-through text-[#6b7280] text-sm">{s.original.toFixed(2)}€ / mois</div>
-                      <div className="text-center font-black text-cyan-400 text-lg">{s.price.toFixed(2)}€ / mois</div>
-                      <div className="flex justify-center">
-                        <span className="text-xs font-bold text-cyan-400 bg-cyan-400/10 px-3 py-1 rounded-full">
-                          -{pct}% (Économisez {savings}€/m)
-                        </span>
+                      <div className="comparison-price-old">{s.original.toFixed(2)}€/m</div>
+                      <div className="comparison-price-new">{s.price.toFixed(2)}€/m</div>
+                      <div style={{ display: 'flex', justifyContent: 'center' }}>
+                        <span className="comparison-badge">-{pct}% · {savings}€/m</span>
                       </div>
                     </div>
                   );
                 })}
 
-                {/* Calculateur */}
-                <div className="mt-8 pt-6 border-t border-white/10">
-                  <h3 className="text-lg font-bold text-white mb-4">🧮 Calculateur d&apos;économies personnalisé</h3>
-                  <div className="flex flex-wrap gap-3 mb-6">
+                <div style={{ marginTop: 36, paddingTop: 28, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                  <h3 style={{ fontSize: '1.1rem', marginBottom: 16, fontFamily: "'Outfit',sans-serif" }}>
+                    🧮 <span className="gradient-text">Calculateur d&apos;économies</span> personnalisé
+                  </h3>
+                  <div className="calc-chips">
                     {services.map((s) => (
                       <button
                         key={s.id}
                         onClick={() => setCalcSel(prev => ({ ...prev, [s.id]: !prev[s.id] }))}
-                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-semibold transition-all ${
-                          calcSel[s.id]
-                            ? 'border-cyan-400 bg-cyan-400/10 text-white'
-                            : 'border-white/10 bg-white/5 text-[#9ca3af]'
-                        }`}
+                        className={`calc-chip ${calcSel[s.id] ? 'active' : ''}`}
                       >
                         <span>{s.icon}</span> {s.name}
                       </button>
                     ))}
                   </div>
-                  <div className="grid grid-cols-3 gap-4 text-center">
-                    <div className="glass-panel rounded-xl p-4">
-                      <div className="text-xs text-[#9ca3af] mb-1">Tarif public cumulé</div>
-                      <div className="text-2xl font-black line-through text-[#6b7280]">{calcOriginal.toFixed(2)}€</div>
+                  <div className="calc-result">
+                    <div className="calc-tile">
+                      <div className="calc-tile-label">Tarif public</div>
+                      <div className="calc-tile-value" style={{ textDecoration: 'line-through', color: 'var(--text-muted)' }}>{calcOriginal.toFixed(2)}€</div>
                     </div>
-                    <div className="glass-panel rounded-xl p-4">
-                      <div className="text-xs text-[#9ca3af] mb-1">Avec StreamMalin</div>
-                      <div className="text-2xl font-black gradient-text">{calcTotal.toFixed(2)}€</div>
+                    <div className="calc-tile" style={{ background: 'linear-gradient(135deg, rgba(138,92,247,0.1), rgba(0,210,255,0.05))', borderColor: 'rgba(138,92,247,0.25)' }}>
+                      <div className="calc-tile-label">Avec StreamMalin</div>
+                      <div className="calc-tile-value gradient-text">{calcTotal.toFixed(2)}€</div>
                     </div>
-                    <div className="glass-panel rounded-xl p-4">
-                      <div className="text-xs text-[#9ca3af] mb-1">Vous économisez</div>
-                      <div className="text-2xl font-black text-cyan-400">{calcSavings.toFixed(2)}€/m</div>
+                    <div className="calc-tile">
+                      <div className="calc-tile-label">Vous économisez</div>
+                      <div className="calc-tile-value" style={{ color: 'var(--accent-green)' }}>{calcSavings.toFixed(2)}€/m</div>
                     </div>
                   </div>
-                </div>
 
-                <div className="mt-6 flex items-center justify-between">
-                  <p className="text-sm text-[#9ca3af]">
-                    🚀 En cumulant vos abonnements, vous économisez{' '}
-                    <strong className="text-cyan-400">{(calcSavings * 12).toFixed(0)}€ par an</strong> !
-                  </p>
-                  <a href="#offres" className="btn btn-primary rounded-xl px-6 py-2.5 text-sm">
-                    🔥 Choisir mes abonnements
-                  </a>
+                  <div style={{ marginTop: 24, display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'center', justifyContent: 'space-between' }}>
+                    <p style={{ fontSize: '0.88rem', color: 'var(--text-gray)' }}>
+                      🚀 Sur l&apos;année, vous économisez{' '}
+                      <strong className="gradient-text" style={{ fontSize: '1.05rem' }}>{(calcSavings * 12).toFixed(0)}€</strong> !
+                    </p>
+                    <a href="#offres" className="btn btn-primary btn-sm">
+                      🔥 Choisir mes abonnements
+                    </a>
+                  </div>
                 </div>
               </div>
             </div>
           </section>
 
           {/* COMMENT ÇA MARCHE */}
-          <section id="comment" className="py-20 px-6 bg-[#060713]/60">
-            <div className="max-w-5xl mx-auto">
-              <div className="text-center mb-12">
-                <h2 className="text-4xl font-black text-white mb-3">
+          <section id="comment" className="section section-alt">
+            <div className="section-inner" style={{ maxWidth: 1100 }}>
+              <div className="section-head">
+                <div className="section-eyebrow">— Mode d&apos;emploi —</div>
+                <h2 className="section-title">
                   Comment ça <span className="gradient-text">marche</span> ?
                 </h2>
-                <p className="text-[#9ca3af] font-light">Le partage d&apos;abonnement en 3 étapes simples pour tous</p>
+                <p className="section-subtitle">Le partage d&apos;abonnement en 3 étapes simples.</p>
               </div>
-              <div className="grid md:grid-cols-3 gap-6">
+              <div className="steps-grid fade-in-up-stagger">
                 {[
                   { n: '1', title: 'Sélectionnez une offre', text: 'Parcourez notre catalogue et choisissez l\'offre qui correspond à vos besoins parmi nos services premium.' },
                   { n: '2', title: 'Réglez en sécurité', text: 'Payez chaque mois par carte bancaire, PayPal (Biens & Services) ou cryptomonnaies. Transactions 100% sécurisées.' },
                   { n: '3', title: 'Accédez instantanément', text: 'Récupérez les identifiants ou le lien d\'invitation directement dans votre Espace Client et profitez immédiatement.' },
                 ].map((step) => (
-                  <div key={step.n} className="glass-panel rounded-2xl p-8 text-center">
-                    <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-black text-white mx-auto mb-6" style={{ background: 'var(--gradient-primary)' }}>
-                      {step.n}
-                    </div>
-                    <h3 className="font-extrabold text-white text-lg mb-3">{step.title}</h3>
-                    <p className="text-[#9ca3af] font-light text-sm leading-relaxed">{step.text}</p>
+                  <div key={step.n} className="step-card glass-panel">
+                    <div className="step-number">{step.n}</div>
+                    <h3>{step.title}</h3>
+                    <p>{step.text}</p>
                   </div>
                 ))}
               </div>
@@ -523,25 +520,26 @@ export default function Home() {
           </section>
 
           {/* GARANTIES */}
-          <section className="py-20 px-6">
-            <div className="max-w-5xl mx-auto">
-              <div className="text-center mb-12">
-                <h2 className="text-4xl font-black text-white mb-3">
+          <section className="section">
+            <div className="section-inner" style={{ maxWidth: 1100 }}>
+              <div className="section-head">
+                <div className="section-eyebrow">— Nos engagements —</div>
+                <h2 className="section-title">
                   Partagez en toute <span className="gradient-text">sérénité</span>
                 </h2>
-                <p className="text-[#9ca3af] font-light">Sécurité renforcée et conformité légale garanties à 100%</p>
+                <p className="section-subtitle">Sécurité renforcée et conformité légale garanties à 100%.</p>
               </div>
-              <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="guarantees-grid fade-in-up-stagger">
                 {[
                   { icon: '🛡️', title: 'Protection Acheteur', text: 'Remplacement ou remboursement immédiat si le compte partagé présente un défaut.' },
-                  { icon: '🔐', title: 'Identifiants Chiffrés', text: 'Vos mots de passe et liens de connexion sont cryptés avec la norme de sécurité AES-256.' },
+                  { icon: '🔐', title: 'Identifiants Chiffrés', text: 'Vos mots de passe et liens de connexion sont cryptés avec la norme AES-256.' },
                   { icon: '⚡', title: 'Livraison Flash', text: 'Pas d\'attente. Votre accès Premium est disponible dès la confirmation de la transaction.' },
-                  { icon: '💬', title: 'Support 7j/7', text: 'Une équipe d\'assistance dédiée est à votre disposition en français pour résoudre tout conflit.' },
+                  { icon: '💬', title: 'Support 7j/7', text: 'Une équipe dédiée en français disponible pour résoudre tout conflit ou question.' },
                 ].map((g, i) => (
-                  <div key={i} className="glass-panel rounded-2xl p-6 text-center hover:scale-[1.02] transition-transform">
-                    <div className="text-4xl mb-4">{g.icon}</div>
-                    <h4 className="font-bold text-white mb-2">{g.title}</h4>
-                    <p className="text-xs text-[#9ca3af] font-light leading-relaxed">{g.text}</p>
+                  <div key={i} className="guarantee-card glass-panel">
+                    <div className="guarantee-icon">{g.icon}</div>
+                    <div className="guarantee-title">{g.title}</div>
+                    <p className="guarantee-text">{g.text}</p>
                   </div>
                 ))}
               </div>
@@ -549,28 +547,27 @@ export default function Home() {
           </section>
 
           {/* FAQ */}
-          <section id="faq" className="py-20 px-6 bg-[#060713]/60">
-            <div className="max-w-3xl mx-auto">
-              <div className="text-center mb-12">
-                <h2 className="text-4xl font-black text-white mb-3">
+          <section id="faq" className="section section-alt">
+            <div className="section-inner" style={{ maxWidth: 820 }}>
+              <div className="section-head">
+                <div className="section-eyebrow">— FAQ —</div>
+                <h2 className="section-title">
                   Questions <span className="gradient-text">fréquentes</span>
                 </h2>
-                <p className="text-[#9ca3af] font-light">Toutes les réponses à vos interrogations</p>
+                <p className="section-subtitle">Toutes les réponses à vos interrogations.</p>
               </div>
-              <div className="space-y-3">
+              <div className="faq-list">
                 {faqItems.map((item, i) => (
-                  <div key={i} className={`faq-item glass-panel rounded-xl overflow-hidden ${faqOpen === i ? 'open' : ''}`}>
+                  <div key={i} className={`faq-item glass-panel ${faqOpen === i ? 'open' : ''}`}>
                     <button
-                      className="w-full flex items-center justify-between px-6 py-5 text-left"
+                      className="faq-trigger"
                       onClick={() => setFaqOpen(faqOpen === i ? null : i)}
                     >
-                      <span className="font-semibold text-white text-sm">{item.q}</span>
-                      <span className="text-xl text-[#9ca3af] shrink-0 ml-4">{faqOpen === i ? '−' : '+'}</span>
+                      <span>{item.q}</span>
+                      <span className="faq-icon">+</span>
                     </button>
                     {faqOpen === i && (
-                      <div className="px-6 pb-5">
-                        <p className="text-sm text-[#9ca3af] font-light leading-relaxed">{item.a}</p>
-                      </div>
+                      <div className="faq-answer">{item.a}</div>
                     )}
                   </div>
                 ))}
@@ -579,22 +576,31 @@ export default function Home() {
           </section>
 
           {/* CTA */}
-          <section className="py-20 px-6">
-            <div className="max-w-4xl mx-auto">
-              <div className="glass-panel rounded-3xl p-12 text-center relative overflow-hidden">
-                <div className="absolute inset-0 opacity-20" style={{ background: 'var(--gradient-primary)' }} />
-                <div className="relative">
-                  <h2 className="text-4xl font-black text-white mb-4">Prêt à réduire vos factures dès aujourd&apos;hui ?</h2>
-                  <p className="text-[#9ca3af] font-light mb-8 max-w-xl mx-auto">Rejoignez nos clients économes. Accès instantané, résiliable à tout moment, sans engagement.</p>
-                  <div className="flex flex-wrap gap-3 justify-center">
-                    <a href="#offres" onClick={() => setFilter('streaming')} className="btn btn-primary rounded-xl px-6 py-3 text-sm font-bold">▶ YouTube Premium — dès 3,49€</a>
-                    <a href="#offres" onClick={() => setFilter('streaming')} className="btn btn-outline rounded-xl px-6 py-3 text-sm font-bold text-white">✦ Disney+ — dès 2,99€</a>
-                    <a href="#offres" onClick={() => setFilter('securite')} className="btn btn-outline rounded-xl px-6 py-3 text-sm font-bold text-white">🦈 Surfshark VPN — dès 1,49€</a>
-                  </div>
+          <section className="section">
+            <div className="section-inner" style={{ maxWidth: 900 }}>
+              <div className="cta-block glass-panel">
+                <div className="section-eyebrow">— Dernier appel —</div>
+                <h2>Prêt à réduire vos factures dès <span className="gradient-text">aujourd&apos;hui</span> ?</h2>
+                <p>Rejoignez nos clients économes. Accès instantané, résiliable à tout moment, sans engagement.</p>
+                <div className="cta-buttons">
+                  <a href="#offres" onClick={() => setFilter('streaming')} className="btn btn-primary">▶ YouTube — dès 3,49€</a>
+                  <a href="#offres" onClick={() => setFilter('streaming')} className="btn btn-outline">✦ Disney+ — dès 2,99€</a>
+                  <a href="#offres" onClick={() => setFilter('securite')} className="btn btn-outline">🦈 Surfshark — dès 1,49€</a>
                 </div>
               </div>
             </div>
           </section>
+
+          {/* FOOTER */}
+          <footer style={{ padding: '40px 24px', textAlign: 'center', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+            <div className="nav-logo" style={{ justifyContent: 'center', marginBottom: 12 }}>
+              <div className="nav-logo-icon">SM</div>
+              <span className="gradient-text">StreamMalin</span>
+            </div>
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+              © {new Date().getFullYear()} StreamMalin — Le streaming premium, version maline.
+            </p>
+          </footer>
         </main>
       )}
 
@@ -614,18 +620,13 @@ export default function Home() {
               {/* Sidebar */}
               <aside className="md:col-span-3 glass-panel rounded-2xl p-4 h-fit">
                 <div className="space-y-1">
-                  {([['orders', '📦', 'Mes Abonnements Rejoins'], ['chat', '💬', 'Support Client 24/7']] as [DashTab, string, string][]).map(([tab, icon, label]) => (
+                  {([['orders', '📦', 'Mes Abonnements'], ['chat', '💬', 'Support Client']] as [DashTab, string, string][]).map(([tab, icon, label]) => (
                     <button
                       key={tab}
                       onClick={() => setDashTab(tab)}
-                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
-                        dashTab === tab
-                          ? 'text-white'
-                          : 'text-[#9ca3af] hover:text-white hover:bg-white/5'
-                      }`}
-                      style={dashTab === tab ? { background: 'var(--gradient-primary)' } : {}}
+                      className={`dash-sidebar-btn ${dashTab === tab ? 'active' : ''}`}
                     >
-                      <span>{icon}</span> {label}
+                      <span style={{ fontSize: '1.1rem' }}>{icon}</span> {label}
                     </button>
                   ))}
                 </div>
