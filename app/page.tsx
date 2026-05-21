@@ -53,7 +53,8 @@ interface Order {
 }
 
 type View = 'storefront' | 'dashboard';
-type DashTab = 'orders' | 'chat';
+type DashTab = 'orders' | 'rent' | 'chat';
+type AuthMode = 'login' | 'register';
 type FilterType = 'all' | 'streaming' | 'musique' | 'securite';
 
 const SERVICE_FILTERS: Record<FilterType, string[]> = {
@@ -77,7 +78,16 @@ export default function Home() {
     netflix: false, youtube: true, spotify: false, disney: true, surfshark: true,
   });
 
-  // Espace client
+  // Espace client (auth)
+  const [authChecked, setAuthChecked] = useState(false);
+  const [customer, setCustomer] = useState<{ id: string; email: string; emailVerified: boolean } | null>(null);
+  const [authMode, setAuthMode] = useState<AuthMode>('login');
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [authMsg, setAuthMsg] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
+
   const [clientEmail, setClientEmail] = useState('');
   const [searchedEmail, setSearchedEmail] = useState('');
   const [orders, setOrders] = useState<Order[]>([]);
@@ -94,14 +104,83 @@ export default function Home() {
     fetch('/api/services', { cache: 'no-store' }).then(r => r.json()).then(d => { if (d.success) setServices(d.services); });
     fetch('/api/stocks/public', { cache: 'no-store' }).then(r => r.json()).then(d => { if (d.success) setStocks(d.stocks); });
 
+    // Vérifier la session client
+    fetch('/api/client/me', { cache: 'no-store' }).then(r => r.json()).then(d => {
+      if (d.authenticated) {
+        setCustomer(d.customer);
+        setOrders(d.orders || []);
+        setSearchedEmail(d.customer.email);
+        if (d.orders?.length > 0 && d.orders[0].chats) setActiveChatOrderId(d.orders[0].id);
+      }
+      setAuthChecked(true);
+    });
+
     const params = new URLSearchParams(window.location.search);
     if (params.get('success') && params.get('email')) {
       setView('dashboard');
-      const email = params.get('email')!;
-      setClientEmail(email);
-      fetchOrders(email);
+    }
+    if (params.get('verify') === 'success') {
+      setView('dashboard');
+      setAuthMsg('✅ Email confirmé ! Vous êtes connecté.');
+    } else if (params.get('verify') === 'invalid') {
+      setView('dashboard');
+      setAuthError('Lien de vérification invalide ou expiré.');
     }
   }, []);
+
+  const reloadMe = async () => {
+    const r = await fetch('/api/client/me', { cache: 'no-store' });
+    const d = await r.json();
+    if (d.authenticated) {
+      setCustomer(d.customer);
+      setOrders(d.orders || []);
+      setSearchedEmail(d.customer.email);
+    }
+  };
+
+  const doRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError(''); setAuthMsg(''); setAuthLoading(true);
+    try {
+      const r = await fetch('/api/client/register', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: authEmail, password: authPassword }),
+      });
+      const d = await r.json();
+      if (d.success) {
+        setAuthMsg('✅ Compte créé ! Consultez votre email pour activer votre compte.');
+        setAuthPassword('');
+      } else {
+        setAuthError(d.error || 'Erreur');
+      }
+    } finally { setAuthLoading(false); }
+  };
+
+  const doLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError(''); setAuthMsg(''); setAuthLoading(true);
+    try {
+      const r = await fetch('/api/client/login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: authEmail, password: authPassword }),
+      });
+      const d = await r.json();
+      if (d.success) {
+        await reloadMe();
+        setAuthEmail(''); setAuthPassword('');
+      } else {
+        setAuthError(d.error || 'Identifiants incorrects');
+      }
+    } finally { setAuthLoading(false); }
+  };
+
+  const doLogout = async () => {
+    await fetch('/api/client/logout', { method: 'POST' });
+    setCustomer(null);
+    setOrders([]);
+    setSearchedEmail('');
+    setActiveChatOrderId(null);
+  };
 
   useEffect(() => {
     if (activeChatOrderId) {
@@ -622,11 +701,16 @@ export default function Home() {
                 <h1 className="dash-title">
                   Mon <span className="gradient-text">Espace Client</span>
                 </h1>
-                {searchedEmail && (
+                {customer && (
                   <div className="dash-subtitle">
-                    Connecté en tant que <strong style={{ color: 'var(--text-white)' }}>{searchedEmail}</strong>
-                    <button onClick={() => { setSearchedEmail(''); setOrders([]); setClientEmail(''); }} style={{ marginLeft: 10, color: 'var(--secondary)', fontSize: '0.78rem', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
-                      Changer
+                    Connecté en tant que <strong style={{ color: 'var(--text-white)' }}>{customer.email}</strong>
+                    {!customer.emailVerified && (
+                      <span style={{ marginLeft: 10, padding: '2px 8px', borderRadius: 50, background: 'rgba(255,180,0,0.15)', color: 'var(--accent-yellow)', fontSize: '0.7rem', fontWeight: 700 }}>
+                        ⚠️ Email non vérifié
+                      </span>
+                    )}
+                    <button onClick={doLogout} style={{ marginLeft: 10, color: 'var(--secondary)', fontSize: '0.78rem', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
+                      Déconnexion
                     </button>
                   </div>
                 )}
@@ -651,11 +735,27 @@ export default function Home() {
                   )}
                 </button>
                 <button
+                  onClick={() => setDashTab('rent')}
+                  className={`dash-sidebar-btn ${dashTab === 'rent' ? 'active' : ''}`}
+                >
+                  <span style={{ fontSize: '1.05rem' }}>🛒</span> Louer un abonnement
+                </button>
+                <button
                   onClick={() => setDashTab('chat')}
                   className={`dash-sidebar-btn ${dashTab === 'chat' ? 'active' : ''}`}
                 >
                   <span style={{ fontSize: '1.05rem' }}>💬</span> Support Client
                 </button>
+
+                {customer && (
+                  <button
+                    onClick={doLogout}
+                    className="dash-sidebar-btn"
+                    style={{ color: 'var(--accent-red)' }}
+                  >
+                    <span style={{ fontSize: '1.05rem' }}>🚪</span> Déconnexion
+                  </button>
+                )}
 
                 <div className="dash-sidebar-divider" />
 
@@ -669,40 +769,134 @@ export default function Home() {
 
               {/* Content */}
               <div>
-                {/* Email lookup — only shown if not searched yet */}
-                {!searchedEmail && (
+                {/* Login / Register — affiché si non authentifié */}
+                {authChecked && !customer && (
                   <div className="glass-panel dash-card fade-in-up">
                     <div className="dash-card-head">
-                      <div className="icon-bubble">🔍</div>
-                      Retrouver mes commandes
+                      <div className="icon-bubble">{authMode === 'login' ? '🔐' : '✨'}</div>
+                      {authMode === 'login' ? 'Connexion à mon espace' : 'Créer un compte client'}
                     </div>
+
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 18, padding: 4, background: 'rgba(255,255,255,0.04)', borderRadius: 10 }}>
+                      <button
+                        onClick={() => { setAuthMode('login'); setAuthError(''); setAuthMsg(''); }}
+                        className="btn btn-sm"
+                        style={{
+                          flex: 1,
+                          background: authMode === 'login' ? 'var(--gradient-aurora)' : 'transparent',
+                          color: authMode === 'login' ? '#fff' : 'var(--text-gray)',
+                          border: 'none',
+                        }}
+                      >
+                        🔐 Connexion
+                      </button>
+                      <button
+                        onClick={() => { setAuthMode('register'); setAuthError(''); setAuthMsg(''); }}
+                        className="btn btn-sm"
+                        style={{
+                          flex: 1,
+                          background: authMode === 'register' ? 'var(--gradient-aurora)' : 'transparent',
+                          color: authMode === 'register' ? '#fff' : 'var(--text-gray)',
+                          border: 'none',
+                        }}
+                      >
+                        ✨ Inscription
+                      </button>
+                    </div>
+
                     <p style={{ fontSize: '0.85rem', color: 'var(--text-gray)', marginBottom: 18 }}>
-                      Saisissez l&apos;email utilisé lors de votre achat. Vous recevrez l&apos;accès à tous vos abonnements actifs et à la messagerie support.
+                      {authMode === 'login'
+                        ? 'Accédez à vos abonnements actifs, vos identifiants chiffrés et au support.'
+                        : 'Créez un compte pour gérer vos locations. Un email de confirmation vous sera envoyé.'}
                     </p>
-                    <form onSubmit={(e) => { e.preventDefault(); fetchOrders(clientEmail); }} style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+
+                    <form onSubmit={authMode === 'login' ? doLogin : doRegister} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                       <input
                         type="email"
                         placeholder="vous@exemple.com"
-                        value={clientEmail}
-                        onChange={(e) => setClientEmail(e.target.value)}
+                        value={authEmail}
+                        onChange={(e) => setAuthEmail(e.target.value)}
                         className="dash-input"
-                        style={{ flex: '1 1 240px' }}
                         required
                       />
-                      <button type="submit" disabled={loadingOrders} className="btn btn-primary">
-                        {loadingOrders ? '⏳ Recherche…' : 'Rechercher →'}
+                      <input
+                        type="password"
+                        placeholder="Mot de passe (6 caractères min.)"
+                        value={authPassword}
+                        onChange={(e) => setAuthPassword(e.target.value)}
+                        className="dash-input"
+                        minLength={6}
+                        required
+                      />
+                      <button type="submit" disabled={authLoading} className="btn btn-primary">
+                        {authLoading ? '⏳ Veuillez patienter…' : (authMode === 'login' ? 'Se connecter →' : 'Créer mon compte →')}
                       </button>
                     </form>
-                    {ordersError && (
+
+                    {authError && (
                       <p style={{ color: 'var(--accent-red)', fontSize: '0.8rem', marginTop: 12, padding: '8px 12px', background: 'rgba(255,80,80,0.08)', borderRadius: 8 }}>
-                        ⚠️ {ordersError}
+                        ⚠️ {authError}
+                      </p>
+                    )}
+                    {authMsg && (
+                      <p style={{ color: 'var(--accent-green)', fontSize: '0.8rem', marginTop: 12, padding: '8px 12px', background: 'rgba(0,230,118,0.08)', borderRadius: 8 }}>
+                        {authMsg}
                       </p>
                     )}
                   </div>
                 )}
 
+                {/* Onglet Louer un abonnement */}
+                {customer && dashTab === 'rent' && (
+                  <div className="fade-in-up">
+                    <div className="glass-panel dash-card" style={{ marginBottom: 20 }}>
+                      <div className="dash-card-head">
+                        <div className="icon-bubble">🛒</div>
+                        Louer un nouvel abonnement
+                      </div>
+                      <p style={{ fontSize: '0.85rem', color: 'var(--text-gray)' }}>
+                        Choisissez un service ci-dessous. Vous serez redirigé vers le paiement avec votre email pré-rempli.
+                      </p>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
+                      {services.map((s) => {
+                        const hasStock = s.availableSlots > 0;
+                        return (
+                          <div key={s.id} className="glass-panel" style={{ padding: 18 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+                              <div style={{ width: 44, height: 44, borderRadius: 12, background: s.gradient, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem' }}>
+                                {s.icon}
+                              </div>
+                              <div>
+                                <h4 style={{ fontSize: '1rem', fontWeight: 800 }}>{s.name}</h4>
+                                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{s.tagline}</div>
+                              </div>
+                            </div>
+                            <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-white)', marginBottom: 12 }}>
+                              {s.price.toFixed(2)}€<span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}> / mois</span>
+                            </div>
+                            {hasStock ? (
+                              <a
+                                href={`/checkout?service=${s.id}&stock=${s.availableStockId}&email=${encodeURIComponent(customer.email)}`}
+                                className="btn btn-primary"
+                                style={{ width: '100%', textAlign: 'center' }}
+                              >
+                                🛒 Louer maintenant
+                              </a>
+                            ) : (
+                              <button disabled className="btn btn-ghost" style={{ width: '100%', opacity: 0.5 }}>
+                                ✗ Rupture de stock
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {/* Orders tab */}
-                {searchedEmail && dashTab === 'orders' && (
+                {customer && dashTab === 'orders' && (
                   <div className="fade-in-up">
                     {orders.length === 0 && !loadingOrders ? (
                       <div className="glass-panel dash-empty">
@@ -748,7 +942,7 @@ export default function Home() {
                 )}
 
                 {/* Chat tab */}
-                {searchedEmail && dashTab === 'chat' && (
+                {customer && dashTab === 'chat' && (
                   <div className="glass-panel chat-card fade-in-up">
                     {!activeChatOrderId ? (
                       <div className="dash-empty" style={{ borderRadius: 0 }}>

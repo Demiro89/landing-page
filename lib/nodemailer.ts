@@ -74,3 +74,50 @@ export async function sendOrderDetailsEmail(
     return { success: false, error: err };
   }
 }
+
+export async function sendVerificationEmail(toEmail: string, token: string) {
+  const verifyUrl = `${APP_URL}/api/client/verify?token=${token}`;
+
+  if (!process.env.RESEND_API_KEY) {
+    console.log(`--- [SIMULATION VERIFICATION] ${toEmail} -> ${verifyUrl}`);
+    return { success: true, simulated: true };
+  }
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: toEmail,
+      subject: '✅ Confirmez votre compte StreamMalin',
+      html: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8">
+<style>
+  body{font-family:'Outfit','Inter',sans-serif;background:#0b0c10;color:#e5e7eb;margin:0;padding:20px}
+  .container{max-width:600px;margin:0 auto;background:linear-gradient(135deg,rgba(20,24,33,.95),rgba(10,12,16,.95));border:1px solid rgba(168,85,247,.2);border-radius:16px;padding:30px}
+  .logo{font-size:28px;font-weight:800;background:linear-gradient(135deg,#a855f7,#3b82f6);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+  .btn{display:inline-block;background:linear-gradient(135deg,#a855f7,#3b82f6);color:#fff!important;text-decoration:none;padding:14px 28px;border-radius:8px;font-weight:700}
+</style></head>
+<body>
+  <div class="container">
+    <div style="text-align:center;margin-bottom:25px"><div class="logo">StreamMalin</div></div>
+    <h2 style="color:#fff">Bienvenue sur StreamMalin !</h2>
+    <p>Pour activer votre compte client et accéder à vos abonnements, cliquez sur le bouton ci-dessous :</p>
+    <div style="text-align:center;margin:30px 0">
+      <a href="${verifyUrl}" class="btn">✅ Confirmer mon adresse email</a>
+    </div>
+    <p style="font-size:13px;color:#9ca3af">Ou copiez ce lien : <br>${verifyUrl}</p>
+    <p style="font-size:12px;color:#6b7280;margin-top:25px">Si vous n'avez pas créé de compte StreamMalin, ignorez cet email.</p>
+  </div>
+</body>
+</html>`,
+    });
+
+    if (error) {
+      console.error('Resend verify error:', error);
+      return { success: false, error };
+    }
+    return { success: true, messageId: data?.id };
+  } catch (err) {
+    return { success: false, error: err };
+  }
+}
