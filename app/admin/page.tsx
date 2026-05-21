@@ -123,6 +123,18 @@ export default function AdminPage() {
     else toast('Erreur : ' + d.error);
   };
 
+  const addStockInline = async (serviceId: string, price: string, maxSlots: string, details: string): Promise<boolean> => {
+    const r = await fetch('/api/admin/stock', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'add_stock', serviceId, accountsBoughtPrice: '0', price, maxSlots, filledSlots: 0, details }),
+    });
+    const d = await r.json();
+    if (d.success) { toast('Compte de stock ajouté !'); loadAll(); return true; }
+    toast('Erreur : ' + d.error);
+    return false;
+  };
+
   const saveStock = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editStock) return;
@@ -635,7 +647,7 @@ export default function AdminPage() {
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
                   {services.map(svc => (
-                    <ServiceEditCard key={svc.id} svc={svc} onSave={saveService} onToggle={toggleService} onDelete={deleteService} onEditStock={setEditStock} />
+                    <ServiceEditCard key={svc.id} svc={svc} onSave={saveService} onToggle={toggleService} onDelete={deleteService} onEditStock={setEditStock} onAddStock={addStockInline} />
                   ))}
                 </div>
               </div>
@@ -803,15 +815,29 @@ export default function AdminPage() {
 }
 
 /* ─── ServiceEditCard (inline editable) ─────────────────────────────────── */
-function ServiceEditCard({ svc, onSave, onToggle, onDelete, onEditStock }: {
+function ServiceEditCard({ svc, onSave, onToggle, onDelete, onEditStock, onAddStock }: {
   svc: Service;
   onSave: (svc: Service) => void;
   onToggle: (id: string, active: boolean) => void;
   onDelete: (id: string, name: string) => void;
   onEditStock: (st: StockAccount) => void;
+  onAddStock: (serviceId: string, price: string, maxSlots: string, details: string) => Promise<boolean>;
 }) {
   const [local, setLocal] = useState(svc);
+  const [addPrice, setAddPrice] = useState('');
+  const [addSlots, setAddSlots] = useState('');
+  const [addDetails, setAddDetails] = useState('');
+  const [adding, setAdding] = useState(false);
   useEffect(() => { setLocal(svc); }, [svc]);
+
+  const handleAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!addPrice || !addSlots || !addDetails) return;
+    setAdding(true);
+    const ok = await onAddStock(svc.id, addPrice, addSlots, addDetails);
+    setAdding(false);
+    if (ok) { setAddPrice(''); setAddSlots(''); setAddDetails(''); }
+  };
 
   return (
     <div className="glass-panel svc-edit-card">
@@ -868,12 +894,9 @@ function ServiceEditCard({ svc, onSave, onToggle, onDelete, onEditStock }: {
         <div style={{ fontSize: '0.78rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 10 }}>
           🔑 Comptes en stock ({svc.stocks?.length || 0})
         </div>
-        {(!svc.stocks || svc.stocks.length === 0) ? (
-          <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', padding: '10px 12px', background: 'rgba(255,255,255,0.02)', borderRadius: 8, border: '1px dashed rgba(255,255,255,0.08)' }}>
-            Aucun compte. Ajoutez-en un dans <strong>Gestion des Stocks</strong>.
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+
+        {svc.stocks && svc.stocks.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
             {svc.stocks.map(st => (
               <div key={st.id} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 10, padding: 10 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
@@ -891,6 +914,27 @@ function ServiceEditCard({ svc, onSave, onToggle, onDelete, onEditStock }: {
             ))}
           </div>
         )}
+
+        {/* Formulaire d'ajout inline */}
+        <form onSubmit={handleAdd} style={{ background: 'rgba(168,85,247,0.06)', border: '1px dashed rgba(168,85,247,0.25)', borderRadius: 10, padding: 12 }}>
+          <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-soft)', marginBottom: 8 }}>
+            ➕ Ajouter un compte de stock
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+            <input type="number" step="0.01" required placeholder="Prix (€)" value={addPrice}
+              onChange={e => setAddPrice(e.target.value)} className="dash-input"
+              style={{ fontSize: '0.78rem', padding: '7px 9px' }} />
+            <input type="number" required min="1" placeholder="Places max" value={addSlots}
+              onChange={e => setAddSlots(e.target.value)} className="dash-input"
+              style={{ fontSize: '0.78rem', padding: '7px 9px' }} />
+          </div>
+          <textarea required rows={2} placeholder="Identifiants : email@example.com / motdepasse" value={addDetails}
+            onChange={e => setAddDetails(e.target.value)} className="dash-input"
+            style={{ resize: 'vertical', minHeight: 50, fontSize: '0.78rem', padding: '7px 9px', marginBottom: 8, fontFamily: "'SF Mono',Menlo,monospace" }} />
+          <button type="submit" disabled={adding} className="btn btn-primary btn-sm" style={{ width: '100%', fontSize: '0.78rem' }}>
+            {adding ? '⏳ Ajout…' : '⚡ Enregistrer ce compte'}
+          </button>
+        </form>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 10 }}>
