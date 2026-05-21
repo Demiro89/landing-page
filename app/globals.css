@@ -866,6 +866,73 @@ select.dash-input option, select option { background: #14151f; color: var(--text
   background: rgba(255,255,255,0.015);
 }
 
+/* chat 2-pane layout */
+.chat-layout {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  min-height: 540px;
+}
+.chat-conv-list {
+  border-right: 1px solid rgba(255,255,255,0.06);
+  background: rgba(255,255,255,0.015);
+  display: flex; flex-direction: column;
+  overflow-y: auto;
+}
+.chat-conv-list-head {
+  padding: 16px 18px;
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 0.82rem; font-weight: 800; color: var(--text-soft);
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.chat-conv-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease;
+  color: inherit;
+}
+.chat-conv-item:hover { background: rgba(255,255,255,0.03); }
+.chat-conv-item.active {
+  background: rgba(138,92,247,0.12);
+  border-left: 3px solid var(--secondary);
+  padding-left: 11px;
+}
+.chat-conv-icon {
+  width: 40px; height: 40px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.2rem; flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+}
+.chat-conv-body { flex: 1; min-width: 0; }
+.chat-conv-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  margin-bottom: 4px;
+}
+.chat-conv-name {
+  font-size: 0.85rem; font-weight: 700;
+  color: var(--text-white);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.chat-conv-time {
+  font-size: 0.68rem; color: var(--text-muted); flex-shrink: 0;
+}
+.chat-conv-preview {
+  font-size: 0.76rem; color: var(--text-muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.chat-pane { display: flex; flex-direction: column; min-width: 0; }
+.chat-pane .chat-messages { flex: 1; height: auto; min-height: 380px; }
+
+@media (max-width: 768px) {
+  .chat-layout { grid-template-columns: 1fr; }
+  .chat-conv-list { max-height: 240px; border-right: none; border-bottom: 1px solid rgba(255,255,255,0.06); }
+}
+
 /* ─── ENTRANCE ANIMATIONS ─── */
 .fade-in-up { animation: fade-up 0.6s ease-out both; }
 .fade-in-up-stagger > * { animation: fade-up 0.6s ease-out both; }

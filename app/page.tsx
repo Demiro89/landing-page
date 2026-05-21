@@ -1146,60 +1146,111 @@ export default function Home() {
                 {/* Chat tab */}
                 {customer && dashTab === 'chat' && (
                   <div className="glass-panel chat-card fade-in-up">
-                    {!activeChatOrderId ? (
+                    {orders.length === 0 ? (
                       <div className="dash-empty" style={{ borderRadius: 0 }}>
                         <div className="dash-empty-icon">💬</div>
-                        <h3>Aucune conversation active</h3>
-                        <p>Sélectionnez un abonnement dans l&apos;onglet « Mes Abonnements » et cliquez sur « Contacter le support » pour ouvrir une discussion.</p>
+                        <h3>Aucun abonnement actif</h3>
+                        <p>Pour discuter avec le support, vous devez d&apos;abord louer un abonnement.</p>
                       </div>
                     ) : (
-                      <>
-                        <div className="chat-head">
-                          <div className="status-online">
-                            {orders.find(o => o.id === activeChatOrderId)?.service.name || 'Support'}
+                      <div className="chat-layout">
+                        {/* Conversations list */}
+                        <aside className="chat-conv-list">
+                          <div className="chat-conv-list-head">
+                            <span>📨 Conversations</span>
+                            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>{orders.length}</span>
                           </div>
-                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>🔒 Chiffré SSL</span>
-                        </div>
-                        <div className="chat-messages">
-                          {chatMessages.length === 0 ? (
-                            <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)', fontSize: '0.88rem' }}>
-                              Démarrez la conversation en envoyant un message.
+                          {orders.map(order => {
+                            const lastMsg = order.chats?.messages?.[order.chats.messages.length - 1];
+                            const isActive = order.id === activeChatOrderId;
+                            return (
+                              <button
+                                key={order.id}
+                                onClick={() => { setActiveChatOrderId(order.id); fetchChat(order.id); }}
+                                className={`chat-conv-item ${isActive ? 'active' : ''}`}
+                              >
+                                <div className="chat-conv-icon" style={{ background: order.service.gradient }}>
+                                  {order.service.icon}
+                                </div>
+                                <div className="chat-conv-body">
+                                  <div className="chat-conv-row">
+                                    <span className="chat-conv-name">Support {order.service.name}</span>
+                                    {lastMsg && (
+                                      <span className="chat-conv-time">
+                                        {new Date(lastMsg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="chat-conv-preview">
+                                    {lastMsg ? lastMsg.text : 'Démarrer une conversation…'}
+                                  </div>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </aside>
+
+                        {/* Active chat */}
+                        <div className="chat-pane">
+                          {!activeChatOrderId ? (
+                            <div className="dash-empty" style={{ borderRadius: 0, padding: '60px 20px' }}>
+                              <div className="dash-empty-icon">💬</div>
+                              <h3>Sélectionnez une conversation</h3>
+                              <p>Choisissez un abonnement dans la liste pour démarrer ou continuer une discussion avec le support.</p>
                             </div>
                           ) : (
-                            chatMessages.map((msg) => {
-                              const isSelf = msg.sender === 'Vous';
-                              return (
-                                <div key={msg.id} className={`chat-msg ${isSelf ? 'self' : 'other'}`}>
-                                  {!isSelf && <div className="chat-msg-sender">{msg.sender}</div>}
-                                  <div style={{ whiteSpace: 'pre-wrap' }}>{msg.text}</div>
-                                  <span className="chat-msg-time">
-                                    {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                  </span>
+                            <>
+                              <div className="chat-head">
+                                <div>
+                                  <div className="status-online">
+                                    Support StreamMalin ({orders.find(o => o.id === activeChatOrderId)?.service.name || 'Service'})
+                                  </div>
                                 </div>
-                              );
-                            })
+                                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>🔒 Messagerie chiffrée SSL</span>
+                              </div>
+                              <div className="chat-messages">
+                                {chatMessages.length === 0 ? (
+                                  <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)', fontSize: '0.88rem' }}>
+                                    Démarrez la conversation en envoyant un message.
+                                  </div>
+                                ) : (
+                                  chatMessages.map((msg) => {
+                                    const isSelf = msg.sender === 'Vous';
+                                    return (
+                                      <div key={msg.id} className={`chat-msg ${isSelf ? 'self' : 'other'}`}>
+                                        {!isSelf && <div className="chat-msg-sender">{msg.sender}</div>}
+                                        <div style={{ whiteSpace: 'pre-wrap' }}>{msg.text}</div>
+                                        <span className="chat-msg-time">
+                                          {new Date(msg.createdAt).toLocaleString([], { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                        </span>
+                                      </div>
+                                    );
+                                  })
+                                )}
+                                <div ref={chatBottomRef} />
+                              </div>
+                              <form onSubmit={sendMessage} className="chat-input-bar">
+                                <input
+                                  type="text"
+                                  placeholder="Tapez votre message pour le support…"
+                                  value={chatInput}
+                                  onChange={(e) => setChatInput(e.target.value)}
+                                  className="dash-input"
+                                  style={{ flex: 1 }}
+                                />
+                                <button
+                                  type="submit"
+                                  disabled={sendingMsg || !chatInput.trim()}
+                                  className="btn btn-primary"
+                                  style={{ opacity: sendingMsg || !chatInput.trim() ? 0.5 : 1 }}
+                                >
+                                  Envoyer
+                                </button>
+                              </form>
+                            </>
                           )}
-                          <div ref={chatBottomRef} />
                         </div>
-                        <form onSubmit={sendMessage} className="chat-input-bar">
-                          <input
-                            type="text"
-                            placeholder="Tapez votre message…"
-                            value={chatInput}
-                            onChange={(e) => setChatInput(e.target.value)}
-                            className="dash-input"
-                            style={{ flex: 1 }}
-                          />
-                          <button
-                            type="submit"
-                            disabled={sendingMsg || !chatInput.trim()}
-                            className="btn btn-primary"
-                            style={{ opacity: sendingMsg || !chatInput.trim() ? 0.5 : 1 }}
-                          >
-                            Envoyer
-                          </button>
-                        </form>
-                      </>
+                      </div>
                     )}
                   </div>
                 )}
