@@ -204,6 +204,28 @@ export async function PUT(request: Request) {
       return NextResponse.json({ success: true, service: updatedService });
     }
 
+    if (action === 'cancel_order') {
+      const { orderId } = body;
+      const order = await prisma.order.findUnique({ where: { id: orderId } });
+      if (!order) {
+        return NextResponse.json({ error: 'Commande introuvable' }, { status: 404 });
+      }
+      if (order.status === 'cancelled') {
+        return NextResponse.json({ success: true });
+      }
+      await prisma.$transaction([
+        prisma.order.update({
+          where: { id: orderId },
+          data: { status: 'cancelled', cancellationEffectiveAt: order.cancellationEffectiveAt || new Date() },
+        }),
+        prisma.stockAccount.update({
+          where: { id: order.stockAccountId },
+          data: { filledSlots: { decrement: 1 } },
+        }),
+      ]);
+      return NextResponse.json({ success: true });
+    }
+
     return NextResponse.json({ error: 'Action non reconnue' }, { status: 400 });
   } catch (error: any) {
     console.error('Erreur PUT stock admin:', error);

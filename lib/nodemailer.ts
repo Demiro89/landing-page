@@ -122,6 +122,106 @@ export async function sendResetPasswordEmail(toEmail: string, token: string) {
   }
 }
 
+export async function sendCancellationEmail(
+  toEmail: string,
+  serviceName: string,
+  orderId: string,
+  effectiveAt: Date
+) {
+  const formattedDate = effectiveAt.toLocaleDateString('fr-FR', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+
+  if (!process.env.RESEND_API_KEY) {
+    console.log('--- [SIMULATION EMAIL RÉSILIATION] ---');
+    console.log(`To: ${toEmail} | Service: ${serviceName} | Order: ${orderId} | Effective: ${formattedDate}`);
+    return { success: true, simulated: true };
+  }
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: toEmail,
+      subject: `🔴 Résiliation de votre abonnement ${serviceName} - StreamMalin`,
+      html: `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body{font-family:'Outfit','Inter',sans-serif;background:#0b0c10;color:#e5e7eb;margin:0;padding:20px}
+    .container{max-width:600px;margin:0 auto;background:linear-gradient(135deg,rgba(20,24,33,.95),rgba(10,12,16,.95));border:1px solid rgba(168,85,247,.2);border-radius:16px;padding:30px;box-shadow:0 10px 30px rgba(168,85,247,.1)}
+    .logo{font-size:28px;font-weight:800;letter-spacing:-.5px;background:linear-gradient(135deg,#a855f7 0%,#3b82f6 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+    .title{font-size:22px;margin-top:10px;font-weight:700;color:#fff}
+    .badge{display:inline-block;background:rgba(239,68,68,.15);border:1px solid #ef4444;color:#fca5a5;padding:6px 12px;border-radius:9999px;font-size:14px;font-weight:600;margin-bottom:20px}
+    .info-box{background:rgba(15,23,42,.8);border:1px solid rgba(168,85,247,.2);border-radius:12px;padding:20px;margin:25px 0}
+    .info-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05)}
+    .info-row:last-child{border-bottom:none}
+    .info-label{color:#9ca3af;font-size:14px}
+    .info-value{color:#e5e7eb;font-size:14px;font-weight:600}
+    .date-highlight{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:12px 16px;margin:20px 0;text-align:center;color:#fca5a5;font-weight:700}
+    .notice{background:rgba(59,130,246,.08);border-left:3px solid #3b82f6;padding:12px 16px;border-radius:0 8px 8px 0;margin:20px 0;font-size:14px;color:#93c5fd}
+    .btn{display:inline-block;background:linear-gradient(135deg,#a855f7 0%,#3b82f6 100%);color:#fff!important;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:700;margin-top:15px;box-shadow:0 4px 14px rgba(168,85,247,.3)}
+    .footer{margin-top:30px;border-top:1px solid rgba(255,255,255,.05);padding-top:20px;text-align:center;font-size:12px;color:#6b7280}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div style="text-align:center;border-bottom:1px solid rgba(168,85,247,.15);padding-bottom:20px;margin-bottom:25px">
+      <div class="logo">StreamMalin</div>
+      <div class="title">Résiliation confirmée</div>
+    </div>
+    <p>Bonjour,</p>
+    <p>Nous avons bien reçu votre demande de résiliation pour votre abonnement <strong>${serviceName}</strong>. Cette résiliation a été prise en compte sans aucun engagement ni frais supplémentaires.</p>
+    <div style="text-align:center"><span class="badge">🔴 Résiliation en cours</span></div>
+    <div class="date-highlight">
+      Date effective de résiliation : ${formattedDate}
+    </div>
+    <div class="notice">
+      ℹ️ <strong>Bon à savoir :</strong> Votre accès à <strong>${serviceName}</strong> reste entièrement actif jusqu'à cette date. Vous pouvez continuer à profiter de votre abonnement normalement.
+    </div>
+    <div class="info-box">
+      <div class="info-row">
+        <span class="info-label">Service résilié</span>
+        <span class="info-value">${serviceName}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Numéro de commande</span>
+        <span class="info-value">${orderId}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Date effective de résiliation</span>
+        <span class="info-value">${formattedDate}</span>
+      </div>
+    </div>
+    <p>Si vous avez des questions concernant votre résiliation, connectez-vous à votre Espace Client et contactez notre support.</p>
+    <div style="text-align:center;margin-top:25px">
+      <a href="${APP_URL}" class="btn">Accéder à mon Espace Client</a>
+    </div>
+    <div class="footer">
+      <p>&copy; ${new Date().getFullYear()} StreamMalin. Tous droits réservés.</p>
+      <p>Email automatique — merci de ne pas répondre directement.</p>
+    </div>
+  </div>
+</body>
+</html>`,
+    });
+
+    if (error) {
+      console.error('Resend cancellation error:', error);
+      return { success: false, error };
+    }
+
+    console.log(`Email résiliation envoyé via Resend: ${data?.id}`);
+    return { success: true, messageId: data?.id };
+  } catch (err) {
+    console.error('Erreur envoi email résiliation:', err);
+    return { success: false, error: err };
+  }
+}
+
 export async function sendVerificationEmail(toEmail: string, token: string) {
   const verifyUrl = `${APP_URL}/api/client/verify?token=${token}`;
 

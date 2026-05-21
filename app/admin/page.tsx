@@ -15,6 +15,8 @@ interface StockAccount {
 interface Order {
   id: string; date: string; price: number; fee: number; total: number;
   clientEmail: string; status: string; details: string;
+  cancellationRequestedAt?: string | null;
+  cancellationEffectiveAt?: string | null;
   service: { name: string; icon: string };
   stockAccount: { accountsBoughtPrice: number };
 }
@@ -36,7 +38,7 @@ interface Client {
 }
 interface Settings { [key: string]: string }
 
-type AdminPage = 'dashboard' | 'stocks' | 'services' | 'clients' | 'settings' | 'support';
+type AdminPage = 'dashboard' | 'stocks' | 'services' | 'clients' | 'cancellations' | 'support' | 'settings';
 
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
 const fmt = (n: number) => n.toFixed(2).replace('.', ',') + '€';
@@ -309,6 +311,7 @@ export default function AdminPage() {
     ['stocks', '📦', 'Gestion des Stocks'],
     ['services', '🎬', 'Gestion des Services'],
     ['clients', '👥', 'Utilisateurs & Clients'],
+    ['cancellations', '🔴', 'Résiliations'],
     ['support', '💬', 'Support Client'],
     ['settings', '⚙️', 'Paramètres globaux'],
   ];
@@ -715,6 +718,113 @@ export default function AdminPage() {
               </div>
             </div>
           )}
+
+          {/* ── RÉSILIATIONS ── */}
+          {activePage === 'cancellations' && (() => {
+            const pending = orders.filter(o => o.status === 'cancelled_pending');
+            const cancelled = orders.filter(o => o.status === 'cancelled');
+            const confirmCancel = async (orderId: string) => {
+              if (!confirm('Confirmer la résiliation définitive de cette commande ? Le slot sera libéré.')) return;
+              await fetch('/api/admin/stock', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'cancel_order', orderId }),
+              });
+              await loadAll();
+            };
+            return (
+              <div style={{ position: 'relative', zIndex: 1 }}>
+                <div className="admin-section-head fade-in-up">
+                  <div className="eyebrow">🔴 Sans engagement</div>
+                  <h1>Résiliations <span className="gradient-text">en attente</span></h1>
+                  <p>Clients ayant demandé la résiliation. L&apos;accès reste actif jusqu&apos;à la date effective.</p>
+                </div>
+
+                <div className="glass-panel admin-card fade-in-up" style={{ marginBottom: 24 }}>
+                  <div className="admin-card-head">
+                    <div className="icon-bubble">⏳</div>
+                    Résiliations programmées ({pending.length})
+                  </div>
+                  {pending.length === 0 ? (
+                    <div className="dash-empty" style={{ borderRadius: 0 }}>
+                      <div className="dash-empty-icon">✅</div>
+                      <h3>Aucune résiliation en attente</h3>
+                    </div>
+                  ) : (
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
+                        <thead>
+                          <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                            <th style={{ padding: '10px 12px', textAlign: 'left' }}>Client</th>
+                            <th style={{ padding: '10px 12px', textAlign: 'left' }}>Service</th>
+                            <th style={{ padding: '10px 12px', textAlign: 'left' }}>Souscrit le</th>
+                            <th style={{ padding: '10px 12px', textAlign: 'left' }}>Résiliation le</th>
+                            <th style={{ padding: '10px 12px', textAlign: 'left' }}>Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {pending.map(o => (
+                            <tr key={o.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                              <td style={{ padding: '12px', color: 'var(--text-white)', fontWeight: 600 }}>{o.clientEmail}</td>
+                              <td style={{ padding: '12px' }}>{o.service.icon} {o.service.name}</td>
+                              <td style={{ padding: '12px', color: 'var(--text-muted)' }}>{new Date(o.date).toLocaleDateString('fr-FR')}</td>
+                              <td style={{ padding: '12px' }}>
+                                <span style={{ padding: '3px 10px', borderRadius: 50, background: 'rgba(239,68,68,0.12)', color: '#f87171', fontWeight: 700, fontSize: '0.8rem' }}>
+                                  {o.cancellationEffectiveAt ? new Date(o.cancellationEffectiveAt).toLocaleDateString('fr-FR') : '—'}
+                                </span>
+                              </td>
+                              <td style={{ padding: '12px' }}>
+                                <button
+                                  onClick={() => confirmCancel(o.id)}
+                                  className="btn btn-ghost btn-sm"
+                                  style={{ color: '#f87171', borderColor: 'rgba(239,68,68,0.3)', fontSize: '0.78rem' }}
+                                >Résilier maintenant</button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+                <div className="glass-panel admin-card fade-in-up">
+                  <div className="admin-card-head">
+                    <div className="icon-bubble">📁</div>
+                    Historique des résiliations ({cancelled.length})
+                  </div>
+                  {cancelled.length === 0 ? (
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>Aucune résiliation définitive enregistrée.</p>
+                  ) : (
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
+                        <thead>
+                          <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                            <th style={{ padding: '10px 12px', textAlign: 'left' }}>Client</th>
+                            <th style={{ padding: '10px 12px', textAlign: 'left' }}>Service</th>
+                            <th style={{ padding: '10px 12px', textAlign: 'left' }}>Prix</th>
+                            <th style={{ padding: '10px 12px', textAlign: 'left' }}>Résilié le</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {cancelled.map(o => (
+                            <tr key={o.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', opacity: 0.65 }}>
+                              <td style={{ padding: '12px' }}>{o.clientEmail}</td>
+                              <td style={{ padding: '12px' }}>{o.service.icon} {o.service.name}</td>
+                              <td style={{ padding: '12px', color: 'var(--text-muted)' }}>{fmt(o.price)}/mois</td>
+                              <td style={{ padding: '12px', color: 'var(--text-muted)' }}>
+                                {o.cancellationEffectiveAt ? new Date(o.cancellationEffectiveAt).toLocaleDateString('fr-FR') : new Date(o.date).toLocaleDateString('fr-FR')}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* ── SUPPORT ── */}
           {activePage === 'support' && (

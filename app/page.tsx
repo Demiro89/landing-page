@@ -48,6 +48,7 @@ interface Order {
   details: string;
   clientEmail: string;
   status: string;
+  cancellationEffectiveAt?: string | null;
   service: { name: string; icon: string; gradient: string };
   chats?: { id: string; orderId: string; messages: Message[] };
 }
@@ -102,7 +103,12 @@ export default function Home() {
   const chatPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    fetch('/api/services', { cache: 'no-store' }).then(r => r.json()).then(d => { if (d.success) setServices(d.services); });
+    const fetchServices = () => {
+      fetch('/api/services', { cache: 'no-store' }).then(r => r.json()).then(d => { if (d.success) setServices(d.services); });
+    };
+    fetchServices();
+    const servicesInterval = setInterval(fetchServices, 60000);
+
     fetch('/api/stocks/public', { cache: 'no-store' }).then(r => r.json()).then(d => { if (d.success) setStocks(d.stocks); });
 
     // Vérifier la session client
@@ -133,6 +139,10 @@ export default function Home() {
       setAuthMode('reset');
       setResetToken(rt);
     }
+
+    return () => {
+      clearInterval(servicesInterval);
+    };
   }, []);
 
   const doForgot = async (e: React.FormEvent) => {
@@ -260,6 +270,36 @@ export default function Home() {
       setDeleteError('Erreur réseau');
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const [cancelOrderId, setCancelOrderId] = useState<string | null>(null);
+  const [cancellingOrder, setCancellingOrder] = useState(false);
+  const [cancelError, setCancelError] = useState('');
+  const [cancelSuccess, setCancelSuccess] = useState('');
+
+  const doCancelOrder = async () => {
+    if (!cancelOrderId || cancellingOrder) return;
+    setCancellingOrder(true);
+    setCancelError('');
+    try {
+      const r = await fetch('/api/client/cancel-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId: cancelOrderId }),
+      });
+      const d = await r.json();
+      if (d.success) {
+        setCancelSuccess(`Résiliation confirmée. Votre accès reste actif jusqu'au ${new Date(d.effectiveAt).toLocaleDateString('fr-FR')}.`);
+        setCancelOrderId(null);
+        await reloadMe();
+      } else {
+        setCancelError(d.error || 'Erreur lors de la résiliation');
+      }
+    } catch {
+      setCancelError('Erreur réseau');
+    } finally {
+      setCancellingOrder(false);
     }
   };
 
@@ -1044,38 +1084,99 @@ export default function Home() {
                         <p>Nous n&apos;avons trouvé aucune commande pour <strong style={{ color: 'var(--text-white)' }}>{searchedEmail}</strong>. Vérifiez l&apos;orthographe ou contactez le support.</p>
                       </div>
                     ) : (
-                      orders.map((order) => (
-                        <div key={order.id} className="glass-panel order-card">
-                          <div className="order-icon-lg" style={{ background: order.service.gradient }}>
-                            {order.service.icon}
+                      <>
+                        {cancelSuccess && (
+                          <div style={{ marginBottom: 16, padding: 14, borderRadius: 12, background: 'rgba(0,230,118,0.08)', border: '1px solid rgba(0,230,118,0.25)', color: 'var(--accent-green)', fontSize: '0.88rem' }}>
+                            ✅ {cancelSuccess}
                           </div>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 6 }}>
-                              <h4 style={{ fontSize: '1.05rem', fontWeight: 800 }}>{order.service.name}</h4>
-                              <span className="order-status">Actif</span>
+                        )}
+                        {orders.map((order) => (
+                          <div key={order.id} className="glass-panel order-card">
+                            <div className="order-icon-lg" style={{ background: order.service.gradient }}>
+                              {order.service.icon}
                             </div>
-                            <div className="order-meta">
-                              <span>Mensualité <strong>{order.price.toFixed(2)}€</strong></span>
-                              <span>·</span>
-                              <span>Loué le <strong>{new Date(order.date).toLocaleDateString('fr-FR')}</strong></span>
-                            </div>
-                            <div className="creds-box">
-                              <div className="creds-label">🔑 Accès de connexion</div>
-                              <div className="creds-value">{order.details}</div>
-                            </div>
-                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                              <button
-                                onClick={() => { setDashTab('chat'); setActiveChatOrderId(order.id); fetchChat(order.id); }}
-                                className="btn btn-primary btn-sm"
-                              >💬 Contacter le support</button>
-                              <button
-                                onClick={() => navigator.clipboard.writeText(order.details)}
-                                className="btn btn-ghost btn-sm"
-                              >📋 Copier les accès</button>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 6 }}>
+                                <h4 style={{ fontSize: '1.05rem', fontWeight: 800 }}>{order.service.name}</h4>
+                                {order.status === 'cancelled_pending' ? (
+                                  <span className="order-status" style={{ background: 'rgba(239,68,68,0.15)', color: '#f87171', borderColor: 'rgba(239,68,68,0.3)' }}>
+                                    Résiliation le {new Date(order.cancellationEffectiveAt!).toLocaleDateString('fr-FR')}
+                                  </span>
+                                ) : (
+                                  <span className="order-status">Actif</span>
+                                )}
+                              </div>
+                              <div className="order-meta">
+                                <span>Mensualité <strong>{order.price.toFixed(2)}€</strong></span>
+                                <span>·</span>
+                                <span>Loué le <strong>{new Date(order.date).toLocaleDateString('fr-FR')}</strong></span>
+                              </div>
+                              <div className="creds-box">
+                                <div className="creds-label">🔑 Accès de connexion</div>
+                                <div className="creds-value">{order.details}</div>
+                              </div>
+                              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                <button
+                                  onClick={() => { setDashTab('chat'); setActiveChatOrderId(order.id); fetchChat(order.id); }}
+                                  className="btn btn-primary btn-sm"
+                                >💬 Contacter le support</button>
+                                <button
+                                  onClick={() => navigator.clipboard.writeText(order.details)}
+                                  className="btn btn-ghost btn-sm"
+                                >📋 Copier les accès</button>
+                                {order.status === 'active' && (
+                                  <button
+                                    onClick={() => { setCancelOrderId(order.id); setCancelError(''); }}
+                                    className="btn btn-ghost btn-sm"
+                                    style={{ color: 'var(--accent-red)', borderColor: 'rgba(239,68,68,0.3)' }}
+                                  >🔴 Résilier</button>
+                                )}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))
+                        ))}
+
+                        {/* Modal confirmation résiliation */}
+                        {cancelOrderId && (() => {
+                          const order = orders.find(o => o.id === cancelOrderId);
+                          if (!order) return null;
+                          const effectiveAt = new Date(order.date);
+                          effectiveAt.setDate(effectiveAt.getDate() + 30);
+                          return (
+                            <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)', padding: 20 }}>
+                              <div className="glass-panel" style={{ maxWidth: 460, width: '100%', padding: 30 }}>
+                                <h3 style={{ fontSize: '1.15rem', fontWeight: 800, marginBottom: 8 }}>🔴 Résilier mon abonnement</h3>
+                                <p style={{ fontSize: '0.88rem', color: 'var(--text-soft)', lineHeight: 1.7, marginBottom: 12 }}>
+                                  Vous êtes sur le point de résilier votre abonnement <strong style={{ color: 'var(--text-white)' }}>{order.service.name}</strong>.
+                                </p>
+                                <div style={{ padding: 14, borderRadius: 10, background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)', marginBottom: 16, fontSize: '0.85rem', lineHeight: 1.7 }}>
+                                  ⚠️ <strong>Sans engagement</strong> — votre accès reste <strong>actif jusqu'au {effectiveAt.toLocaleDateString('fr-FR')}</strong> (30 jours après souscription). Un email de confirmation vous sera envoyé immédiatement.
+                                </div>
+                                {cancelError && (
+                                  <div style={{ marginBottom: 12, padding: 10, borderRadius: 8, background: 'rgba(239,68,68,0.1)', color: '#f87171', fontSize: '0.82rem' }}>
+                                    {cancelError}
+                                  </div>
+                                )}
+                                <div style={{ display: 'flex', gap: 10 }}>
+                                  <button
+                                    onClick={doCancelOrder}
+                                    disabled={cancellingOrder}
+                                    className="btn"
+                                    style={{ flex: 1, background: 'linear-gradient(135deg,#dc2626,#991b1b)', color: '#fff', fontWeight: 800, border: 'none' }}
+                                  >
+                                    {cancellingOrder ? 'Traitement…' : 'Confirmer la résiliation'}
+                                  </button>
+                                  <button
+                                    onClick={() => { setCancelOrderId(null); setCancelError(''); }}
+                                    className="btn btn-ghost"
+                                    style={{ flex: 1 }}
+                                  >Annuler</button>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </>
                     )}
                   </div>
                 )}
