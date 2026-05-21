@@ -53,7 +53,7 @@ interface Order {
 }
 
 type View = 'storefront' | 'dashboard';
-type DashTab = 'orders' | 'rent' | 'chat';
+type DashTab = 'orders' | 'rent' | 'chat' | 'settings';
 type AuthMode = 'login' | 'register' | 'forgot' | 'reset';
 type FilterType = 'all' | 'streaming' | 'musique' | 'securite';
 
@@ -224,6 +224,43 @@ export default function Home() {
     setOrders([]);
     setSearchedEmail('');
     setActiveChatOrderId(null);
+  };
+
+  const [deleteConfirm, setDeleteConfirm] = useState('');
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+
+  const doDeleteAccount = async () => {
+    setDeleteError('');
+    if (deleteConfirm.trim().toLowerCase() !== 'supprimer') {
+      setDeleteError('Veuillez taper exactement "supprimer" pour confirmer.');
+      return;
+    }
+    setDeleting(true);
+    try {
+      const r = await fetch('/api/client/delete-account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirmation: deleteConfirm }),
+      });
+      const d = await r.json();
+      if (d.success) {
+        setCustomer(null);
+        setOrders([]);
+        setSearchedEmail('');
+        setActiveChatOrderId(null);
+        setDeleteConfirm('');
+        setDashTab('orders');
+        setAuthMode('login');
+        setAuthMsg('Votre compte a été définitivement supprimé.');
+      } else {
+        setDeleteError(d.error || 'Erreur lors de la suppression du compte');
+      }
+    } catch {
+      setDeleteError('Erreur réseau');
+    } finally {
+      setDeleting(false);
+    }
   };
 
   useEffect(() => {
@@ -793,6 +830,15 @@ export default function Home() {
 
                 {customer && (
                   <button
+                    onClick={() => { setDashTab('settings'); setDeleteConfirm(''); setDeleteError(''); }}
+                    className={`dash-sidebar-btn ${dashTab === 'settings' ? 'active' : ''}`}
+                  >
+                    <span style={{ fontSize: '1.05rem' }}>⚙️</span> Paramètres
+                  </button>
+                )}
+
+                {customer && (
+                  <button
                     onClick={doLogout}
                     className="dash-sidebar-btn"
                     style={{ color: 'var(--accent-red)' }}
@@ -1031,6 +1077,69 @@ export default function Home() {
                         </div>
                       ))
                     )}
+                  </div>
+                )}
+
+                {/* Settings tab */}
+                {customer && dashTab === 'settings' && (
+                  <div className="glass-panel dash-card fade-in-up">
+                    <div className="dash-card-head">
+                      <div className="icon-bubble">⚙️</div>
+                      Paramètres du compte
+                    </div>
+
+                    <div style={{ marginBottom: 24, padding: 16, borderRadius: 12, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 6 }}>Adresse email</div>
+                      <div style={{ fontSize: '0.95rem', color: 'var(--text-white)', fontWeight: 600 }}>{customer.email}</div>
+                    </div>
+
+                    <div style={{ marginTop: 30, padding: 20, borderRadius: 12, background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.3)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, color: 'var(--accent-red)', fontWeight: 800, fontSize: '1rem' }}>
+                        ⚠️ Zone dangereuse — Supprimer mon compte
+                      </div>
+                      <p style={{ fontSize: '0.85rem', color: 'var(--text-soft)', lineHeight: 1.6, marginBottom: 8 }}>
+                        Cette action est <strong style={{ color: 'var(--accent-red)' }}>définitive et irréversible</strong>. Votre compte client, votre adresse email et votre mot de passe seront <strong>supprimés immédiatement</strong> de nos serveurs.
+                      </p>
+                      <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: 16 }}>
+                        Vos abonnements actifs ne seront <strong>pas annulés</strong> — ils restent gérés via votre adresse email. En revanche, vous perdrez l&apos;accès à votre Espace Client et à l&apos;historique de vos conversations support.
+                      </p>
+
+                      <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-soft)', marginBottom: 6, fontWeight: 600 }}>
+                        Pour confirmer, tapez <code style={{ background: 'rgba(239,68,68,0.15)', color: 'var(--accent-red)', padding: '2px 8px', borderRadius: 4, fontFamily: 'monospace', fontWeight: 800 }}>supprimer</code> ci-dessous :
+                      </label>
+                      <input
+                        type="text"
+                        value={deleteConfirm}
+                        onChange={(e) => { setDeleteConfirm(e.target.value); setDeleteError(''); }}
+                        placeholder="Tapez supprimer"
+                        className="input"
+                        style={{ width: '100%', marginBottom: 12, borderColor: deleteConfirm.trim().toLowerCase() === 'supprimer' ? 'var(--accent-red)' : undefined }}
+                        disabled={deleting}
+                      />
+
+                      {deleteError && (
+                        <div style={{ marginBottom: 12, padding: 10, borderRadius: 8, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: 'var(--accent-red)', fontSize: '0.82rem' }}>
+                          {deleteError}
+                        </div>
+                      )}
+
+                      <button
+                        onClick={doDeleteAccount}
+                        disabled={deleting || deleteConfirm.trim().toLowerCase() !== 'supprimer'}
+                        className="btn"
+                        style={{
+                          width: '100%',
+                          background: deleteConfirm.trim().toLowerCase() === 'supprimer' && !deleting ? 'linear-gradient(135deg, #dc2626, #991b1b)' : 'rgba(239,68,68,0.2)',
+                          color: '#fff',
+                          fontWeight: 800,
+                          cursor: deleteConfirm.trim().toLowerCase() === 'supprimer' && !deleting ? 'pointer' : 'not-allowed',
+                          opacity: deleteConfirm.trim().toLowerCase() === 'supprimer' && !deleting ? 1 : 0.5,
+                          border: 'none',
+                        }}
+                      >
+                        {deleting ? 'Suppression en cours…' : '🗑️ Supprimer définitivement mon compte'}
+                      </button>
+                    </div>
                   </div>
                 )}
 
