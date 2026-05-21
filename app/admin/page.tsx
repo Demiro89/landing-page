@@ -831,12 +831,10 @@ function ServiceEditCard({ svc, onSave, onToggle, onDelete, onEditStock, onAddSt
 
   const handleSaveAll = async () => {
     setAdding(true);
-    // Si le formulaire d'ajout de stock est rempli, on l'enregistre d'abord
     if (addPrice && addSlots && addDetails) {
       const ok = await onAddStock(svc.id, addPrice, addSlots, addDetails);
       if (ok) { setAddPrice(''); setAddSlots(''); setAddDetails(''); }
     }
-    // Puis on sauvegarde les modifications du service
     onSave(local);
     setAdding(false);
   };
@@ -917,7 +915,6 @@ function ServiceEditCard({ svc, onSave, onToggle, onDelete, onEditStock, onAddSt
           </div>
         )}
 
-        {/* Formulaire d'ajout inline (sans bouton dédié) */}
         <div style={{ background: 'rgba(168,85,247,0.06)', border: '1px dashed rgba(168,85,247,0.25)', borderRadius: 10, padding: 12 }}>
           <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-soft)', marginBottom: 8 }}>
             ➕ Ajouter un compte de stock
