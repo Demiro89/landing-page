@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
+import { sendOrderDetailsEmail } from '@/lib/nodemailer';
 
 // Fonction utilitaire de vérification d'authentification
 async function checkAuth(): Promise<boolean> {
@@ -164,6 +165,9 @@ export async function PUT(request: Request) {
     if (action === 'update_stock') {
       const { accountsBoughtPrice, price, maxSlots, filledSlots, details } = body;
 
+      // Récupérer l'ancien état pour détecter un changement d'identifiants
+      const previous = await prisma.stockAccount.findUnique({ where: { id } });
+
       const updatedStock = await prisma.stockAccount.update({
         where: { id },
         data: {
@@ -174,6 +178,19 @@ export async function PUT(request: Request) {
           details,
         },
       });
+
+      // Notifier les clients actifs si les identifiants ont changé
+      if (previous && previous.details !== details) {
+        const activeOrders = await prisma.order.findMany({
+          where: { stockAccountId: id, status: 'active' },
+          include: { service: true },
+        });
+
+        for (const order of activeOrders) {
+          sendOrderDetailsEmail(order.clientEmail, order.service.name, details, order.id)
+            .catch((err) => console.error('[update_stock] email error:', err));
+        }
+      }
 
       return NextResponse.json({ success: true, stock: updatedStock });
     }
