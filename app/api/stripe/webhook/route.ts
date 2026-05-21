@@ -30,7 +30,7 @@ export async function POST(request: Request) {
         const metadata = session.metadata;
         if (!metadata) break;
 
-        const { serviceId, stockAccountId, clientEmail, price, migrateOrderId } = metadata as any;
+        const { serviceId, stockAccountId, clientEmail, price, migrateOrderId, youtubeEmail } = metadata as any;
 
         // Cas 1 : migration d'une commande existante vers Stripe Subscription
         if (migrateOrderId && session.subscription) {
@@ -88,6 +88,7 @@ export async function POST(request: Request) {
               total: parsedPrice,
               details: updatedStock.details,
               clientEmail,
+              youtubeEmail: youtubeEmail || null,
               status: 'active',
               stripeSubscriptionId: sub?.id || null,
               stripeCustomerId,
@@ -108,7 +109,12 @@ export async function POST(request: Request) {
           });
           return createdOrder;
         });
-        await sendOrderDetailsEmail(clientEmail, service.name, stockAccount.details, order.id);
+        await sendOrderDetailsEmail(clientEmail, service.name, stockAccount.details, order.id, youtubeEmail || undefined);
+        if (serviceId === 'youtube' && youtubeEmail) {
+          sendTelegramNotification(
+            `▶️ <b>Nouvelle commande YouTube Premium</b>\n👤 ${clientEmail}\n📧 <b>Email YouTube à inviter :</b> <code>${youtubeEmail}</code>\n💶 ${parsedPrice.toFixed(2)}€`
+          ).catch(() => {});
+        }
         // Lier le customer Stripe au compte client si existant
         if (stripeCustomerId && clientEmail) {
           const customer = await prisma.customer.findUnique({ where: { email: clientEmail.toLowerCase() } });

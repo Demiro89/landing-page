@@ -14,10 +14,14 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
  */
 export async function POST(request: Request) {
   try {
-    const { serviceId, stockAccountId, email } = await request.json();
+    const { serviceId, stockAccountId, email, youtubeEmail } = await request.json();
 
     if (!serviceId || !stockAccountId || !email) {
       return NextResponse.json({ error: 'Paramètres manquants' }, { status: 400 });
+    }
+
+    if (serviceId === 'youtube' && !youtubeEmail) {
+      return NextResponse.json({ error: 'Adresse e-mail YouTube requise pour YouTube Premium' }, { status: 400 });
     }
 
     const service = await prisma.service.findUnique({ where: { id: serviceId } });
@@ -47,6 +51,7 @@ export async function POST(request: Request) {
             total: updatedStock.price,
             details: updatedStock.details,
             clientEmail: email,
+            youtubeEmail: youtubeEmail || null,
             status: 'active',
             nextBillingAt: new Date(Date.now() + 30 * 86400000),
           },
@@ -95,12 +100,14 @@ export async function POST(request: Request) {
         stockAccountId,
         clientEmail: email,
         price: stockAccount.price.toString(),
+        youtubeEmail: youtubeEmail || '',
       },
       subscription_data: {
         metadata: {
           serviceId,
           stockAccountId,
           clientEmail: email,
+          youtubeEmail: youtubeEmail || '',
         },
       },
     });

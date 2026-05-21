@@ -188,7 +188,7 @@ export async function PUT(request: Request) {
         });
 
         for (const order of activeOrders) {
-          sendOrderDetailsEmail(order.clientEmail, order.service.name, details, order.id)
+          sendOrderDetailsEmail(order.clientEmail, order.service.name, details, order.id, order.youtubeEmail || undefined)
             .catch((err) => console.error('[update_stock] email error:', err));
         }
       }
