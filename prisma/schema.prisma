@@ -60,6 +60,14 @@ model Order {
   unpaidSince              DateTime?
   reminderCount            Int          @default(0)
   lastReminderAt           DateTime?
+  // Stripe Subscriptions
+  stripeSubscriptionId String?  @unique
+  stripeCustomerId     String?
+  cardLast4            String?
+  cardBrand            String?
+  cardExpMonth         Int?
+  cardExpYear          Int?
+  nextBillingAt        DateTime?
   chats          ChatThread?
 }
 
@@ -72,6 +80,7 @@ model Customer {
   verificationToken  String?
   resetToken         String?
   resetTokenExp      DateTime?
+  stripeCustomerId   String?   @unique
   createdAt          DateTime  @default(now())
   orders             Order[]
 }

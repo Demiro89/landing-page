@@ -49,6 +49,12 @@ interface Order {
   clientEmail: string;
   status: string;
   cancellationEffectiveAt?: string | null;
+  stripeSubscriptionId?: string | null;
+  cardLast4?: string | null;
+  cardBrand?: string | null;
+  cardExpMonth?: number | null;
+  cardExpYear?: number | null;
+  nextBillingAt?: string | null;
   service: { name: string; icon: string; gradient: string };
   chats?: { id: string; orderId: string; messages: Message[] };
 }
@@ -138,6 +144,15 @@ export default function Home() {
       setView('dashboard');
       setAuthMode('reset');
       setResetToken(rt);
+    }
+    if (params.get('migrated') === 'true') {
+      setView('dashboard');
+      setCancelSuccess('Prélèvement automatique activé. Votre carte est enregistrée pour les prochains paiements.');
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+    if (params.get('from') === 'portal') {
+      setView('dashboard');
+      window.history.replaceState({}, '', window.location.pathname);
     }
 
     return () => {
@@ -277,6 +292,38 @@ export default function Home() {
   const [cancellingOrder, setCancellingOrder] = useState(false);
   const [cancelError, setCancelError] = useState('');
   const [cancelSuccess, setCancelSuccess] = useState('');
+  const [portalLoading, setPortalLoading] = useState(false);
+  const [migratingOrderId, setMigratingOrderId] = useState<string | null>(null);
+
+  const openBillingPortal = async () => {
+    setPortalLoading(true);
+    try {
+      const r = await fetch('/api/client/billing-portal', { method: 'POST' });
+      const d = await r.json();
+      if (d.success && d.url) {
+        window.location.href = d.url;
+      } else {
+        alert(d.error || 'Impossible d\'ouvrir le portail de paiement');
+      }
+    } finally { setPortalLoading(false); }
+  };
+
+  const migrateOrder = async (orderId: string) => {
+    setMigratingOrderId(orderId);
+    try {
+      const r = await fetch('/api/client/migrate-to-subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId }),
+      });
+      const d = await r.json();
+      if (d.success && d.url) {
+        window.location.href = d.url;
+      } else {
+        alert(d.error || 'Erreur de migration');
+      }
+    } finally { setMigratingOrderId(null); }
+  };
 
   const doCancelOrder = async () => {
     if (!cancelOrderId || cancellingOrder) return;
@@ -1115,6 +1162,49 @@ export default function Home() {
                                 <div className="creds-label">🔑 Accès de connexion</div>
                                 <div className="creds-value">{order.details}</div>
                               </div>
+
+                              {/* Carte bancaire enregistrée */}
+                              {order.stripeSubscriptionId && order.cardLast4 ? (() => {
+                                const now = new Date();
+                                const expired = order.cardExpYear && order.cardExpMonth && (
+                                  order.cardExpYear < now.getFullYear() ||
+                                  (order.cardExpYear === now.getFullYear() && order.cardExpMonth < now.getMonth() + 1)
+                                );
+                                const expiringSoon = order.cardExpYear && order.cardExpMonth && !expired && (
+                                  (order.cardExpYear - now.getFullYear()) * 12 + (order.cardExpMonth - now.getMonth() - 1) <= 1
+                                );
+                                return (
+                                  <div style={{ marginTop: 8, marginBottom: 8, padding: 12, borderRadius: 10, background: expired ? 'rgba(239,68,68,0.08)' : expiringSoon ? 'rgba(245,158,11,0.08)' : 'rgba(59,130,246,0.06)', border: `1px solid ${expired ? 'rgba(239,68,68,0.3)' : expiringSoon ? 'rgba(245,158,11,0.3)' : 'rgba(59,130,246,0.2)'}` }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                                      <div style={{ fontSize: '0.82rem' }}>
+                                        💳 <strong style={{ textTransform: 'capitalize' }}>{order.cardBrand || 'Carte'}</strong> •••• {order.cardLast4} <span style={{ color: 'var(--text-muted)' }}>· expire {String(order.cardExpMonth).padStart(2, '0')}/{order.cardExpYear}</span>
+                                        {expired && <span style={{ marginLeft: 8, padding: '2px 8px', borderRadius: 50, background: 'rgba(239,68,68,0.15)', color: '#f87171', fontSize: '0.7rem', fontWeight: 800 }}>⚠️ EXPIRÉE</span>}
+                                        {expiringSoon && <span style={{ marginLeft: 8, padding: '2px 8px', borderRadius: 50, background: 'rgba(245,158,11,0.15)', color: '#fbbf24', fontSize: '0.7rem', fontWeight: 800 }}>⏱️ Expire bientôt</span>}
+                                      </div>
+                                      {order.nextBillingAt && !expired && (
+                                        <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                                          Prochain prélèvement : {new Date(order.nextBillingAt).toLocaleDateString('fr-FR')}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })() : !order.stripeSubscriptionId && order.status === 'active' && (
+                                <div style={{ marginTop: 8, marginBottom: 8, padding: 12, borderRadius: 10, background: 'rgba(138,92,247,0.08)', border: '1px solid rgba(138,92,247,0.25)' }}>
+                                  <div style={{ fontSize: '0.82rem', marginBottom: 8 }}>
+                                    ✨ <strong>Activez le prélèvement automatique</strong> pour ne plus jamais oublier de payer. Vous restez résiliable à tout moment.
+                                  </div>
+                                  <button
+                                    onClick={() => migrateOrder(order.id)}
+                                    disabled={migratingOrderId === order.id}
+                                    className="btn btn-primary btn-sm"
+                                    style={{ fontSize: '0.78rem' }}
+                                  >
+                                    {migratingOrderId === order.id ? '⏳ Redirection…' : '💳 Activer le prélèvement automatique'}
+                                  </button>
+                                </div>
+                              )}
+
                               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                                 <button
                                   onClick={() => { setDashTab('chat'); setActiveChatOrderId(order.id); fetchChat(order.id); }}
@@ -1124,6 +1214,14 @@ export default function Home() {
                                   onClick={() => navigator.clipboard.writeText(order.details)}
                                   className="btn btn-ghost btn-sm"
                                 >📋 Copier les accès</button>
+                                {order.stripeSubscriptionId && (
+                                  <button
+                                    onClick={openBillingPortal}
+                                    disabled={portalLoading}
+                                    className="btn btn-ghost btn-sm"
+                                    style={{ color: 'var(--secondary)', borderColor: 'rgba(138,92,247,0.3)' }}
+                                  >{portalLoading ? '⏳' : '💳'} Gérer ma carte</button>
+                                )}
                                 {order.status === 'active' && (
                                   <button
                                     onClick={() => { setCancelOrderId(order.id); setCancelError(''); }}
