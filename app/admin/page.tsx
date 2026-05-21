@@ -16,6 +16,7 @@ interface Order {
   id: string; date: string; price: number; fee: number; total: number;
   clientEmail: string; youtubeEmail?: string | null; status: string; details: string;
   serviceId: string;
+  stockAccountId: string;
   cancellationRequestedAt?: string | null;
   cancellationEffectiveAt?: string | null;
   unpaidSince?: string | null;
@@ -683,13 +684,9 @@ export default function AdminPage() {
             </div>
           )}
 
-          {/* ── ABONNÉS PAR SERVICE ── */}
+          {/* ── ABONNÉS PAR SERVICE & COMPTE ── */}
           {activePage === 'subscribers' && (() => {
             const activeOrders = orders.filter(o => o.status === 'active' || o.status === 'unpaid' || o.status === 'cancelled_pending');
-            const byService = services.map(s => ({
-              service: s,
-              orders: activeOrders.filter(o => o.serviceId === s.id),
-            }));
             const statusBadge = (st: string) =>
               st === 'unpaid'
                 ? <span className="badge-pill" style={{ background: 'rgba(245,158,11,0.15)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.3)' }}>⚠️ Impayé</span>
@@ -702,79 +699,103 @@ export default function AdminPage() {
               <div style={{ position: 'relative', zIndex: 1 }}>
                 <div className="admin-section-head fade-in-up">
                   <div className="eyebrow">🎫 Abonnés actifs</div>
-                  <h1>Abonnés par <span className="gradient-text">service</span></h1>
-                  <p>Vue détaillée de tous les clients par service, identifiants livrés et infos d&apos;abonnement Stripe.</p>
+                  <h1>Abonnés par <span className="gradient-text">compte</span></h1>
+                  <p>Vue regroupée par service puis par compte de stock — qui est sur quel compte précis.</p>
                 </div>
 
-                {byService.map(({ service, orders: serviceOrders }) => (
-                  <div key={service.id} className="glass-panel admin-card fade-in-up" style={{ marginBottom: 18 }}>
-                    <div className="admin-card-head">
-                      <div className="icon-bubble" style={{ background: service.gradient }}>{service.icon}</div>
-                      {service.name}
-                      <span className="badge-pill neutral" style={{ marginLeft: 'auto' }}>
-                        {serviceOrders.length} abonné{serviceOrders.length > 1 ? 's' : ''}
-                      </span>
-                    </div>
+                {services.map(service => {
+                  const serviceOrders = activeOrders.filter(o => o.serviceId === service.id);
+                  const totalSlots = service.stocks.reduce((acc, st) => acc + st.maxSlots, 0);
+                  const usedSlots = service.stocks.reduce((acc, st) => acc + st.filledSlots, 0);
 
-                    {serviceOrders.length === 0 ? (
-                      <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', padding: '12px 0' }}>Aucun abonné actif pour ce service.</p>
-                    ) : (
-                      <div style={{ overflowX: 'auto' }}>
-                        <table className="admin-table">
-                          <thead>
-                            <tr>
-                              <th>Client</th>
-                              <th>Identifiants livrés</th>
-                              <th>Souscrit le</th>
-                              <th>Prochain prélèvement</th>
-                              <th>Carte</th>
-                              <th>Statut</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {serviceOrders.map(o => (
-                              <tr key={o.id}>
-                                <td style={{ fontSize: '0.82rem' }}>
-                                  <div style={{ fontWeight: 700, color: 'var(--text-white)' }}>{o.clientEmail}</div>
-                                  {o.youtubeEmail && (
-                                    <div style={{ fontSize: '0.72rem', color: '#ff4444', marginTop: 3 }}>
-                                      ▶ YT à inviter : <strong style={{ color: 'var(--text-white)' }}>{o.youtubeEmail}</strong>
-                                    </div>
-                                  )}
-                                </td>
-                                <td>
-                                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                                    <code style={{ flex: 1, fontSize: '0.74rem', background: 'rgba(15,23,42,0.6)', padding: '6px 8px', borderRadius: 6, color: '#3b82f6', fontFamily: "'SF Mono',Menlo,monospace", whiteSpace: 'pre-wrap', wordBreak: 'break-all', maxWidth: 280 }}>
-                                      {o.details.length > 120 ? o.details.slice(0, 120) + '…' : o.details}
-                                    </code>
-                                    <button
-                                      onClick={() => copyCreds(o.details)}
-                                      className="btn btn-ghost btn-sm"
-                                      style={{ fontSize: '0.7rem', padding: '4px 8px' }}
-                                      title="Copier les identifiants"
-                                    >📋</button>
-                                  </div>
-                                </td>
-                                <td style={{ color: 'var(--text-gray)', fontSize: '0.8rem' }}>
-                                  {new Date(o.date).toLocaleDateString('fr-FR')}
-                                </td>
-                                <td style={{ color: 'var(--text-gray)', fontSize: '0.8rem' }}>
-                                  {o.nextBillingAt ? new Date(o.nextBillingAt).toLocaleDateString('fr-FR') : '—'}
-                                </td>
-                                <td style={{ fontSize: '0.78rem' }}>
-                                  {o.cardLast4
-                                    ? <span style={{ fontFamily: "'SF Mono',Menlo,monospace" }}>{(o.cardBrand || 'CB').toUpperCase()} •••• {o.cardLast4}</span>
-                                    : <span style={{ color: 'var(--text-muted)' }}>—</span>}
-                                </td>
-                                <td>{statusBadge(o.status)}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                  return (
+                    <div key={service.id} className="glass-panel admin-card fade-in-up" style={{ marginBottom: 18 }}>
+                      <div className="admin-card-head">
+                        <div className="icon-bubble" style={{ background: service.gradient }}>{service.icon}</div>
+                        {service.name}
+                        <span className="badge-pill neutral" style={{ marginLeft: 'auto' }}>
+                          {serviceOrders.length} abonné{serviceOrders.length > 1 ? 's' : ''} · {service.stocks.length} compte{service.stocks.length > 1 ? 's' : ''} · {usedSlots}/{totalSlots} slots
+                        </span>
                       </div>
-                    )}
-                  </div>
-                ))}
+
+                      {service.stocks.length === 0 ? (
+                        <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', padding: '12px 0' }}>Aucun compte de stock pour ce service.</p>
+                      ) : service.stocks.map((stock, idx) => {
+                        const stockOrders = serviceOrders.filter(o => o.stockAccountId === stock.id);
+                        return (
+                          <div key={stock.id} style={{ marginTop: idx === 0 ? 12 : 18, padding: 14, borderRadius: 12, background: 'rgba(15,23,42,0.4)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                                <span style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-white)', background: 'rgba(168,85,247,0.15)', padding: '4px 10px', borderRadius: 6, border: '1px solid rgba(168,85,247,0.3)' }}>
+                                  COMPTE #{idx + 1}
+                                </span>
+                                <code style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontFamily: "'SF Mono',Menlo,monospace" }}>{stock.id.slice(0, 8)}</code>
+                                <span style={{ fontSize: '0.78rem', color: 'var(--text-gray)' }}>
+                                  {stock.filledSlots}/{stock.maxSlots} slots occupés · {fmt(stock.price)}/mois
+                                </span>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <code style={{ fontSize: '0.72rem', background: 'rgba(0,0,0,0.4)', padding: '6px 10px', borderRadius: 6, color: '#3b82f6', fontFamily: "'SF Mono',Menlo,monospace", maxWidth: 340, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                  🔑 {stock.details.length > 50 ? stock.details.slice(0, 50) + '…' : stock.details}
+                                </code>
+                                <button
+                                  onClick={() => copyCreds(stock.details)}
+                                  className="btn btn-ghost btn-sm"
+                                  style={{ fontSize: '0.7rem', padding: '4px 8px' }}
+                                  title="Copier les identifiants du compte"
+                                >📋</button>
+                              </div>
+                            </div>
+
+                            {stockOrders.length === 0 ? (
+                              <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', padding: '6px 0 0', fontStyle: 'italic' }}>Aucun abonné sur ce compte.</p>
+                            ) : (
+                              <div style={{ overflowX: 'auto' }}>
+                                <table className="admin-table" style={{ marginTop: 4 }}>
+                                  <thead>
+                                    <tr>
+                                      <th>Client</th>
+                                      <th>Souscrit le</th>
+                                      <th>Prochain prélèvement</th>
+                                      <th>Carte</th>
+                                      <th>Statut</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {stockOrders.map(o => (
+                                      <tr key={o.id}>
+                                        <td style={{ fontSize: '0.82rem' }}>
+                                          <div style={{ fontWeight: 700, color: 'var(--text-white)' }}>{o.clientEmail}</div>
+                                          {o.youtubeEmail && (
+                                            <div style={{ fontSize: '0.72rem', color: '#ff4444', marginTop: 3 }}>
+                                              ▶ YT à inviter : <strong style={{ color: 'var(--text-white)' }}>{o.youtubeEmail}</strong>
+                                            </div>
+                                          )}
+                                        </td>
+                                        <td style={{ color: 'var(--text-gray)', fontSize: '0.8rem' }}>
+                                          {new Date(o.date).toLocaleDateString('fr-FR')}
+                                        </td>
+                                        <td style={{ color: 'var(--text-gray)', fontSize: '0.8rem' }}>
+                                          {o.nextBillingAt ? new Date(o.nextBillingAt).toLocaleDateString('fr-FR') : '—'}
+                                        </td>
+                                        <td style={{ fontSize: '0.78rem' }}>
+                                          {o.cardLast4
+                                            ? <span style={{ fontFamily: "'SF Mono',Menlo,monospace" }}>{(o.cardBrand || 'CB').toUpperCase()} •••• {o.cardLast4}</span>
+                                            : <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                                        </td>
+                                        <td>{statusBadge(o.status)}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
               </div>
             );
           })()}
