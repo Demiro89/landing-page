@@ -116,7 +116,7 @@ export default function AdminPage() {
     const r = await fetch('/api/admin/stock', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'add_stock', serviceId: stockForm.serviceId, accountsBoughtPrice: stockForm.accountsBoughtPrice, price: stockForm.price, maxSlots: stockForm.maxSlots, filledSlots: 0, details: stockForm.details }),
+                      body: JSON.stringify({ action: 'add_stock', serviceId: stockForm.serviceId, accountsBoughtPrice: stockForm.accountsBoughtPrice || '0', price: stockForm.price, maxSlots: stockForm.maxSlots, filledSlots: 0, details: stockForm.details }),
     });
     const d = await r.json();
     if (d.success) { toast('Compte de stock ajouté !'); setStockForm({ serviceId: '', accountsBoughtPrice: '', price: '', maxSlots: '', details: '' }); loadAll(); }
@@ -444,12 +444,6 @@ export default function AdminPage() {
                       </select>
                     </div>
                     <div className="form-field" style={{ marginBottom: 0 }}>
-                      <label className="form-label">Coût d&apos;achat (COGS €) <span className="required">*</span></label>
-                      <input type="number" step="0.01" required placeholder="2.00" value={stockForm.accountsBoughtPrice}
-                        onChange={e => setStockForm(f => ({ ...f, accountsBoughtPrice: e.target.value }))}
-                        className="dash-input" />
-                    </div>
-                    <div className="form-field" style={{ marginBottom: 0 }}>
                       <label className="form-label">Prix location mensuel (€) <span className="required">*</span></label>
                       <input type="number" step="0.01" required placeholder="3.49" value={stockForm.price}
                         onChange={e => setStockForm(f => ({ ...f, price: e.target.value }))}
@@ -508,11 +502,8 @@ export default function AdminPage() {
                         <div className="stock-info-row">
                           <span>Location : <strong>{fmt(st.price)}/mois</strong></span>
                           <span>·</span>
-                          <span>COGS : <strong style={{ color: 'var(--accent-red)' }}>{fmt(st.accountsBoughtPrice)}</strong></span>
-                          <span>·</span>
-                          <span>Marge : <strong style={{ color: 'var(--accent-green)' }}>{fmt((st.price - st.accountsBoughtPrice) * st.maxSlots)}</strong></span>
-                          <span>·</span>
                           <span>Remplissage : <strong>{st.filledSlots}/{st.maxSlots}</strong></span>
+                          {st.filledSlots < st.maxSlots && <><span>·</span><span style={{ color: 'var(--accent-green)' }}><strong>{st.maxSlots - st.filledSlots} slot{st.maxSlots - st.filledSlots > 1 ? 's' : ''} libre{st.maxSlots - st.filledSlots > 1 ? 's' : ''}</strong></span></>}
                         </div>
                         <div className="stock-creds">🔑 {st.details}</div>
                       </div>
@@ -534,13 +525,11 @@ export default function AdminPage() {
                       Modifier le compte en stock
                     </div>
                     <form onSubmit={saveStock}>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 14 }}>
-                        <div className="form-field">
-                          <label className="form-label">Coût COGS (€)</label>
-                          <input type="number" step="0.01" required value={editStock.accountsBoughtPrice}
-                            onChange={e => setEditStock(s => s ? { ...s, accountsBoughtPrice: +e.target.value } : s)}
-                            className="dash-input" />
-                        </div>
+                      <div className="info-box" style={{ marginBottom: 14 }}>
+                        <div className="info-box-title">🔄 Mettre à jour les identifiants</div>
+                        <div className="info-box-text">Si un client a résilié, modifiez l&apos;email/mot de passe ci-dessous et décrémentez « Places occupées » pour libérer un slot.</div>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
                         <div className="form-field">
                           <label className="form-label">Prix location (€)</label>
                           <input type="number" step="0.01" required value={editStock.price}
@@ -561,11 +550,12 @@ export default function AdminPage() {
                         </div>
                       </div>
                       <div className="form-field">
-                        <label className="form-label">Identifiants / Liens</label>
-                        <textarea rows={3} required value={editStock.details}
+                        <label className="form-label">🔑 Email / Mot de passe / Lien d&apos;invitation</label>
+                        <textarea rows={4} required value={editStock.details}
                           onChange={e => setEditStock(s => s ? { ...s, details: e.target.value } : s)}
                           className="dash-input"
-                          style={{ resize: 'vertical', minHeight: 80, fontFamily: "'SF Mono',Menlo,monospace", fontSize: '0.82rem' }} />
+                          placeholder="email@example.com / motdepasse (Profil 3)"
+                          style={{ resize: 'vertical', minHeight: 100, fontFamily: "'SF Mono',Menlo,monospace", fontSize: '0.85rem' }} />
                       </div>
                       <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
                         <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>💾 Sauvegarder</button>
