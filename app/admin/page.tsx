@@ -162,7 +162,7 @@ export default function AdminPage() {
     const r = await fetch('/api/admin/stock', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'create_service', id: srvForm.id, name: srvForm.name, icon: srvForm.icon, gradient: srvForm.gradient, price: srvForm.price, original: srvForm.original, tagline: srvForm.tagline, maxSlots: srvForm.maxSlots, features }),
+      body: JSON.stringify({ action: 'create_service', id: srvForm.id, name: srvForm.name, icon: srvForm.icon, gradient: srvForm.gradient || 'linear-gradient(135deg, #a855f7, #3b82f6)', price: srvForm.price, original: srvForm.original, tagline: srvForm.tagline, maxSlots: srvForm.maxSlots, features }),
     });
     const d = await r.json();
     if (d.success) { toast('Service publié !'); setSrvForm({ id: '', name: '', icon: '', gradient: '', price: '', original: '', tagline: '', maxSlots: '', features: '' }); loadAll(); }
@@ -601,7 +601,6 @@ export default function AdminPage() {
                       { label: 'Identifiant (minuscules)', key: 'id', placeholder: 'netflix' },
                       { label: 'Nom du service', key: 'name', placeholder: 'Netflix Premium' },
                       { label: 'Icône / Emoji', key: 'icon', placeholder: '🍿' },
-                      { label: 'Dégradé CSS', key: 'gradient', placeholder: 'linear-gradient(135deg, #E50914, #B81D24)' },
                       { label: 'Prix location (€)', key: 'price', placeholder: '4.99', type: 'number' },
                       { label: 'Tarif public (€)', key: 'original', placeholder: '19.99', type: 'number' },
                       { label: 'Phrase d\'accroche', key: 'tagline', placeholder: 'Séries et films Ultra HD' },
