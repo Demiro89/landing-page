@@ -15,6 +15,11 @@ interface StockAccount {
 interface Order {
   id: string; date: string; price: number; fee: number; total: number;
   clientEmail: string; status: string; details: string;
+  cancellationRequestedAt?: string | null;
+  cancellationEffectiveAt?: string | null;
+  unpaidSince?: string | null;
+  reminderCount?: number;
+  lastReminderAt?: string | null;
   service: { name: string; icon: string };
   stockAccount: { accountsBoughtPrice: number };
 }
@@ -36,7 +41,7 @@ interface Client {
 }
 interface Settings { [key: string]: string }
 
-type AdminPage = 'dashboard' | 'stocks' | 'services' | 'clients' | 'settings' | 'support';
+type AdminPage = 'dashboard' | 'stocks' | 'services' | 'clients' | 'unpaid' | 'cancellations' | 'support' | 'settings';
 
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
 const fmt = (n: number) => n.toFixed(2).replace('.', ',') + '€';
@@ -309,6 +314,8 @@ export default function AdminPage() {
     ['stocks', '📦', 'Gestion des Stocks'],
     ['services', '🎬', 'Gestion des Services'],
     ['clients', '👥', 'Utilisateurs & Clients'],
+    ['unpaid', '⚠️', 'Impayés'],
+    ['cancellations', '🔴', 'Résiliations'],
     ['support', '💬', 'Support Client'],
     ['settings', '⚙️', 'Paramètres globaux'],
   ];
@@ -465,7 +472,15 @@ export default function AdminPage() {
                           <td style={{ color: 'var(--text-gray)', fontSize: '0.78rem' }}>{o.clientEmail}</td>
                           <td style={{ textAlign: 'right' }}>{fmt(o.price)}</td>
                           <td style={{ textAlign: 'right', color: 'var(--secondary)', fontWeight: 800 }}>{fmt(o.total)}</td>
-                          <td><span className="badge-pill success">● Actif</span></td>
+                          <td>
+                            {o.status === 'unpaid'
+                              ? <span className="badge-pill" style={{ background: 'rgba(245,158,11,0.15)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.3)' }}>⚠️ Impayé</span>
+                              : o.status === 'cancelled_pending'
+                              ? <span className="badge-pill" style={{ background: 'rgba(239,68,68,0.12)', color: '#f87171', border: '1px solid rgba(239,68,68,0.25)' }}>🔴 Résiliation</span>
+                              : o.status === 'cancelled'
+                              ? <span className="badge-pill neutral">✕ Résilié</span>
+                              : <span className="badge-pill success">● Actif</span>}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -701,7 +716,12 @@ export default function AdminPage() {
                                 {c.email[0].toUpperCase()}
                               </div>
                             </td>
-                            <td style={{ fontWeight: 600 }}>{c.email}</td>
+                            <td style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+                              {c.email}
+                              {orders.some(o => o.clientEmail === c.email && o.status === 'unpaid') && (
+                                <span title="Impayé détecté" style={{ padding: '2px 8px', borderRadius: 50, background: 'rgba(245,158,11,0.15)', color: '#fbbf24', fontSize: '0.72rem', fontWeight: 800, border: '1px solid rgba(245,158,11,0.3)', whiteSpace: 'nowrap' }}>⚠️ Impayé</span>
+                              )}
+                            </td>
                             <td style={{ color: 'var(--text-gray)' }}>{c.firstOrderDate}</td>
                             <td style={{ textAlign: 'center' }}><span className="badge-pill neutral">{c.orderCount}</span></td>
                             <td style={{ textAlign: 'center' }}><span className="badge-pill success">{c.activeOrders}</span></td>
@@ -715,6 +735,254 @@ export default function AdminPage() {
               </div>
             </div>
           )}
+
+          {/* ── IMPAYÉS ── */}
+          {activePage === 'unpaid' && (() => {
+            const unpaidOrders = orders.filter(o => o.status === 'unpaid');
+            const markUnpaid = async (orderId: string) => {
+              await fetch('/api/admin/stock', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'mark_unpaid', orderId }) });
+              await loadAll();
+              toast('Commande marquée impayée — rappel envoyé');
+            };
+            const sendReminder = async (orderId: string) => {
+              const r = await fetch('/api/admin/stock', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'send_reminder', orderId }) });
+              const d = await r.json();
+              await loadAll();
+              toast(`Rappel ${d.reminderLevel}/3 envoyé`);
+            };
+            const markPaid = async (orderId: string) => {
+              await fetch('/api/admin/stock', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'mark_paid', orderId }) });
+              await loadAll();
+              toast('Commande marquée comme payée ✅');
+            };
+            const cancelAfterUnpaid = async (orderId: string) => {
+              if (!confirm('Résilier définitivement cet abonnement pour impayé ?')) return;
+              await fetch('/api/admin/stock', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'cancel_order', orderId }) });
+              await loadAll();
+              toast('Abonnement résilié pour impayé');
+            };
+            const reminderLabels: Record<number, string> = { 1: 'Rappel 1/3 envoyé', 2: 'Rappel 2/3 envoyé', 3: '⚠️ Dernier rappel envoyé' };
+            return (
+              <div style={{ position: 'relative', zIndex: 1 }}>
+                <div className="admin-section-head fade-in-up">
+                  <div className="eyebrow">⚠️ Paiements</div>
+                  <h1>Gestion des <span className="gradient-text">Impayés</span></h1>
+                  <p>Signalez un impayé, envoyez des rappels automatiques et résilier si nécessaire.</p>
+                </div>
+
+                {/* Marquer une commande impayée */}
+                <div className="glass-panel admin-card fade-in-up" style={{ marginBottom: 24 }}>
+                  <div className="admin-card-head">
+                    <div className="icon-bubble">🔍</div>
+                    Signaler un impayé
+                  </div>
+                  <p className="admin-card-sub">Sélectionnez la commande active concernée. Un premier email de rappel sera automatiquement envoyé au client.</p>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
+                      <thead>
+                        <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                          <th style={{ padding: '10px 12px', textAlign: 'left' }}>Client</th>
+                          <th style={{ padding: '10px 12px', textAlign: 'left' }}>Service</th>
+                          <th style={{ padding: '10px 12px', textAlign: 'left' }}>Prix</th>
+                          <th style={{ padding: '10px 12px', textAlign: 'left' }}>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {orders.filter(o => o.status === 'active').length === 0 ? (
+                          <tr><td colSpan={4} style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)' }}>Aucune commande active.</td></tr>
+                        ) : orders.filter(o => o.status === 'active').map(o => (
+                          <tr key={o.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                            <td style={{ padding: '12px', fontWeight: 600 }}>{o.clientEmail}</td>
+                            <td style={{ padding: '12px' }}>{o.service.icon} {o.service.name}</td>
+                            <td style={{ padding: '12px', color: 'var(--text-muted)' }}>{fmt(o.price)}/mois</td>
+                            <td style={{ padding: '12px' }}>
+                              <button onClick={() => markUnpaid(o.id)} className="btn btn-ghost btn-sm" style={{ color: '#fbbf24', borderColor: 'rgba(245,158,11,0.3)', fontSize: '0.78rem' }}>
+                                ⚠️ Signaler impayé
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Commandes impayées en cours */}
+                <div className="glass-panel admin-card fade-in-up">
+                  <div className="admin-card-head">
+                    <div className="icon-bubble">⚠️</div>
+                    Impayés en cours
+                    {unpaidOrders.length > 0 && (
+                      <span style={{ marginLeft: 8, padding: '2px 10px', borderRadius: 50, background: 'rgba(245,158,11,0.2)', color: '#fbbf24', fontSize: '0.75rem', fontWeight: 800 }}>
+                        {unpaidOrders.length}
+                      </span>
+                    )}
+                  </div>
+                  {unpaidOrders.length === 0 ? (
+                    <div className="dash-empty" style={{ borderRadius: 0 }}>
+                      <div className="dash-empty-icon">✅</div>
+                      <h3>Aucun impayé en cours</h3>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                      {unpaidOrders.map(o => {
+                        const level = o.reminderCount || 1;
+                        const daysSince = o.unpaidSince ? Math.floor((Date.now() - new Date(o.unpaidSince).getTime()) / 86400000) : 0;
+                        return (
+                          <div key={o.id} style={{ padding: 18, borderRadius: 12, background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 12 }}>
+                              <div>
+                                <div style={{ fontWeight: 800, color: 'var(--text-white)', marginBottom: 4 }}>
+                                  {o.service.icon} {o.service.name} — <span style={{ color: '#fbbf24' }}>{fmt(o.price)}/mois</span>
+                                </div>
+                                <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                                  👤 {o.clientEmail} · Impayé depuis {daysSince}j · <span style={{ color: '#fbbf24' }}>{reminderLabels[Math.min(level, 3)]}</span>
+                                </div>
+                                {o.lastReminderAt && (
+                                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 2 }}>
+                                    Dernier rappel : {new Date(o.lastReminderAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                  </div>
+                                )}
+                              </div>
+                              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                <button onClick={() => markPaid(o.id)} className="btn btn-ghost btn-sm" style={{ color: 'var(--accent-green)', borderColor: 'rgba(0,230,118,0.3)', fontSize: '0.78rem' }}>
+                                  ✅ Marquer payé
+                                </button>
+                                {level < 3 && (
+                                  <button onClick={() => sendReminder(o.id)} className="btn btn-ghost btn-sm" style={{ color: '#fbbf24', borderColor: 'rgba(245,158,11,0.3)', fontSize: '0.78rem' }}>
+                                    🔔 Rappel {level + 1}/3
+                                  </button>
+                                )}
+                                <button onClick={() => cancelAfterUnpaid(o.id)} className="btn btn-ghost btn-sm" style={{ color: '#f87171', borderColor: 'rgba(239,68,68,0.3)', fontSize: '0.78rem' }}>
+                                  🔴 Résilier
+                                </button>
+                              </div>
+                            </div>
+                            {/* Barre de progression des rappels */}
+                            <div style={{ display: 'flex', gap: 4 }}>
+                              {[1, 2, 3].map(n => (
+                                <div key={n} style={{ flex: 1, height: 4, borderRadius: 4, background: n <= level ? '#f59e0b' : 'rgba(255,255,255,0.08)' }} />
+                              ))}
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                              <span>Rappel 1</span><span>Rappel 2</span><span>Dernier avertissement</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* ── RÉSILIATIONS ── */}
+          {activePage === 'cancellations' && (() => {
+            const pending = orders.filter(o => o.status === 'cancelled_pending');
+            const cancelled = orders.filter(o => o.status === 'cancelled');
+            const confirmCancel = async (orderId: string) => {
+              if (!confirm('Confirmer la résiliation définitive de cette commande ? Le slot sera libéré.')) return;
+              await fetch('/api/admin/stock', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'cancel_order', orderId }),
+              });
+              await loadAll();
+            };
+            return (
+              <div style={{ position: 'relative', zIndex: 1 }}>
+                <div className="admin-section-head fade-in-up">
+                  <div className="eyebrow">🔴 Sans engagement</div>
+                  <h1>Résiliations <span className="gradient-text">en attente</span></h1>
+                  <p>Clients ayant demandé la résiliation. L&apos;accès reste actif jusqu&apos;à la date effective.</p>
+                </div>
+
+                <div className="glass-panel admin-card fade-in-up" style={{ marginBottom: 24 }}>
+                  <div className="admin-card-head">
+                    <div className="icon-bubble">⏳</div>
+                    Résiliations programmées ({pending.length})
+                  </div>
+                  {pending.length === 0 ? (
+                    <div className="dash-empty" style={{ borderRadius: 0 }}>
+                      <div className="dash-empty-icon">✅</div>
+                      <h3>Aucune résiliation en attente</h3>
+                    </div>
+                  ) : (
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
+                        <thead>
+                          <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                            <th style={{ padding: '10px 12px', textAlign: 'left' }}>Client</th>
+                            <th style={{ padding: '10px 12px', textAlign: 'left' }}>Service</th>
+                            <th style={{ padding: '10px 12px', textAlign: 'left' }}>Souscrit le</th>
+                            <th style={{ padding: '10px 12px', textAlign: 'left' }}>Résiliation le</th>
+                            <th style={{ padding: '10px 12px', textAlign: 'left' }}>Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {pending.map(o => (
+                            <tr key={o.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                              <td style={{ padding: '12px', color: 'var(--text-white)', fontWeight: 600 }}>{o.clientEmail}</td>
+                              <td style={{ padding: '12px' }}>{o.service.icon} {o.service.name}</td>
+                              <td style={{ padding: '12px', color: 'var(--text-muted)' }}>{new Date(o.date).toLocaleDateString('fr-FR')}</td>
+                              <td style={{ padding: '12px' }}>
+                                <span style={{ padding: '3px 10px', borderRadius: 50, background: 'rgba(239,68,68,0.12)', color: '#f87171', fontWeight: 700, fontSize: '0.8rem' }}>
+                                  {o.cancellationEffectiveAt ? new Date(o.cancellationEffectiveAt).toLocaleDateString('fr-FR') : '—'}
+                                </span>
+                              </td>
+                              <td style={{ padding: '12px' }}>
+                                <button
+                                  onClick={() => confirmCancel(o.id)}
+                                  className="btn btn-ghost btn-sm"
+                                  style={{ color: '#f87171', borderColor: 'rgba(239,68,68,0.3)', fontSize: '0.78rem' }}
+                                >Résilier maintenant</button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+                <div className="glass-panel admin-card fade-in-up">
+                  <div className="admin-card-head">
+                    <div className="icon-bubble">📁</div>
+                    Historique des résiliations ({cancelled.length})
+                  </div>
+                  {cancelled.length === 0 ? (
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>Aucune résiliation définitive enregistrée.</p>
+                  ) : (
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
+                        <thead>
+                          <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                            <th style={{ padding: '10px 12px', textAlign: 'left' }}>Client</th>
+                            <th style={{ padding: '10px 12px', textAlign: 'left' }}>Service</th>
+                            <th style={{ padding: '10px 12px', textAlign: 'left' }}>Prix</th>
+                            <th style={{ padding: '10px 12px', textAlign: 'left' }}>Résilié le</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {cancelled.map(o => (
+                            <tr key={o.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', opacity: 0.65 }}>
+                              <td style={{ padding: '12px' }}>{o.clientEmail}</td>
+                              <td style={{ padding: '12px' }}>{o.service.icon} {o.service.name}</td>
+                              <td style={{ padding: '12px', color: 'var(--text-muted)' }}>{fmt(o.price)}/mois</td>
+                              <td style={{ padding: '12px', color: 'var(--text-muted)' }}>
+                                {o.cancellationEffectiveAt ? new Date(o.cancellationEffectiveAt).toLocaleDateString('fr-FR') : new Date(o.date).toLocaleDateString('fr-FR')}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* ── SUPPORT ── */}
           {activePage === 'support' && (
