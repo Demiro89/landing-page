@@ -1385,11 +1385,20 @@ function ServiceEditCard({ svc, onSave, onToggle, onDelete, onEditStock, onAddSt
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 10 }}>
-        <button onClick={handleSaveAll} disabled={adding} className="btn btn-primary">
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.6fr) minmax(0, 1fr)', gap: 8 }}>
+        <button
+          onClick={handleSaveAll}
+          disabled={adding}
+          className="btn btn-primary btn-sm"
+          style={{ padding: '10px 12px', fontSize: '0.82rem', width: '100%', minWidth: 0 }}
+        >
           {adding ? '⏳ Sauvegarde…' : '💾 Sauvegarder'}
         </button>
-        <button onClick={() => onDelete(svc.id, svc.name)} className="btn btn-danger">
+        <button
+          onClick={() => onDelete(svc.id, svc.name)}
+          className="btn btn-danger btn-sm"
+          style={{ padding: '10px 12px', fontSize: '0.82rem', width: '100%', minWidth: 0 }}
+        >
           🗑 Supprimer
         </button>
       </div>
