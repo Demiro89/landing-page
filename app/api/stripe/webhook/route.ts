@@ -45,7 +45,7 @@ export async function POST(request: Request) {
               cardBrand: pm?.card?.brand || null,
               cardExpMonth: pm?.card?.exp_month || null,
               cardExpYear: pm?.card?.exp_year || null,
-              nextBillingAt: new Date((sub.current_period_end || 0) * 1000),
+              nextBillingAt: new Date((sub.items.data[0]?.current_period_end || 0) * 1000),
               status: 'active',
             },
           });
@@ -95,7 +95,7 @@ export async function POST(request: Request) {
               cardBrand: pm?.card?.brand || null,
               cardExpMonth: pm?.card?.exp_month || null,
               cardExpYear: pm?.card?.exp_year || null,
-              nextBillingAt: sub ? new Date(sub.current_period_end * 1000) : new Date(Date.now() + 30 * 86400000),
+              nextBillingAt: sub ? new Date((sub.items.data[0]?.current_period_end || 0) * 1000) : new Date(Date.now() + 30 * 86400000),
             },
           });
           await tx.chatThread.create({
@@ -135,7 +135,7 @@ export async function POST(request: Request) {
             unpaidSince: null,
             reminderCount: 0,
             lastReminderAt: null,
-            nextBillingAt: new Date(sub.current_period_end * 1000),
+            nextBillingAt: new Date((sub.items.data[0]?.current_period_end || 0) * 1000),
             cardLast4: pm?.card?.last4 || undefined,
             cardBrand: pm?.card?.brand || undefined,
             cardExpMonth: pm?.card?.exp_month || undefined,
@@ -180,7 +180,7 @@ export async function POST(request: Request) {
         await prisma.order.updateMany({
           where: { stripeSubscriptionId: sub.id },
           data: {
-            nextBillingAt: new Date(sub.current_period_end * 1000),
+            nextBillingAt: new Date((sub.items.data[0]?.current_period_end || 0) * 1000),
             cardLast4: pm?.card?.last4 || undefined,
             cardBrand: pm?.card?.brand || undefined,
             cardExpMonth: pm?.card?.exp_month || undefined,
