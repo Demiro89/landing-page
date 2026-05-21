@@ -250,16 +250,26 @@ function CheckoutContent() {
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
                     <span style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-white)', fontFamily: "'SF Mono', Menlo, monospace" }}>
-                      paiement@streammalin.fr
+                      novateurlabeille@gmail.com
                     </span>
                     <button
-                      onClick={() => { navigator.clipboard.writeText('paiement@streammalin.fr'); setCopied('paypal'); setTimeout(() => setCopied(''), 2000); }}
+                      onClick={() => { navigator.clipboard.writeText('novateurlabeille@gmail.com'); setCopied('paypal'); setTimeout(() => setCopied(''), 2000); }}
                       className={`copy-btn ${copied === 'paypal' ? 'copied' : ''}`}
                     >
                       {copied === 'paypal' ? '✅ Copié' : '📋 Copier'}
                     </button>
                   </div>
                 </div>
+
+                <a
+                  href={`https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=novateurlabeille%40gmail.com&amount=${service.price.toFixed(2)}&currency_code=EUR&item_name=StreamMalin+-+${encodeURIComponent(service.name)}&no_shipping=1`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-primary"
+                  style={{ display: 'block', textAlign: 'center', marginTop: 12, background: '#0070ba', boxShadow: '0 4px 16px rgba(0,112,186,0.35)' }}
+                >
+                  🅿️ Payer {service.price.toFixed(2)}€ via PayPal →
+                </a>
 
                 <div className="trust-row">
                   <span>🛡️ Protection Achats PayPal</span>
@@ -310,7 +320,7 @@ function CheckoutContent() {
                     Adresse de réception
                   </div>
                   <div className="crypto-addr">
-                    {cryptoAddr[activeCoin] || '⚠️ Adresse non configurée — contactez paiement@streammalin.fr'}
+                    {cryptoAddr[activeCoin] || '⚠️ Adresse non configurée — contactez novateurlabeille@gmail.com'}
                   </div>
                   {cryptoAddr[activeCoin] && (
                     <button
@@ -323,7 +333,7 @@ function CheckoutContent() {
                 </div>
 
                 <div className="warn-box" style={{ marginTop: 16 }}>
-                  <strong>⚠️ Important :</strong> Une fois la transaction envoyée, transmettez le <strong>TXID</strong> à <strong>paiement@streammalin.fr</strong> avec votre email de livraison. Votre slot sera activé sous 1h max après {activeCoin === 'btc' ? '1-3' : '2-12'} confirmation{activeCoin === 'btc' ? 's' : ''} réseau.
+                  <strong>⚠️ Important :</strong> Une fois la transaction envoyée, transmettez le <strong>TXID</strong> à <strong>novateurlabeille@gmail.com</strong> avec votre email de livraison. Votre slot sera activé sous 1h max après {activeCoin === 'btc' ? '1-3' : '2-12'} confirmation{activeCoin === 'btc' ? 's' : ''} réseau.
                 </div>
 
                 <div className="trust-row">
