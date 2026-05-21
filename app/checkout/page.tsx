@@ -35,7 +35,7 @@ function CheckoutContent() {
   const [service, setService] = useState<ServiceDetails | null>(null);
   const [cryptoAddr, setCryptoAddr] = useState<Record<string, string>>({ btc: '', eth: '', usdt: '', ltc: '' });
   const [loadingService, setLoadingService] = useState(true);
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(searchParams.get('email') || '');
   const [payTab, setPayTab] = useState<PayTab>('cb');
   const [activeCoin, setActiveCoin] = useState<CryptoCoin>('btc');
   const [isSubmitting, setIsSubmitting] = useState(false);
