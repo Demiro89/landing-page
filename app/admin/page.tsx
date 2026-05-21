@@ -176,6 +176,14 @@ export default function AdminPage() {
     loadAll();
   };
 
+  const deleteService = async (id: string, name: string) => {
+    if (!confirm(`Supprimer définitivement le service « ${name} » ? Tous les stocks associés seront aussi perdus.`)) return;
+    const r = await fetch(`/api/admin/stock?id=${id}&type=service`, { method: 'DELETE' });
+    const d = await r.json();
+    if (d.success) { toast('Service supprimé.'); loadAll(); }
+    else toast('Erreur : ' + (d.error || 'suppression impossible'));
+  };
+
   /* ─── Settings ────────────────────────────────────────────────────────── */
   const saveSettings = async () => {
     const updates = Object.entries(settings).map(([key, value]) => ({ key, value }));
@@ -637,7 +645,7 @@ export default function AdminPage() {
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
                   {services.map(svc => (
-                    <ServiceEditCard key={svc.id} svc={svc} onSave={saveService} onToggle={toggleService} />
+                    <ServiceEditCard key={svc.id} svc={svc} onSave={saveService} onToggle={toggleService} onDelete={deleteService} />
                   ))}
                 </div>
               </div>
@@ -805,10 +813,11 @@ export default function AdminPage() {
 }
 
 /* ─── ServiceEditCard (inline editable) ─────────────────────────────────── */
-function ServiceEditCard({ svc, onSave, onToggle }: {
+function ServiceEditCard({ svc, onSave, onToggle, onDelete }: {
   svc: Service;
   onSave: (svc: Service) => void;
   onToggle: (id: string, active: boolean) => void;
+  onDelete: (id: string, name: string) => void;
 }) {
   const [local, setLocal] = useState(svc);
   useEffect(() => { setLocal(svc); }, [svc]);
@@ -864,9 +873,14 @@ function ServiceEditCard({ svc, onSave, onToggle }: {
         />
       </div>
 
-      <button onClick={() => onSave(local)} className="btn btn-primary" style={{ width: '100%' }}>
-        💾 Sauvegarder
-      </button>
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 10 }}>
+        <button onClick={() => onSave(local)} className="btn btn-primary">
+          💾 Sauvegarder
+        </button>
+        <button onClick={() => onDelete(svc.id, svc.name)} className="btn btn-danger">
+          🗑 Supprimer
+        </button>
+      </div>
     </div>
   );
 }
