@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
+import { sendTelegramNotification } from '@/lib/telegram';
 
 // Vérifie si l'utilisateur est authentifié en tant qu'admin
 async function checkIsAdmin(): Promise<boolean> {
@@ -118,6 +119,22 @@ export async function POST(request: Request) {
         text,
       },
     });
+
+    // Notification Telegram uniquement quand c'est le client qui écrit (pas l'admin)
+    if (!isAdmin) {
+      const order = await prisma.order.findUnique({
+        where: { id: orderId },
+        include: { service: true },
+      });
+      const preview = text.length > 200 ? text.slice(0, 200) + '…' : text;
+      sendTelegramNotification(
+        `💬 <b>Nouveau message client</b>\n` +
+        `👤 <b>${order?.clientEmail || 'Inconnu'}</b>\n` +
+        `📺 Service : ${order?.service?.name || orderId}\n` +
+        `📝 ${preview}\n\n` +
+        `🔗 Répondre : https://streammalin.fr/admin`
+      ).catch(() => {});
+    }
 
     return NextResponse.json({ success: true, message });
   } catch (error: any) {

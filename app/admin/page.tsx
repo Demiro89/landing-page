@@ -22,13 +22,21 @@ interface Kpis {
   totalRevenue: number; totalCogs: number; totalInvestment: number;
   netProfit: number; marginPercentage: number;
 }
+interface SupportMessage {
+  id: string; sender: string; text: string; createdAt: string;
+}
+interface SupportThread {
+  id: string; orderId: string; title: string; createdAt: string;
+  messages: SupportMessage[];
+  order: { clientEmail: string; service: { name: string; icon: string; gradient: string } };
+}
 interface Client {
   email: string; firstOrderDate: string; orderCount: number;
   totalSpent: number; activeOrders: number;
 }
 interface Settings { [key: string]: string }
 
-type AdminPage = 'dashboard' | 'stocks' | 'services' | 'clients' | 'settings';
+type AdminPage = 'dashboard' | 'stocks' | 'services' | 'clients' | 'settings' | 'support';
 
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
 const fmt = (n: number) => n.toFixed(2).replace('.', ',') + '€';
@@ -60,6 +68,14 @@ export default function AdminPage() {
   const [stockForm, setStockForm] = useState({ serviceId: '', accountsBoughtPrice: '', price: '', maxSlots: '', details: '' });
   const [editStock, setEditStock] = useState<StockAccount | null>(null);
   const [srvForm, setSrvForm] = useState({ id: '', name: '', icon: '', gradient: '', price: '', original: '', tagline: '', maxSlots: '', features: '' });
+
+  // Support chat
+  const [supportThreads, setSupportThreads] = useState<SupportThread[]>([]);
+  const [activeSupportThread, setActiveSupportThread] = useState<string | null>(null);
+  const [supportInput, setSupportInput] = useState('');
+  const [sendingSupport, setSendingSupport] = useState(false);
+  const supportBottomRef = React.useRef<HTMLDivElement>(null);
+  const supportPollRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
 
   /* ─── Auth ───────────────────────────────────────────────────────────── */
   useEffect(() => {
@@ -94,6 +110,41 @@ export default function AdminPage() {
     if (stockRes.success) { setServices(stockRes.services); setOrders(stockRes.orders); setKpis(stockRes.kpis); }
     if (clientRes.success) setClients(clientRes.clients);
     if (settRes.success) setSettings(settRes.settings);
+  };
+
+  const loadSupportThreads = async () => {
+    const r = await fetch('/api/chat');
+    const d = await r.json();
+    if (d.success) setSupportThreads(d.threads);
+  };
+
+  React.useEffect(() => {
+    if (activePage === 'support') {
+      loadSupportThreads();
+      supportPollRef.current = setInterval(loadSupportThreads, 5000);
+    } else {
+      if (supportPollRef.current) clearInterval(supportPollRef.current);
+    }
+    return () => { if (supportPollRef.current) clearInterval(supportPollRef.current); };
+  }, [activePage]);
+
+  React.useEffect(() => {
+    supportBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [activeSupportThread, supportThreads]);
+
+  const sendSupportMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!supportInput.trim() || !activeSupportThread || sendingSupport) return;
+    setSendingSupport(true);
+    const text = supportInput.trim();
+    setSupportInput('');
+    await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderId: activeSupportThread, text, sender: 'Support StreamMalin' }),
+    });
+    await loadSupportThreads();
+    setSendingSupport(false);
   };
 
   /* ─── Chart ───────────────────────────────────────────────────────────── */
@@ -258,6 +309,7 @@ export default function AdminPage() {
     ['stocks', '📦', 'Gestion des Stocks'],
     ['services', '🎬', 'Gestion des Services'],
     ['clients', '👥', 'Utilisateurs & Clients'],
+    ['support', '💬', 'Support Client'],
     ['settings', '⚙️', 'Paramètres globaux'],
   ];
 
@@ -658,6 +710,135 @@ export default function AdminPage() {
                         ))}
                       </tbody>
                     </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── SUPPORT ── */}
+          {activePage === 'support' && (
+            <div style={{ position: 'relative', zIndex: 1 }}>
+              <div className="admin-section-head fade-in-up">
+                <div className="eyebrow">💬 Messagerie</div>
+                <h1>Support <span className="gradient-text">Client</span></h1>
+                <p>Répondez aux messages de vos clients en temps réel.</p>
+              </div>
+
+              <div className="glass-panel fade-in-up" style={{ borderRadius: 'var(--radius)', overflow: 'hidden' }}>
+                {supportThreads.length === 0 ? (
+                  <div className="dash-empty" style={{ borderRadius: 0 }}>
+                    <div className="dash-empty-icon">💬</div>
+                    <h3>Aucune conversation</h3>
+                    <p>Les messages de vos clients apparaîtront ici dès qu&apos;ils vous écriront depuis leur Espace Client.</p>
+                  </div>
+                ) : (
+                  <div className="chat-layout">
+                    {/* Liste des conversations */}
+                    <aside className="chat-conv-list">
+                      <div className="chat-conv-list-head">
+                        <span>📨 Conversations</span>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>{supportThreads.length}</span>
+                      </div>
+                      {supportThreads.map(thread => {
+                        const lastMsg = thread.messages[thread.messages.length - 1];
+                        const isActive = thread.orderId === activeSupportThread;
+                        const hasUnread = lastMsg && lastMsg.sender !== 'Support StreamMalin';
+                        return (
+                          <button
+                            key={thread.id}
+                            onClick={() => setActiveSupportThread(thread.orderId)}
+                            className={`chat-conv-item ${isActive ? 'active' : ''}`}
+                          >
+                            <div className="chat-conv-icon" style={{ background: thread.order.service.gradient }}>
+                              {thread.order.service.icon}
+                            </div>
+                            <div className="chat-conv-body">
+                              <div className="chat-conv-row">
+                                <span className="chat-conv-name" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                  {thread.order.service.name}
+                                  {hasUnread && !isActive && (
+                                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent-green)', display: 'inline-block', flexShrink: 0 }} />
+                                  )}
+                                </span>
+                                {lastMsg && (
+                                  <span className="chat-conv-time">
+                                    {new Date(lastMsg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="chat-conv-preview" style={{ color: 'var(--text-muted)', fontSize: '0.73rem' }}>
+                                👤 {thread.order.clientEmail}
+                              </div>
+                              <div className="chat-conv-preview">
+                                {lastMsg ? lastMsg.text : 'Aucun message'}
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </aside>
+
+                    {/* Chat actif */}
+                    <div className="chat-pane">
+                      {!activeSupportThread ? (
+                        <div className="dash-empty" style={{ borderRadius: 0, padding: '60px 20px' }}>
+                          <div className="dash-empty-icon">💬</div>
+                          <h3>Sélectionnez une conversation</h3>
+                          <p>Choisissez un client dans la liste pour voir ses messages et répondre.</p>
+                        </div>
+                      ) : (() => {
+                        const thread = supportThreads.find(t => t.orderId === activeSupportThread);
+                        if (!thread) return null;
+                        return (
+                          <>
+                            <div className="chat-head">
+                              <div>
+                                <div className="status-online">{thread.order.service.name} — {thread.order.clientEmail}</div>
+                              </div>
+                              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>🔒 Chiffré SSL</span>
+                            </div>
+                            <div className="chat-messages" style={{ minHeight: 380 }}>
+                              {thread.messages.length === 0 ? (
+                                <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)', fontSize: '0.88rem' }}>
+                                  Aucun message pour l&apos;instant.
+                                </div>
+                              ) : thread.messages.map(msg => {
+                                const isSupport = msg.sender !== 'Vous';
+                                return (
+                                  <div key={msg.id} className={`chat-msg ${isSupport ? 'self' : 'other'}`}>
+                                    {!isSupport && <div className="chat-msg-sender">{msg.sender}</div>}
+                                    <div style={{ whiteSpace: 'pre-wrap' }}>{msg.text}</div>
+                                    <span className="chat-msg-time">
+                                      {new Date(msg.createdAt).toLocaleString([], { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                              <div ref={supportBottomRef} />
+                            </div>
+                            <form onSubmit={sendSupportMessage} className="chat-input-bar">
+                              <input
+                                type="text"
+                                placeholder="Votre réponse au client…"
+                                value={supportInput}
+                                onChange={e => setSupportInput(e.target.value)}
+                                className="dash-input"
+                                style={{ flex: 1 }}
+                              />
+                              <button
+                                type="submit"
+                                disabled={sendingSupport || !supportInput.trim()}
+                                className="btn btn-primary"
+                                style={{ opacity: sendingSupport || !supportInput.trim() ? 0.5 : 1 }}
+                              >
+                                Envoyer
+                              </button>
+                            </form>
+                          </>
+                        );
+                      })()}
+                    </div>
                   </div>
                 )}
               </div>
