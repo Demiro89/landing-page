@@ -54,7 +54,7 @@ interface Order {
 
 type View = 'storefront' | 'dashboard';
 type DashTab = 'orders' | 'rent' | 'chat';
-type AuthMode = 'login' | 'register';
+type AuthMode = 'login' | 'register' | 'forgot' | 'reset';
 type FilterType = 'all' | 'streaming' | 'musique' | 'securite';
 
 const SERVICE_FILTERS: Record<FilterType, string[]> = {
@@ -87,6 +87,7 @@ export default function Home() {
   const [authError, setAuthError] = useState('');
   const [authMsg, setAuthMsg] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
+  const [resetToken, setResetToken] = useState('');
 
   const [clientEmail, setClientEmail] = useState('');
   const [searchedEmail, setSearchedEmail] = useState('');
@@ -126,7 +127,50 @@ export default function Home() {
       setView('dashboard');
       setAuthError('Lien de vérification invalide ou expiré.');
     }
+    const rt = params.get('reset');
+    if (rt) {
+      setView('dashboard');
+      setAuthMode('reset');
+      setResetToken(rt);
+    }
   }, []);
+
+  const doForgot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError(''); setAuthMsg(''); setAuthLoading(true);
+    try {
+      const r = await fetch('/api/client/forgot-password', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: authEmail }),
+      });
+      const d = await r.json();
+      if (d.success) {
+        setAuthMsg('✅ Si cet email est associé à un compte, un lien de réinitialisation vient de vous être envoyé. Consultez votre boîte mail.');
+      } else {
+        setAuthError(d.error || 'Erreur');
+      }
+    } finally { setAuthLoading(false); }
+  };
+
+  const doReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError(''); setAuthMsg(''); setAuthLoading(true);
+    try {
+      const r = await fetch('/api/client/reset-password', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: resetToken, password: authPassword }),
+      });
+      const d = await r.json();
+      if (d.success) {
+        await reloadMe();
+        setAuthPassword(''); setResetToken(''); setAuthMode('login');
+        setAuthMsg('✅ Mot de passe mis à jour. Vous êtes connecté.');
+        window.history.replaceState({}, '', window.location.pathname);
+      } else {
+        setAuthError(d.error || 'Lien invalide ou expiré.');
+      }
+    } finally { setAuthLoading(false); }
+  };
 
   const reloadMe = async () => {
     const r = await fetch('/api/client/me', { cache: 'no-store' });
@@ -769,69 +813,118 @@ export default function Home() {
 
               {/* Content */}
               <div>
-                {/* Login / Register — affiché si non authentifié */}
+                {/* Login / Register / Forgot / Reset — affiché si non authentifié */}
                 {authChecked && !customer && (
                   <div className="glass-panel dash-card fade-in-up">
                     <div className="dash-card-head">
-                      <div className="icon-bubble">{authMode === 'login' ? '🔐' : '✨'}</div>
-                      {authMode === 'login' ? 'Connexion à mon espace' : 'Créer un compte client'}
+                      <div className="icon-bubble">
+                        {authMode === 'login' ? '🔐' : authMode === 'register' ? '✨' : authMode === 'forgot' ? '🔑' : '🆕'}
+                      </div>
+                      {authMode === 'login' && 'Connexion à mon espace'}
+                      {authMode === 'register' && 'Créer un compte client'}
+                      {authMode === 'forgot' && 'Mot de passe oublié'}
+                      {authMode === 'reset' && 'Choisir un nouveau mot de passe'}
                     </div>
 
-                    <div style={{ display: 'flex', gap: 8, marginBottom: 18, padding: 4, background: 'rgba(255,255,255,0.04)', borderRadius: 10 }}>
-                      <button
-                        onClick={() => { setAuthMode('login'); setAuthError(''); setAuthMsg(''); }}
-                        className="btn btn-sm"
-                        style={{
-                          flex: 1,
-                          background: authMode === 'login' ? 'var(--gradient-aurora)' : 'transparent',
-                          color: authMode === 'login' ? '#fff' : 'var(--text-gray)',
-                          border: 'none',
-                        }}
-                      >
-                        🔐 Connexion
-                      </button>
-                      <button
-                        onClick={() => { setAuthMode('register'); setAuthError(''); setAuthMsg(''); }}
-                        className="btn btn-sm"
-                        style={{
-                          flex: 1,
-                          background: authMode === 'register' ? 'var(--gradient-aurora)' : 'transparent',
-                          color: authMode === 'register' ? '#fff' : 'var(--text-gray)',
-                          border: 'none',
-                        }}
-                      >
-                        ✨ Inscription
-                      </button>
-                    </div>
+                    {authMode !== 'reset' && (
+                      <div style={{ display: 'flex', gap: 8, marginBottom: 18, padding: 4, background: 'rgba(255,255,255,0.04)', borderRadius: 10 }}>
+                        <button
+                          onClick={() => { setAuthMode('login'); setAuthError(''); setAuthMsg(''); }}
+                          className="btn btn-sm"
+                          style={{ flex: 1, background: authMode === 'login' ? 'var(--gradient-aurora)' : 'transparent', color: authMode === 'login' ? '#fff' : 'var(--text-gray)', border: 'none' }}
+                        >
+                          🔐 Connexion
+                        </button>
+                        <button
+                          onClick={() => { setAuthMode('register'); setAuthError(''); setAuthMsg(''); }}
+                          className="btn btn-sm"
+                          style={{ flex: 1, background: authMode === 'register' ? 'var(--gradient-aurora)' : 'transparent', color: authMode === 'register' ? '#fff' : 'var(--text-gray)', border: 'none' }}
+                        >
+                          ✨ Inscription
+                        </button>
+                      </div>
+                    )}
 
                     <p style={{ fontSize: '0.85rem', color: 'var(--text-gray)', marginBottom: 18 }}>
-                      {authMode === 'login'
-                        ? 'Accédez à vos abonnements actifs, vos identifiants chiffrés et au support.'
-                        : 'Créez un compte pour gérer vos locations. Un email de confirmation vous sera envoyé.'}
+                      {authMode === 'login' && 'Accédez à vos abonnements actifs, vos identifiants chiffrés et au support.'}
+                      {authMode === 'register' && 'Créez un compte pour gérer vos locations. Un email de confirmation vous sera envoyé.'}
+                      {authMode === 'forgot' && 'Saisissez votre email, nous vous enverrons un lien pour choisir un nouveau mot de passe.'}
+                      {authMode === 'reset' && 'Saisissez votre nouveau mot de passe ci-dessous (6 caractères minimum).'}
                     </p>
 
-                    <form onSubmit={authMode === 'login' ? doLogin : doRegister} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      <input
-                        type="email"
-                        placeholder="vous@exemple.com"
-                        value={authEmail}
-                        onChange={(e) => setAuthEmail(e.target.value)}
-                        className="dash-input"
-                        required
-                      />
-                      <input
-                        type="password"
-                        placeholder="Mot de passe (6 caractères min.)"
-                        value={authPassword}
-                        onChange={(e) => setAuthPassword(e.target.value)}
-                        className="dash-input"
-                        minLength={6}
-                        required
-                      />
-                      <button type="submit" disabled={authLoading} className="btn btn-primary">
-                        {authLoading ? '⏳ Veuillez patienter…' : (authMode === 'login' ? 'Se connecter →' : 'Créer mon compte →')}
-                      </button>
-                    </form>
+                    {(authMode === 'login' || authMode === 'register') && (
+                      <form onSubmit={authMode === 'login' ? doLogin : doRegister} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        <input
+                          type="email"
+                          placeholder="vous@exemple.com"
+                          value={authEmail}
+                          onChange={(e) => setAuthEmail(e.target.value)}
+                          className="dash-input"
+                          required
+                        />
+                        <input
+                          type="password"
+                          placeholder="Mot de passe (6 caractères min.)"
+                          value={authPassword}
+                          onChange={(e) => setAuthPassword(e.target.value)}
+                          className="dash-input"
+                          minLength={6}
+                          required
+                        />
+                        <button type="submit" disabled={authLoading} className="btn btn-primary">
+                          {authLoading ? '⏳ Veuillez patienter…' : (authMode === 'login' ? 'Se connecter →' : 'Créer mon compte →')}
+                        </button>
+                        {authMode === 'login' && (
+                          <button
+                            type="button"
+                            onClick={() => { setAuthMode('forgot'); setAuthError(''); setAuthMsg(''); }}
+                            style={{ background: 'none', border: 'none', color: 'var(--secondary)', fontSize: '0.82rem', textDecoration: 'underline', cursor: 'pointer', marginTop: 4 }}
+                          >
+                            Mot de passe oublié ?
+                          </button>
+                        )}
+                      </form>
+                    )}
+
+                    {authMode === 'forgot' && (
+                      <form onSubmit={doForgot} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        <input
+                          type="email"
+                          placeholder="vous@exemple.com"
+                          value={authEmail}
+                          onChange={(e) => setAuthEmail(e.target.value)}
+                          className="dash-input"
+                          required
+                        />
+                        <button type="submit" disabled={authLoading} className="btn btn-primary">
+                          {authLoading ? '⏳ Envoi…' : '📧 Envoyer le lien de réinitialisation'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setAuthMode('login'); setAuthError(''); setAuthMsg(''); }}
+                          style={{ background: 'none', border: 'none', color: 'var(--secondary)', fontSize: '0.82rem', textDecoration: 'underline', cursor: 'pointer', marginTop: 4 }}
+                        >
+                          ← Retour à la connexion
+                        </button>
+                      </form>
+                    )}
+
+                    {authMode === 'reset' && (
+                      <form onSubmit={doReset} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        <input
+                          type="password"
+                          placeholder="Nouveau mot de passe (6 caractères min.)"
+                          value={authPassword}
+                          onChange={(e) => setAuthPassword(e.target.value)}
+                          className="dash-input"
+                          minLength={6}
+                          required
+                        />
+                        <button type="submit" disabled={authLoading} className="btn btn-primary">
+                          {authLoading ? '⏳ Mise à jour…' : '🔑 Définir ce nouveau mot de passe'}
+                        </button>
+                      </form>
+                    )}
 
                     {authError && (
                       <p style={{ color: 'var(--accent-red)', fontSize: '0.8rem', marginTop: 12, padding: '8px 12px', background: 'rgba(255,80,80,0.08)', borderRadius: 8 }}>

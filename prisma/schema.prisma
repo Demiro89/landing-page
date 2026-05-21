@@ -60,12 +60,14 @@ model Order {
 
 // 3-bis. Comptes clients (auth email/mot de passe)
 model Customer {
-  id                 String   @id @default(cuid())
-  email              String   @unique
+  id                 String    @id @default(cuid())
+  email              String    @unique
   passwordHash       String
-  emailVerified      Boolean  @default(false)
+  emailVerified      Boolean   @default(false)
   verificationToken  String?
-  createdAt          DateTime @default(now())
+  resetToken         String?
+  resetTokenExp      DateTime?
+  createdAt          DateTime  @default(now())
   orders             Order[]
 }
 
