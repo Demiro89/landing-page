@@ -77,6 +77,7 @@ export default function AdminPage() {
 
   const [stockForm, setStockForm] = useState({ serviceId: '', accountsBoughtPrice: '', price: '', maxSlots: '', details: '' });
   const [editStock, setEditStock] = useState<StockAccount | null>(null);
+  const [editOrder, setEditOrder] = useState<Order | null>(null);
   const [srvForm, setSrvForm] = useState({ id: '', name: '', icon: '', gradient: '', price: '', original: '', tagline: '', maxSlots: '', features: '' });
 
   // Support chat
@@ -206,6 +207,24 @@ export default function AdminPage() {
     });
     const d = await r.json();
     if (d.success) { toast('Compte de stock mis à jour !'); setEditStock(null); loadAll(); }
+    else toast('Erreur : ' + d.error);
+  };
+
+  const saveOrder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editOrder) return;
+    const r = await fetch('/api/admin/stock', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'update_order',
+        orderId: editOrder.id,
+        clientEmail: editOrder.clientEmail,
+        youtubeEmail: editOrder.youtubeEmail || '',
+      }),
+    });
+    const d = await r.json();
+    if (d.success) { toast('Informations client mises à jour !'); setEditOrder(null); loadAll(); }
     else toast('Erreur : ' + d.error);
   };
 
@@ -765,12 +784,22 @@ export default function AdminPage() {
                                     {stockOrders.map(o => (
                                       <tr key={o.id}>
                                         <td style={{ fontSize: '0.82rem' }}>
-                                          <div style={{ fontWeight: 700, color: 'var(--text-white)' }}>{o.clientEmail}</div>
-                                          {o.youtubeEmail && (
-                                            <div style={{ fontSize: '0.72rem', color: '#ff4444', marginTop: 3 }}>
-                                              ▶ YT à inviter : <strong style={{ color: 'var(--text-white)' }}>{o.youtubeEmail}</strong>
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                            <div style={{ flex: 1 }}>
+                                              <div style={{ fontWeight: 700, color: 'var(--text-white)' }}>{o.clientEmail}</div>
+                                              {o.youtubeEmail && (
+                                                <div style={{ fontSize: '0.72rem', color: '#ff4444', marginTop: 3 }}>
+                                                  ▶ YT à inviter : <strong style={{ color: 'var(--text-white)' }}>{o.youtubeEmail}</strong>
+                                                </div>
+                                              )}
                                             </div>
-                                          )}
+                                            <button
+                                              onClick={() => setEditOrder(o)}
+                                              className="btn btn-ghost btn-sm"
+                                              style={{ fontSize: '0.72rem', padding: '4px 8px' }}
+                                              title="Modifier les infos client"
+                                            >✏️</button>
+                                          </div>
                                         </td>
                                         <td style={{ color: 'var(--text-gray)', fontSize: '0.8rem' }}>
                                           {new Date(o.date).toLocaleDateString('fr-FR')}
@@ -1380,6 +1409,58 @@ export default function AdminPage() {
                 <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
                   <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>💾 Sauvegarder</button>
                   <button type="button" onClick={() => setEditStock(null)} className="btn btn-ghost" style={{ flex: 1 }}>Annuler</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {editOrder && (
+          <div className="modal-overlay" onClick={() => setEditOrder(null)}>
+            <div className="glass-panel modal-content" onClick={e => e.stopPropagation()}>
+              <div className="admin-card-head">
+                <div className="icon-bubble">✏️</div>
+                Modifier les infos client
+              </div>
+              <form onSubmit={saveOrder}>
+                <div className="info-box" style={{ marginBottom: 14 }}>
+                  <div className="info-box-title">📝 Corriger les coordonnées</div>
+                  <div className="info-box-text">
+                    Si le client s&apos;est trompé d&apos;email ou d&apos;adresse YouTube, corrigez-les ici. Les futures notifications utiliseront les nouvelles valeurs.
+                  </div>
+                </div>
+                <div className="form-field">
+                  <label className="form-label">Adresse e-mail du client</label>
+                  <input
+                    type="email"
+                    required
+                    value={editOrder.clientEmail}
+                    onChange={e => setEditOrder(o => o ? { ...o, clientEmail: e.target.value } : o)}
+                    className="dash-input"
+                    placeholder="client@example.com"
+                  />
+                </div>
+                {editOrder.serviceId === 'youtube' && (
+                  <div className="form-field">
+                    <label className="form-label">▶️ Adresse e-mail YouTube (Google)</label>
+                    <input
+                      type="email"
+                      value={editOrder.youtubeEmail || ''}
+                      onChange={e => setEditOrder(o => o ? { ...o, youtubeEmail: e.target.value } : o)}
+                      className="dash-input"
+                      placeholder="compte.google@gmail.com"
+                    />
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 6 }}>
+                      Adresse vers laquelle envoyer l&apos;invitation famille YouTube Premium.
+                    </p>
+                  </div>
+                )}
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', background: 'rgba(15,23,42,0.5)', padding: '10px 12px', borderRadius: 8, marginBottom: 14 }}>
+                  Commande : <code style={{ color: 'var(--text-gray)' }}>{editOrder.id.slice(0, 8)}</code> · Service : <strong style={{ color: 'var(--text-gray)' }}>{editOrder.service.name}</strong>
+                </div>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>💾 Sauvegarder</button>
+                  <button type="button" onClick={() => setEditOrder(null)} className="btn btn-ghost" style={{ flex: 1 }}>Annuler</button>
                 </div>
               </form>
             </div>

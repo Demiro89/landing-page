@@ -260,6 +260,26 @@ export async function PUT(request: Request) {
       return NextResponse.json({ success: true, reminderLevel: nextLevel });
     }
 
+    // ── Modifier les infos client d'une commande (email, email YouTube) ──
+    if (action === 'update_order') {
+      const { orderId, clientEmail, youtubeEmail } = body;
+      if (!orderId) return NextResponse.json({ error: 'orderId requis' }, { status: 400 });
+
+      const data: { clientEmail?: string; youtubeEmail?: string | null } = {};
+      if (clientEmail !== undefined) {
+        const cleaned = String(clientEmail).trim().toLowerCase();
+        if (!cleaned.includes('@')) return NextResponse.json({ error: 'Adresse email invalide' }, { status: 400 });
+        data.clientEmail = cleaned;
+      }
+      if (youtubeEmail !== undefined) {
+        const cleaned = String(youtubeEmail).trim().toLowerCase();
+        data.youtubeEmail = cleaned || null;
+      }
+
+      await prisma.order.update({ where: { id: orderId }, data });
+      return NextResponse.json({ success: true });
+    }
+
     // ── Marquer comme payé (régularisation) ──
     if (action === 'mark_paid') {
       const { orderId } = body;
