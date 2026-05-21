@@ -1,159 +1,82 @@
-// StreamMalin V2 — Schéma Prisma
-// Modélise : Users, MasterAccounts, Slots, Orders
-
-generator client {
-  provider = "prisma-client-js"
-}
-
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
-// ══════════════════════════════════════
-// ENUMS
-// ══════════════════════════════════════
-
-// Services proposés
-// Note: SQLite ne supporte pas les enums natifs, on utilise String avec validation applicative
-
-// ══════════════════════════════════════
-// MODELS
-// ══════════════════════════════════════
-
-model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  orders Order[]
+generator client {
+  provider = "prisma-client-js"
 }
 
-/// Compte "Maître" YouTube ou Disney+
-/// YouTube  : 30 comptes × 5 places = 150 slots
-/// Disney+  : 10 comptes × 5 places = 50 slots
-model MasterAccount {
-  id       String @id @default(cuid())
-  /// "YOUTUBE" ou "DISNEY"
-  service  String
-
-  /// Email du compte maître
-  email    String
-  /// Mot de passe (Disney+ uniquement, null pour YouTube)
-  password String?
-  /// Nombre max de slots sur ce compte (toujours 5)
-  maxSlots Int    @default(5)
-  /// Vrai si le compte est opérationnel
-  active   Boolean @default(true)
-
-  createdAt DateTime @default(now())
-
-  slots Slot[]
+// 1. Les Services (YouTube Premium, Disney+, etc.)
+model Service {
+  id          String         @id // ex: "youtube", "disney"
+  name        String
+  tagline     String
+  price       Float          // Prix de vente conseillé
+  original    Float          // Prix public France
+  maxSlots    Int
+  active      Boolean        @default(true)
+  icon        String         // ex: "▶", "✦"
+  gradient    String         // Dégradé CSS de fond
+  features    String[]       // Liste des avantages
+  stocks      StockAccount[]
+  orders      Order[]
 }
 
-/// Slot = place sur un compte maître
-/// Disney+ : contient email/pass/profil/pin → affiché en clair au client
-/// YouTube  : slot logique → l'admin envoie l'invite manuellement
-model Slot {
-  id              String        @id @default(cuid())
-  masterAccount   MasterAccount @relation(fields: [masterAccountId], references: [id])
-  masterAccountId String
-
-  /// Numéro de profil 1-5
-  profileNumber   Int
-  /// Code PIN profil (Disney+ uniquement)
-  pinCode         String?
-  /// Disponible = pas encore assigné à une commande active
-  isAvailable     Boolean @default(true)
-
-  /// Email du client assigné à ce slot (gmail pour YouTube, email du compte pour Disney+)
-  assignedEmail   String?
-
-  createdAt DateTime @default(now())
-
-  order Order?
+// 2. Les comptes de stock achetés à l'étranger (B2C)
+model StockAccount {
+  id                   String   @id @default(uuid())
+  serviceId            String
+  service              Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  accountsBoughtPrice  Float    @default(0.00) // COGS (Coût de revient)
+  price                Float    // Prix mensuel loué
+  maxSlots             Int
+  filledSlots          Int      @default(0)
+  details              String   // Identifiants cryptés ou liens d'invitation
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  orders               Order[]
 }
 
-/// Paramètres dynamiques de l'application (clé/valeur)
-/// Modifiables depuis l'interface admin sans toucher au code
-model Setting {
-  key       String   @id
-  value     String
-  updatedAt DateTime @updatedAt
-}
+// 3. Commandes / Abonnements loués par les clients
 model Order {
-  id            String   @id @default(cuid())
-  user          User     @relation(fields: [userId], references: [id])
-  userId        String
-
-  /// "YOUTUBE" ou "DISNEY"
-  service       String
-  /// Montant en euros
-  amount        Float
-
-  /// Méthode : "PAYPAL" | "SOL" | "XRP" | "USDT_TRC20" | "STRIPE"
-  paymentMethod String
-  /// Hash/TxID fourni par le client
-  paymentTxId   String?
-
-  /// "PENDING" → "PAYMENT_DECLARED" → "CONFIRMED" → "ACTIVE" → "EXPIRED" | "CANCELLED"
-  status        String @default("PENDING")
-
-  /// Gmail fourni par le client (YouTube uniquement)
-  gmail         String?
-
-  /// Slot Disney+ assigné (null jusqu'à confirmation)
-  slot          Slot?   @relation(fields: [slotId], references: [id])
-  slotId        String? @unique
-
-  /// Durée choisie par le client : 1, 3, 6 ou 12 mois
-  durationMonths Int @default(1)
-
-  /// Date à laquelle l'admin a marqué l'invitation YouTube comme envoyée
-  invitationSentAt DateTime?
-
-  /// Mois d'abonnement restants (renouvellement mensuel)
-  expiresAt     DateTime?
-
-  /// Stripe Subscription ID (abonnements récurrents)
-  stripeSubscriptionId String?
-  /// Stripe Customer ID
-  stripeCustomerId     String?
-  /// true = annulation programmée à fin de période (cancel_at_period_end)
-  cancelAtEnd          Boolean @default(false)
-  /// true = dernier prélèvement a échoué
-  paymentFailed        Boolean @default(false)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String       @id @default(cuid())
+  date           DateTime     @default(now())
+  serviceId      String
+  service        Service      @relation(fields: [serviceId], references: [id])
+  stockAccountId String
+  stockAccount   StockAccount @relation(fields: [stockAccountId], references: [id])
+  price          Float
+  fee            Float        @default(0.00)
+  total          Float
+  details        String       // Copie des identifiants au moment de l'achat
+  clientEmail    String
+  status         String       @default("active") // "active", "cancelled"
+  chats          ChatThread?
 }
 
-/// Signalement client : problème sur une commande
-model OrderReport {
-  id        String   @id @default(cuid())
-  orderId   String
-  email     String
-  /// "ACCESS" | "BILLING" | "OTHER"
-  issue     String
-  message   String?
-  resolved  Boolean  @default(false)
-  createdAt DateTime @default(now())
-
-  @@index([orderId])
-  @@index([email])
+// 4. Fils de discussion Support
+model ChatThread {
+  id        String    @id
+  orderId   String    @unique
+  order     Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  title     String
+  messages  Message[]
+  createdAt DateTime  @default(now())
 }
 
-/// Code OTP à 6 chiffres pour la vérification d'identité sur la page suivi
-model VerificationCode {
-  id        String   @id @default(cuid())
-  email     String
-  codeHash  String   // SHA-256 du code
-  expiresAt DateTime // 15 minutes après création
-  attempts  Int      @default(0) // max 3
-  createdAt DateTime @default(now())
+model Message {
+  id        String     @id @default(cuid())
+  threadId  String
+  thread    ChatThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  sender    String     // "Vous" ou "Support StreamMalin"
+  text      String
+  createdAt DateTime   @default(now())
+}
 
-  @@index([email])
+// 6. Paramètres globaux de la plateforme (crypto adresses, gateways, commissions)
+model Setting {
+  key   String @id
+  value String
 }
