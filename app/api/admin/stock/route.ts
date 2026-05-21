@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
-import { sendOrderDetailsEmail } from '@/lib/nodemailer';
+import { sendOrderDetailsEmail, sendUnpaidReminderEmail } from '@/lib/nodemailer';
+import { sendTelegramNotification } from '@/lib/telegram';
 
 // Fonction utilitaire de vérification d'authentification
 async function checkAuth(): Promise<boolean> {
@@ -223,6 +224,49 @@ export async function PUT(request: Request) {
           data: { filledSlots: { decrement: 1 } },
         }),
       ]);
+      return NextResponse.json({ success: true });
+    }
+
+    // ── Marquer une commande comme impayée ──
+    if (action === 'mark_unpaid') {
+      const { orderId } = body;
+      const order = await prisma.order.findUnique({ where: { id: orderId }, include: { service: true } });
+      if (!order) return NextResponse.json({ error: 'Commande introuvable' }, { status: 404 });
+      await prisma.order.update({
+        where: { id: orderId },
+        data: { status: 'unpaid', unpaidSince: new Date(), reminderCount: 1, lastReminderAt: new Date() },
+      });
+      sendUnpaidReminderEmail(order.clientEmail, order.service.name, order.id, 1).catch(() => {});
+      sendTelegramNotification(
+        `⚠️ <b>Impayé signalé</b>\n👤 ${order.clientEmail}\n📺 ${order.service.name}\n💶 ${order.price.toFixed(2)}€/mois\n\nPremier email de rappel envoyé.`
+      ).catch(() => {});
+      return NextResponse.json({ success: true });
+    }
+
+    // ── Envoyer un rappel de paiement ──
+    if (action === 'send_reminder') {
+      const { orderId } = body;
+      const order = await prisma.order.findUnique({ where: { id: orderId }, include: { service: true } });
+      if (!order) return NextResponse.json({ error: 'Commande introuvable' }, { status: 404 });
+      const nextLevel = Math.min((order.reminderCount || 1) + 1, 3) as 1 | 2 | 3;
+      await prisma.order.update({
+        where: { id: orderId },
+        data: { reminderCount: nextLevel, lastReminderAt: new Date() },
+      });
+      sendUnpaidReminderEmail(order.clientEmail, order.service.name, order.id, nextLevel).catch(() => {});
+      sendTelegramNotification(
+        `🔔 <b>Rappel ${nextLevel}/3 envoyé</b>\n👤 ${order.clientEmail}\n📺 ${order.service.name}`
+      ).catch(() => {});
+      return NextResponse.json({ success: true, reminderLevel: nextLevel });
+    }
+
+    // ── Marquer comme payé (régularisation) ──
+    if (action === 'mark_paid') {
+      const { orderId } = body;
+      await prisma.order.update({
+        where: { id: orderId },
+        data: { status: 'active', unpaidSince: null, reminderCount: 0, lastReminderAt: null },
+      });
       return NextResponse.json({ success: true });
     }
 

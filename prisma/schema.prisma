@@ -54,9 +54,12 @@ model Order {
   clientEmail    String
   customerId     String?
   customer       Customer?    @relation(fields: [customerId], references: [id])
-  status                   String       @default("active") // "active", "cancelled", "cancelled_pending"
+  status                   String       @default("active") // "active", "cancelled", "cancelled_pending", "unpaid"
   cancellationRequestedAt  DateTime?
   cancellationEffectiveAt  DateTime?
+  unpaidSince              DateTime?
+  reminderCount            Int          @default(0)
+  lastReminderAt           DateTime?
   chats          ChatThread?
 }
 
