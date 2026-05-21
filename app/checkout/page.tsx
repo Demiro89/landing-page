@@ -36,6 +36,7 @@ function CheckoutContent() {
   const [cryptoAddr, setCryptoAddr] = useState<Record<string, string>>({ btc: '', eth: '', usdt: '', ltc: '' });
   const [loadingService, setLoadingService] = useState(true);
   const [email, setEmail] = useState(searchParams.get('email') || '');
+  const [youtubeEmail, setYoutubeEmail] = useState('');
   const [payTab, setPayTab] = useState<PayTab>('cb');
   const [activeCoin, setActiveCoin] = useState<CryptoCoin>('btc');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -70,16 +71,27 @@ function CheckoutContent() {
       .catch(() => {});
   }, [serviceId]);
 
+  const isYoutube = serviceId === 'youtube';
+
   const handleStripeCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !serviceId || !stockId || isSubmitting) return;
+    if (isYoutube && !youtubeEmail.trim()) {
+      setErrorMsg('Merci d\'indiquer votre adresse e-mail YouTube pour recevoir l\'invitation.');
+      return;
+    }
     setIsSubmitting(true);
     setErrorMsg('');
     try {
       const res = await fetch('/api/checkout/stripe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ serviceId, stockAccountId: stockId, email: email.trim().toLowerCase() }),
+        body: JSON.stringify({
+          serviceId,
+          stockAccountId: stockId,
+          email: email.trim().toLowerCase(),
+          youtubeEmail: isYoutube ? youtubeEmail.trim().toLowerCase() : undefined,
+        }),
       });
       const data = await res.json();
       if (data.success && data.url) {
@@ -191,7 +203,7 @@ function CheckoutContent() {
             <div className="form-field">
               <label className="form-label">
                 Adresse email <span className="required">*</span>
-                <span style={{ fontWeight: 400, color: 'var(--text-muted)', letterSpacing: 0, textTransform: 'none', marginLeft: 8 }}>(pour recevoir vos identifiants)</span>
+                <span style={{ fontWeight: 400, color: 'var(--text-muted)', letterSpacing: 0, textTransform: 'none', marginLeft: 8 }}>(pour recevoir votre confirmation)</span>
               </label>
               <input
                 type="email"
@@ -202,6 +214,32 @@ function CheckoutContent() {
                 className="dash-input"
               />
             </div>
+
+            {/* YouTube — adresse e-mail Google associée */}
+            {isYoutube && (
+              <>
+                <div className="info-box" style={{ borderColor: 'rgba(255,0,0,0.3)', background: 'rgba(255,0,0,0.06)' }}>
+                  <div className="info-box-title">▶️ YouTube Premium fonctionne par invitation famille</div>
+                  <div className="info-box-text">
+                    Contrairement à un compte partagé classique, YouTube Premium nécessite que nous vous invitions dans notre groupe famille. Indiquez ci-dessous l&apos;<strong style={{ color: 'var(--text-white)' }}>adresse e-mail Google associée à votre compte YouTube</strong>. Vous recevrez l&apos;invitation directement par e-mail (et dans l&apos;app YouTube) sous quelques minutes après le paiement — il vous suffira de l&apos;accepter pour activer YouTube Premium.
+                  </div>
+                </div>
+                <div className="form-field">
+                  <label className="form-label">
+                    Adresse e-mail YouTube (Google) <span className="required">*</span>
+                    <span style={{ fontWeight: 400, color: 'var(--text-muted)', letterSpacing: 0, textTransform: 'none', marginLeft: 8 }}>(pour recevoir l&apos;invitation)</span>
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="votre.compte@gmail.com"
+                    value={youtubeEmail}
+                    onChange={e => setYoutubeEmail(e.target.value)}
+                    className="dash-input"
+                  />
+                </div>
+              </>
+            )}
 
             {/* CB */}
             {payTab === 'cb' && (
@@ -214,7 +252,7 @@ function CheckoutContent() {
                 </div>
                 <button
                   type="submit"
-                  disabled={isSubmitting || !email}
+                  disabled={isSubmitting || !email || (isYoutube && !youtubeEmail.trim())}
                   className="btn-pay"
                 >
                   🔒 {isSubmitting ? 'Redirection…' : `Régler ${service.price.toFixed(2)}€ par carte`}

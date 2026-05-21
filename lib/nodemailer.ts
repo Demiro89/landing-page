@@ -9,14 +9,23 @@ export async function sendOrderDetailsEmail(
   toEmail: string,
   serviceName: string,
   details: string,
-  orderId: string
+  orderId: string,
+  youtubeEmail?: string
 ) {
   if (!process.env.RESEND_API_KEY) {
     console.log('--- [SIMULATION EMAIL] ---');
-    console.log(`To: ${toEmail} | Service: ${serviceName} | Order: ${orderId}`);
+    console.log(`To: ${toEmail} | Service: ${serviceName} | Order: ${orderId}${youtubeEmail ? ` | YouTube: ${youtubeEmail}` : ''}`);
     console.log(details);
     return { success: true, simulated: true };
   }
+
+  const isYoutube = !!youtubeEmail;
+  const credentialsBlock = isYoutube
+    ? `<p>Votre abonnement à <strong>${serviceName}</strong> fonctionne par <strong style="color:#fff">invitation famille</strong>. Sous quelques minutes, vous recevrez une invitation à rejoindre notre groupe YouTube Premium à l'adresse suivante&nbsp;:</p>
+       <div class="creds">📧 ${youtubeEmail}</div>
+       <p style="font-size:0.9rem;color:#9ca3af">Vérifiez votre boîte de réception (et vos spams) et acceptez l'invitation depuis votre compte Google pour activer YouTube Premium. Aucun identifiant à saisir — vous gardez votre propre compte YouTube.</p>`
+    : `<p>Vos identifiants d'accès :</p>
+       <div class="creds">${details}</div>`;
 
   try {
     const { data, error } = await resend.emails.send({
@@ -47,8 +56,7 @@ export async function sendOrderDetailsEmail(
     <p>Bonjour,</p>
     <p>Votre paiement a été validé. Votre abonnement à <strong>${serviceName}</strong> est actif dès maintenant.</p>
     <div style="text-align:center"><span class="badge">Commande : ${orderId}</span></div>
-    <p>Vos identifiants d'accès :</p>
-    <div class="creds">${details}</div>
+    ${credentialsBlock}
     <p><strong>Besoin d'aide ?</strong> Connectez-vous à votre Espace Client et utilisez le chat support.</p>
     <div style="text-align:center;margin-top:25px">
       <a href="${APP_URL}" class="btn">Accéder à mon Espace Client</a>

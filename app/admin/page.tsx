@@ -14,7 +14,7 @@ interface StockAccount {
 }
 interface Order {
   id: string; date: string; price: number; fee: number; total: number;
-  clientEmail: string; status: string; details: string;
+  clientEmail: string; youtubeEmail?: string | null; status: string; details: string;
   cancellationRequestedAt?: string | null;
   cancellationEffectiveAt?: string | null;
   unpaidSince?: string | null;
@@ -469,7 +469,14 @@ export default function AdminPage() {
                           <td style={{ fontFamily: "'SF Mono',Menlo,monospace", fontSize: '0.78rem', color: 'var(--secondary)' }}>{o.id.slice(0, 8)}</td>
                           <td style={{ color: 'var(--text-gray)' }}>{new Date(o.date).toLocaleDateString('fr-FR')}</td>
                           <td><span style={{ marginRight: 6 }}>{o.service.icon}</span>{o.service.name}</td>
-                          <td style={{ color: 'var(--text-gray)', fontSize: '0.78rem' }}>{o.clientEmail}</td>
+                          <td style={{ color: 'var(--text-gray)', fontSize: '0.78rem' }}>
+                            {o.clientEmail}
+                            {o.youtubeEmail && (
+                              <div style={{ fontSize: '0.72rem', color: '#ff4444', marginTop: 2 }}>
+                                ▶ YT: <strong style={{ color: 'var(--text-white)' }}>{o.youtubeEmail}</strong>
+                              </div>
+                            )}
+                          </td>
                           <td style={{ textAlign: 'right' }}>{fmt(o.price)}</td>
                           <td style={{ textAlign: 'right', color: 'var(--secondary)', fontWeight: 800 }}>{fmt(o.total)}</td>
                           <td>
