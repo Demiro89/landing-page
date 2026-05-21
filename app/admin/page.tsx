@@ -829,13 +829,14 @@ function ServiceEditCard({ svc, onSave, onToggle, onDelete, onEditStock, onAddSt
   const [adding, setAdding] = useState(false);
   useEffect(() => { setLocal(svc); }, [svc]);
 
-  const handleAdd = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!addPrice || !addSlots || !addDetails) return;
+  const handleSaveAll = async () => {
     setAdding(true);
-    const ok = await onAddStock(svc.id, addPrice, addSlots, addDetails);
+    if (addPrice && addSlots && addDetails) {
+      const ok = await onAddStock(svc.id, addPrice, addSlots, addDetails);
+      if (ok) { setAddPrice(''); setAddSlots(''); setAddDetails(''); }
+    }
+    onSave(local);
     setAdding(false);
-    if (ok) { setAddPrice(''); setAddSlots(''); setAddDetails(''); }
   };
 
   return (
@@ -914,31 +915,30 @@ function ServiceEditCard({ svc, onSave, onToggle, onDelete, onEditStock, onAddSt
           </div>
         )}
 
-        {/* Formulaire d'ajout inline */}
-        <form onSubmit={handleAdd} style={{ background: 'rgba(168,85,247,0.06)', border: '1px dashed rgba(168,85,247,0.25)', borderRadius: 10, padding: 12 }}>
+        <div style={{ background: 'rgba(168,85,247,0.06)', border: '1px dashed rgba(168,85,247,0.25)', borderRadius: 10, padding: 12 }}>
           <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-soft)', marginBottom: 8 }}>
             ➕ Ajouter un compte de stock
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
-            <input type="number" step="0.01" required placeholder="Prix (€)" value={addPrice}
+            <input type="number" step="0.01" placeholder="Prix (€)" value={addPrice}
               onChange={e => setAddPrice(e.target.value)} className="dash-input"
               style={{ fontSize: '0.78rem', padding: '7px 9px' }} />
-            <input type="number" required min="1" placeholder="Places max" value={addSlots}
+            <input type="number" min="1" placeholder="Places max" value={addSlots}
               onChange={e => setAddSlots(e.target.value)} className="dash-input"
               style={{ fontSize: '0.78rem', padding: '7px 9px' }} />
           </div>
-          <textarea required rows={2} placeholder="Identifiants : email@example.com / motdepasse" value={addDetails}
+          <textarea rows={2} placeholder="Identifiants : email@example.com / motdepasse" value={addDetails}
             onChange={e => setAddDetails(e.target.value)} className="dash-input"
-            style={{ resize: 'vertical', minHeight: 50, fontSize: '0.78rem', padding: '7px 9px', marginBottom: 8, fontFamily: "'SF Mono',Menlo,monospace" }} />
-          <button type="submit" disabled={adding} className="btn btn-primary btn-sm" style={{ width: '100%', fontSize: '0.78rem' }}>
-            {adding ? '⏳ Ajout…' : '⚡ Enregistrer ce compte'}
-          </button>
-        </form>
+            style={{ resize: 'vertical', minHeight: 50, fontSize: '0.78rem', padding: '7px 9px', fontFamily: "'SF Mono',Menlo,monospace" }} />
+          <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: 6, fontStyle: 'italic' }}>
+            Remplissez ces 3 champs pour ajouter un compte lors du clic sur « Sauvegarder ».
+          </div>
+        </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 10 }}>
-        <button onClick={() => onSave(local)} className="btn btn-primary">
-          💾 Sauvegarder
+        <button onClick={handleSaveAll} disabled={adding} className="btn btn-primary">
+          {adding ? '⏳ Sauvegarde…' : '💾 Sauvegarder'}
         </button>
         <button onClick={() => onDelete(svc.id, svc.name)} className="btn btn-danger">
           🗑 Supprimer

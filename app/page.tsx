@@ -91,8 +91,8 @@ export default function Home() {
   const chatPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    fetch('/api/services').then(r => r.json()).then(d => { if (d.success) setServices(d.services); });
-    fetch('/api/stocks/public').then(r => r.json()).then(d => { if (d.success) setStocks(d.stocks); });
+    fetch('/api/services', { cache: 'no-store' }).then(r => r.json()).then(d => { if (d.success) setServices(d.services); });
+    fetch('/api/stocks/public', { cache: 'no-store' }).then(r => r.json()).then(d => { if (d.success) setStocks(d.stocks); });
 
     const params = new URLSearchParams(window.location.search);
     if (params.get('success') && params.get('email')) {
