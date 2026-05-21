@@ -528,55 +528,6 @@ export default function AdminPage() {
                 )}
               </div>
 
-              {/* Edit modal */}
-              {editStock && (
-                <div className="modal-overlay" onClick={() => setEditStock(null)}>
-                  <div className="glass-panel modal-content" onClick={e => e.stopPropagation()}>
-                    <div className="admin-card-head">
-                      <div className="icon-bubble">📝</div>
-                      Modifier le compte en stock
-                    </div>
-                    <form onSubmit={saveStock}>
-                      <div className="info-box" style={{ marginBottom: 14 }}>
-                        <div className="info-box-title">🔄 Mettre à jour les identifiants</div>
-                        <div className="info-box-text">Si un client a résilié, modifiez l&apos;email/mot de passe ci-dessous et décrémentez « Places occupées » pour libérer un slot.</div>
-                      </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
-                        <div className="form-field">
-                          <label className="form-label">Prix location (€)</label>
-                          <input type="number" step="0.01" required value={editStock.price}
-                            onChange={e => setEditStock(s => s ? { ...s, price: +e.target.value } : s)}
-                            className="dash-input" />
-                        </div>
-                        <div className="form-field">
-                          <label className="form-label">Places occupées</label>
-                          <input type="number" required min="0" value={editStock.filledSlots}
-                            onChange={e => setEditStock(s => s ? { ...s, filledSlots: +e.target.value } : s)}
-                            className="dash-input" />
-                        </div>
-                        <div className="form-field">
-                          <label className="form-label">Places max</label>
-                          <input type="number" required min="1" value={editStock.maxSlots}
-                            onChange={e => setEditStock(s => s ? { ...s, maxSlots: +e.target.value } : s)}
-                            className="dash-input" />
-                        </div>
-                      </div>
-                      <div className="form-field">
-                        <label className="form-label">🔑 Email / Mot de passe / Lien d&apos;invitation</label>
-                        <textarea rows={4} required value={editStock.details}
-                          onChange={e => setEditStock(s => s ? { ...s, details: e.target.value } : s)}
-                          className="dash-input"
-                          placeholder="email@example.com / motdepasse (Profil 3)"
-                          style={{ resize: 'vertical', minHeight: 100, fontFamily: "'SF Mono',Menlo,monospace", fontSize: '0.85rem' }} />
-                      </div>
-                      <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
-                        <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>💾 Sauvegarder</button>
-                        <button type="button" onClick={() => setEditStock(null)} className="btn btn-ghost" style={{ flex: 1 }}>Annuler</button>
-                      </div>
-                    </form>
-                  </div>
-                </div>
-              )}
             </div>
           )}
 
@@ -807,6 +758,55 @@ export default function AdminPage() {
               </div>
             </div>
           )}
+        {/* Modal global – accessible depuis tous les onglets */}
+        {editStock && (
+          <div className="modal-overlay" onClick={() => setEditStock(null)}>
+            <div className="glass-panel modal-content" onClick={e => e.stopPropagation()}>
+              <div className="admin-card-head">
+                <div className="icon-bubble">📝</div>
+                Modifier le compte en stock
+              </div>
+              <form onSubmit={saveStock}>
+                <div className="info-box" style={{ marginBottom: 14 }}>
+                  <div className="info-box-title">🔄 Mettre à jour les identifiants</div>
+                  <div className="info-box-text">Si un client a résilié, modifiez l&apos;email/mot de passe ci-dessous et décrémentez « Places occupées » pour libérer un slot.</div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+                  <div className="form-field">
+                    <label className="form-label">Prix location (€)</label>
+                    <input type="number" step="0.01" required value={editStock.price}
+                      onChange={e => setEditStock(s => s ? { ...s, price: +e.target.value } : s)}
+                      className="dash-input" />
+                  </div>
+                  <div className="form-field">
+                    <label className="form-label">Places occupées</label>
+                    <input type="number" required min="0" value={editStock.filledSlots}
+                      onChange={e => setEditStock(s => s ? { ...s, filledSlots: +e.target.value } : s)}
+                      className="dash-input" />
+                  </div>
+                  <div className="form-field">
+                    <label className="form-label">Places max</label>
+                    <input type="number" required min="1" value={editStock.maxSlots}
+                      onChange={e => setEditStock(s => s ? { ...s, maxSlots: +e.target.value } : s)}
+                      className="dash-input" />
+                  </div>
+                </div>
+                <div className="form-field">
+                  <label className="form-label">🔑 Email / Mot de passe / Lien d&apos;invitation</label>
+                  <textarea rows={4} required value={editStock.details}
+                    onChange={e => setEditStock(s => s ? { ...s, details: e.target.value } : s)}
+                    className="dash-input"
+                    placeholder="email@example.com / motdepasse (Profil 3)"
+                    style={{ resize: 'vertical', minHeight: 100, fontFamily: "'SF Mono',Menlo,monospace", fontSize: '0.85rem' }} />
+                </div>
+                <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
+                  <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>💾 Sauvegarder</button>
+                  <button type="button" onClick={() => setEditStock(null)} className="btn btn-ghost" style={{ flex: 1 }}>Annuler</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
         </main>
       </div>
     </div>

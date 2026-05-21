@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/stocks/public : Retourne les comptes de stock disponibles SANS les identifiants sensibles.
  * Utilisé par le storefront pour afficher la marketplace avec les slot-dots.
