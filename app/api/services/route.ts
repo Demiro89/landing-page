@@ -69,20 +69,9 @@ const DEFAULT_SERVICES = [
  */
 export async function GET() {
   try {
-    let services = await prisma.service.findMany({
-      where: { active: true },
-      include: {
-        stocks: {
-          where: {
-            // Un compte a du stock si slots remplis < slots max
-            filledSlots: { lt: prisma.stockAccount.fields.maxSlots }
-          }
-        }
-      }
-    });
-
-    // Seeding automatique si la base de données PostgreSQL est totalement vide !
-    if (services.length === 0) {
+    // Seeder uniquement si la table est totalement vide (même les inactifs)
+    const totalServices = await prisma.service.count();
+    if (totalServices === 0) {
       console.log('--- BASE DE DONNÉES VIDE : SEEDING DES SERVICES PAR DÉFAUT ---');
       for (const service of DEFAULT_SERVICES) {
         await prisma.service.upsert({
@@ -91,15 +80,14 @@ export async function GET() {
           create: service,
         });
       }
-      
-      // Récupérer à nouveau après insertion
-      services = await prisma.service.findMany({
-        where: { active: true },
-        include: {
-          stocks: true
-        }
-      });
     }
+
+    const services = await prisma.service.findMany({
+      where: { active: true },
+      include: {
+        stocks: true,
+      },
+    });
 
     // Calculer le stock disponible réel pour chaque service
     const formattedServices = services.map(service => {
