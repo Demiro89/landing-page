@@ -231,8 +231,7 @@ function CheckoutContent() {
             {payTab === 'paypal' && (
               <div>
                 <div className="warn-box">
-                  <strong>⚠️ OBLIGATOIRE :</strong> Sélectionnez « <strong>Biens et Services</strong> » (Goods &amp; Services) lors de l&apos;envoi.
-                  Jamais « Entre proches / Amis et Famille ».
+                  <strong>⚠️ OBLIGATOIRE :</strong> Sélectionnez exclusivement « <strong>Biens et Services</strong> » (Goods &amp; Services) lors de l&apos;envoi. Conservez votre <strong>ID de transaction PayPal</strong>.
                 </div>
 
                 <div className="info-box">
