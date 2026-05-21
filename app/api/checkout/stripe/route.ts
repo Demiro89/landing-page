@@ -91,7 +91,7 @@ export async function POST(request: Request) {
 
     // Lancement du flux Stripe Réel
     const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
+      payment_method_types: ['card', 'link'] as any,
       line_items: [
         {
           price_data: {
