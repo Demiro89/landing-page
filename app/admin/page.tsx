@@ -635,7 +635,7 @@ export default function AdminPage() {
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
                   {services.map(svc => (
-                    <ServiceEditCard key={svc.id} svc={svc} onSave={saveService} onToggle={toggleService} onDelete={deleteService} />
+                    <ServiceEditCard key={svc.id} svc={svc} onSave={saveService} onToggle={toggleService} onDelete={deleteService} onEditStock={setEditStock} />
                   ))}
                 </div>
               </div>
@@ -803,11 +803,12 @@ export default function AdminPage() {
 }
 
 /* ─── ServiceEditCard (inline editable) ─────────────────────────────────── */
-function ServiceEditCard({ svc, onSave, onToggle, onDelete }: {
+function ServiceEditCard({ svc, onSave, onToggle, onDelete, onEditStock }: {
   svc: Service;
   onSave: (svc: Service) => void;
   onToggle: (id: string, active: boolean) => void;
   onDelete: (id: string, name: string) => void;
+  onEditStock: (st: StockAccount) => void;
 }) {
   const [local, setLocal] = useState(svc);
   useEffect(() => { setLocal(svc); }, [svc]);
@@ -861,6 +862,35 @@ function ServiceEditCard({ svc, onSave, onToggle, onDelete }: {
           onClick={() => { setLocal(l => ({ ...l, active: !l.active })); onToggle(svc.id, !local.active); }}
           className={`toggle ${local.active ? 'on' : ''}`}
         />
+      </div>
+
+      <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 14, marginBottom: 14 }}>
+        <div style={{ fontSize: '0.78rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 10 }}>
+          🔑 Comptes en stock ({svc.stocks?.length || 0})
+        </div>
+        {(!svc.stocks || svc.stocks.length === 0) ? (
+          <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', padding: '10px 12px', background: 'rgba(255,255,255,0.02)', borderRadius: 8, border: '1px dashed rgba(255,255,255,0.08)' }}>
+            Aucun compte. Ajoutez-en un dans <strong>Gestion des Stocks</strong>.
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {svc.stocks.map(st => (
+              <div key={st.id} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 10, padding: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: "'SF Mono',Menlo,monospace" }}>
+                    #{st.id.slice(0, 6)} · {st.filledSlots}/{st.maxSlots} slots
+                  </span>
+                  <button onClick={() => onEditStock(st)} className="btn btn-primary btn-sm" style={{ padding: '5px 10px', fontSize: '0.74rem' }}>
+                    📝 Modifier identifiants
+                  </button>
+                </div>
+                <div style={{ fontFamily: "'SF Mono',Menlo,monospace", fontSize: '0.74rem', color: 'var(--text-gray)', wordBreak: 'break-all', lineHeight: 1.5 }}>
+                  {st.details.length > 60 ? st.details.slice(0, 60) + '…' : st.details}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 10 }}>
