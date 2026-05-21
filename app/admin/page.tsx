@@ -15,11 +15,15 @@ interface StockAccount {
 interface Order {
   id: string; date: string; price: number; fee: number; total: number;
   clientEmail: string; youtubeEmail?: string | null; status: string; details: string;
+  serviceId: string;
   cancellationRequestedAt?: string | null;
   cancellationEffectiveAt?: string | null;
   unpaidSince?: string | null;
   reminderCount?: number;
   lastReminderAt?: string | null;
+  nextBillingAt?: string | null;
+  cardLast4?: string | null;
+  cardBrand?: string | null;
   service: { name: string; icon: string };
   stockAccount: { accountsBoughtPrice: number };
 }
@@ -41,7 +45,7 @@ interface Client {
 }
 interface Settings { [key: string]: string }
 
-type AdminPage = 'dashboard' | 'stocks' | 'services' | 'clients' | 'unpaid' | 'cancellations' | 'support' | 'settings';
+type AdminPage = 'dashboard' | 'stocks' | 'services' | 'subscribers' | 'clients' | 'unpaid' | 'cancellations' | 'support' | 'settings';
 
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
 const fmt = (n: number) => n.toFixed(2).replace('.', ',') + '€';
@@ -313,6 +317,7 @@ export default function AdminPage() {
     ['dashboard', '📊', 'Tableau de bord'],
     ['stocks', '📦', 'Gestion des Stocks'],
     ['services', '🎬', 'Gestion des Services'],
+    ['subscribers', '🎫', 'Abonnés par service'],
     ['clients', '👥', 'Utilisateurs & Clients'],
     ['unpaid', '⚠️', 'Impayés'],
     ['cancellations', '🔴', 'Résiliations'],
@@ -677,6 +682,102 @@ export default function AdminPage() {
               </div>
             </div>
           )}
+
+          {/* ── ABONNÉS PAR SERVICE ── */}
+          {activePage === 'subscribers' && (() => {
+            const activeOrders = orders.filter(o => o.status === 'active' || o.status === 'unpaid' || o.status === 'cancelled_pending');
+            const byService = services.map(s => ({
+              service: s,
+              orders: activeOrders.filter(o => o.serviceId === s.id),
+            }));
+            const statusBadge = (st: string) =>
+              st === 'unpaid'
+                ? <span className="badge-pill" style={{ background: 'rgba(245,158,11,0.15)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.3)' }}>⚠️ Impayé</span>
+                : st === 'cancelled_pending'
+                ? <span className="badge-pill" style={{ background: 'rgba(239,68,68,0.12)', color: '#f87171', border: '1px solid rgba(239,68,68,0.25)' }}>🔴 Résiliation</span>
+                : <span className="badge-pill success">● Actif</span>;
+            const copyCreds = (txt: string) => { navigator.clipboard.writeText(txt); toast('Identifiants copiés'); };
+
+            return (
+              <div style={{ position: 'relative', zIndex: 1 }}>
+                <div className="admin-section-head fade-in-up">
+                  <div className="eyebrow">🎫 Abonnés actifs</div>
+                  <h1>Abonnés par <span className="gradient-text">service</span></h1>
+                  <p>Vue détaillée de tous les clients par service, identifiants livrés et infos d&apos;abonnement Stripe.</p>
+                </div>
+
+                {byService.map(({ service, orders: serviceOrders }) => (
+                  <div key={service.id} className="glass-panel admin-card fade-in-up" style={{ marginBottom: 18 }}>
+                    <div className="admin-card-head">
+                      <div className="icon-bubble" style={{ background: service.gradient }}>{service.icon}</div>
+                      {service.name}
+                      <span className="badge-pill neutral" style={{ marginLeft: 'auto' }}>
+                        {serviceOrders.length} abonné{serviceOrders.length > 1 ? 's' : ''}
+                      </span>
+                    </div>
+
+                    {serviceOrders.length === 0 ? (
+                      <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', padding: '12px 0' }}>Aucun abonné actif pour ce service.</p>
+                    ) : (
+                      <div style={{ overflowX: 'auto' }}>
+                        <table className="admin-table">
+                          <thead>
+                            <tr>
+                              <th>Client</th>
+                              <th>Identifiants livrés</th>
+                              <th>Souscrit le</th>
+                              <th>Prochain prélèvement</th>
+                              <th>Carte</th>
+                              <th>Statut</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {serviceOrders.map(o => (
+                              <tr key={o.id}>
+                                <td style={{ fontSize: '0.82rem' }}>
+                                  <div style={{ fontWeight: 700, color: 'var(--text-white)' }}>{o.clientEmail}</div>
+                                  {o.youtubeEmail && (
+                                    <div style={{ fontSize: '0.72rem', color: '#ff4444', marginTop: 3 }}>
+                                      ▶ YT à inviter : <strong style={{ color: 'var(--text-white)' }}>{o.youtubeEmail}</strong>
+                                    </div>
+                                  )}
+                                </td>
+                                <td>
+                                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                                    <code style={{ flex: 1, fontSize: '0.74rem', background: 'rgba(15,23,42,0.6)', padding: '6px 8px', borderRadius: 6, color: '#3b82f6', fontFamily: "'SF Mono',Menlo,monospace", whiteSpace: 'pre-wrap', wordBreak: 'break-all', maxWidth: 280 }}>
+                                      {o.details.length > 120 ? o.details.slice(0, 120) + '…' : o.details}
+                                    </code>
+                                    <button
+                                      onClick={() => copyCreds(o.details)}
+                                      className="btn btn-ghost btn-sm"
+                                      style={{ fontSize: '0.7rem', padding: '4px 8px' }}
+                                      title="Copier les identifiants"
+                                    >📋</button>
+                                  </div>
+                                </td>
+                                <td style={{ color: 'var(--text-gray)', fontSize: '0.8rem' }}>
+                                  {new Date(o.date).toLocaleDateString('fr-FR')}
+                                </td>
+                                <td style={{ color: 'var(--text-gray)', fontSize: '0.8rem' }}>
+                                  {o.nextBillingAt ? new Date(o.nextBillingAt).toLocaleDateString('fr-FR') : '—'}
+                                </td>
+                                <td style={{ fontSize: '0.78rem' }}>
+                                  {o.cardLast4
+                                    ? <span style={{ fontFamily: "'SF Mono',Menlo,monospace" }}>{(o.cardBrand || 'CB').toUpperCase()} •••• {o.cardLast4}</span>
+                                    : <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                                </td>
+                                <td>{statusBadge(o.status)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
 
           {/* ── CLIENTS ── */}
           {activePage === 'clients' && (
