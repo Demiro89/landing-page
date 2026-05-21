@@ -125,8 +125,9 @@ export async function POST(request: Request) {
       /* ─── Renouvellement automatique réussi ─── */
       case 'invoice.payment_succeeded': {
         const invoice = event.data.object as Stripe.Invoice;
-        if (!invoice.subscription) break;
-        const sub = await stripe.subscriptions.retrieve(invoice.subscription as string, { expand: ['default_payment_method'] });
+        const subscriptionId = invoice.parent?.subscription_details?.subscription;
+        if (!subscriptionId) break;
+        const sub = await stripe.subscriptions.retrieve(typeof subscriptionId === 'string' ? subscriptionId : subscriptionId.id, { expand: ['default_payment_method'] });
         const pm = sub.default_payment_method as Stripe.PaymentMethod | null;
         await prisma.order.updateMany({
           where: { stripeSubscriptionId: sub.id },
@@ -148,9 +149,10 @@ export async function POST(request: Request) {
       /* ─── Paiement échoué (CB expirée, fonds insuffisants, etc.) ─── */
       case 'invoice.payment_failed': {
         const invoice = event.data.object as Stripe.Invoice;
-        if (!invoice.subscription) break;
+        const subscriptionId = invoice.parent?.subscription_details?.subscription;
+        if (!subscriptionId) break;
         const order = await prisma.order.findFirst({
-          where: { stripeSubscriptionId: invoice.subscription as string },
+          where: { stripeSubscriptionId: typeof subscriptionId === 'string' ? subscriptionId : subscriptionId.id },
           include: { service: true },
         });
         if (!order) break;
