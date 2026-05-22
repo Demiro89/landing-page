@@ -513,7 +513,7 @@ function CheckoutContent() {
 export default function CheckoutPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-[#0b0c10] flex items-center justify-center text-[#9ca3af] font-light">
+      <div className="min-h-screen bg-[#0B0F19] flex items-center justify-center text-[#94A3B8] font-light">
         Chargement du tunnel de paiement...
       </div>
     }>
