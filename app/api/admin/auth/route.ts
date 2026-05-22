@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import crypto from 'crypto';
 import { ADMIN_COOKIE_NAME, readAdminSecret, isAdminAuthenticated } from '@/lib/adminAuth';
+import { enforceRateLimit } from '@/lib/rateLimit';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,6 +33,10 @@ export async function POST(request: Request) {
       });
       return NextResponse.json({ success: true, message: 'Déconnexion réussie' });
     }
+
+    // Limitation anti brute-force sur les tentatives de connexion.
+    const limited = await enforceRateLimit(request, 'admin-auth', 8, 900);
+    if (limited) return limited;
 
     // Gestion de la connexion — aucune valeur par défaut codée en dur.
     const adminPassword = process.env.ADMIN_PASSWORD;
