@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { sendOrderDetailsEmail, sendUnpaidReminderEmail } from '@/lib/nodemailer';
 import { sendTelegramNotification } from '@/lib/telegram';
 import { createInvoiceForOrder } from '@/lib/invoice';
+import { decrypt } from '@/lib/crypto';
 
 export const dynamic = 'force-dynamic';
 
@@ -124,7 +125,7 @@ export async function POST(request: Request) {
               id: createdOrder.id,
               orderId: createdOrder.id,
               title: `Support ${service.name}`,
-              messages: { create: [{ sender: 'Support StreamMalin', text: `Bonjour ! Merci pour votre abonnement à ${service.name}. Vos accès sont prêts :\n\n${updatedStock.details}\n\nÉcrivez-nous ici en cas de problème.` }] },
+              messages: { create: [{ sender: 'Support StreamMalin', text: `Bonjour ! Merci pour votre abonnement à ${service.name}. Vos identifiants de connexion sont disponibles sur votre commande dans votre espace client et vous ont été envoyés par e-mail. Une question ? Écrivez-nous ici.` }] },
             },
           });
           return createdOrder;
@@ -136,7 +137,7 @@ export async function POST(request: Request) {
           amount: order.total,
           paymentMethod: 'Carte bancaire (Stripe)',
         }).catch((err) => { console.error('[invoice] webhook error:', err); return null; });
-        await sendOrderDetailsEmail(clientEmail, service.name, stockAccount.details, order.id, youtubeEmail || undefined, {
+        await sendOrderDetailsEmail(clientEmail, service.name, decrypt(stockAccount.details), order.id, youtubeEmail || undefined, {
           amount: order.total,
           invoiceId: invoice?.id,
           invoiceNumber: invoice?.number,

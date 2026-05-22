@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentCustomer } from '@/lib/clientAuth';
+import { decrypt } from '@/lib/crypto';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,7 +35,10 @@ export async function GET() {
       orderBy: { date: 'desc' },
     });
 
-    return NextResponse.json({ success: true, orders });
+    // Déchiffre les identifiants pour le client propriétaire.
+    const safeOrders = orders.map((o) => ({ ...o, details: decrypt(o.details) }));
+
+    return NextResponse.json({ success: true, orders: safeOrders });
   } catch (error) {
     console.error('Erreur GET client orders:', error);
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });

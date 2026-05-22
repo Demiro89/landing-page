@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { sendOrderDetailsEmail, sendUnpaidReminderEmail } from '@/lib/nodemailer';
 import { sendTelegramNotification } from '@/lib/telegram';
 import { isAdminAuthenticated } from '@/lib/adminAuth';
+import { encrypt, decrypt } from '@/lib/crypto';
 
 export const dynamic = 'force-dynamic';
 
@@ -61,10 +62,17 @@ export async function GET() {
     const netProfit = totalRevenue - totalCogs;
     const marginPercentage = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
 
+    // Déchiffre les identifiants avant de les renvoyer à l'interface admin.
+    const safeServices = services.map((s) => ({
+      ...s,
+      stocks: s.stocks.map((st) => ({ ...st, details: decrypt(st.details) })),
+    }));
+    const safeOrders = orders.map((o) => ({ ...o, details: decrypt(o.details) }));
+
     return NextResponse.json({
       success: true,
-      services,
-      orders,
+      services: safeServices,
+      orders: safeOrders,
       kpis: {
         totalRevenue: parseFloat(totalRevenue.toFixed(2)),
         totalCogs: parseFloat(totalCogs.toFixed(2)),
@@ -134,7 +142,7 @@ export async function POST(request: Request) {
           price: parseFloat(price),
           maxSlots: parseInt(maxSlots),
           filledSlots: parseInt(filledSlots || 0),
-          details,
+          details: encrypt(details),
         },
       });
 
@@ -173,12 +181,12 @@ export async function PUT(request: Request) {
           price: parseFloat(price),
           maxSlots: parseInt(maxSlots),
           filledSlots: parseInt(filledSlots),
-          details,
+          details: encrypt(details),
         },
       });
 
       // Notifier les clients actifs si les identifiants ont changé
-      if (previous && previous.details !== details) {
+      if (previous && decrypt(previous.details) !== details) {
         const activeOrders = await prisma.order.findMany({
           where: { stockAccountId: id, status: 'active' },
           include: { service: true },

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentCustomer } from '@/lib/clientAuth';
+import { decrypt } from '@/lib/crypto';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,6 +23,9 @@ export async function GET() {
     orderBy: { date: 'desc' },
   });
 
+  // Déchiffre les identifiants pour le client propriétaire.
+  const safeOrders = orders.map((o) => ({ ...o, details: decrypt(o.details) }));
+
   return NextResponse.json({
     authenticated: true,
     customer: {
@@ -29,6 +33,6 @@ export async function GET() {
       email: customer.email,
       emailVerified: customer.emailVerified,
     },
-    orders,
+    orders: safeOrders,
   });
 }
