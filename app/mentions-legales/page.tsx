@@ -27,10 +27,12 @@ export default function MentionsLegalesPage() {
       <table className="legal-info-table">
         <tbody>
           <tr><td>Nom commercial</td><td>{COMPANY.brandName}</td></tr>
-          <tr><td>Exploitant</td><td>Nom commercial de {COMPANY.legalName}</td></tr>
+          <tr><td>Exploitant</td><td>{COMPANY.brandName}, nom commercial de {COMPANY.legalName}</td></tr>
           <tr><td>Statut juridique</td><td>{COMPANY.status}</td></tr>
           <tr><td>SIREN</td><td>{COMPANY.siren}</td></tr>
-          <tr><td>SIRET</td><td>{COMPANY.siret}</td></tr>
+          {COMPANY.siret && <tr><td>SIRET</td><td>{COMPANY.siret}</td></tr>}
+          <tr><td>Immatriculation</td><td>{COMPANY.rcs}</td></tr>
+          <tr><td>Code APE / NAF</td><td>{COMPANY.nafCode}</td></tr>
           <tr><td>Adresse professionnelle</td><td>{COMPANY.address}</td></tr>
           <tr><td>Adresse e-mail</td><td><a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a></td></tr>
           <tr><td>Site web</td><td>{COMPANY.websiteUrl}</td></tr>

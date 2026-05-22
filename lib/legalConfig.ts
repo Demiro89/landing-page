@@ -9,18 +9,27 @@ export const COMPANY = {
   /** Nom commercial */
   brandName: 'StreamMalin',
   /** Identité de l'exploitant (entrepreneur individuel) */
-  legalName: '[PRÉNOM NOM — À COMPLÉTER]',
+  legalName: 'Said Ouarzazi',
   /** Forme juridique */
-  status: 'Entrepreneur individuel — Micro-entreprise',
-  /** Identifiants d'entreprise */
-  siren: '[SIREN — À COMPLÉTER]',
-  siret: '[SIRET — À COMPLÉTER]',
+  status: 'Entrepreneur individuel (EI) — Micro-entreprise',
+  /** Numéro SIREN (identique au numéro RCS) */
+  siren: '104 981 014',
+  /** Immatriculation au Registre du Commerce et des Sociétés */
+  rcs: 'RCS Auxerre 104 981 014',
+  /**
+   * Numéro SIRET (14 chiffres = SIREN + code établissement NIC).
+   * Laisser vide tant que le NIC n'est pas connu — il figure sur
+   * l'avis de situation au répertoire SIRENE (insee.fr/sirene).
+   */
+  siret: '',
+  /** Code d'activité (NAF/APE) */
+  nafCode: '4791A',
   /** Adresse professionnelle déclarée */
-  address: '[ADRESSE PROFESSIONNELLE — À COMPLÉTER]',
+  address: '4 rue des Acacias, 89200 Avallon',
   /** Contact officiel */
   email: 'hello@streammalin.fr',
   /** Directeur de la publication */
-  publicationDirector: '[PRÉNOM NOM — À COMPLÉTER]',
+  publicationDirector: 'Said Ouarzazi',
   /** Site web */
   websiteUrl: 'https://www.streammalin.fr',
 } as const;

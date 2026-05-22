@@ -43,7 +43,9 @@ export default function CGVPage() {
           <tr><td>Exploitant</td><td>{COMPANY.legalName}</td></tr>
           <tr><td>Nom commercial</td><td>{COMPANY.brandName}</td></tr>
           <tr><td>Statut juridique</td><td>{COMPANY.status}</td></tr>
-          <tr><td>SIREN / SIRET</td><td>{COMPANY.siren} / {COMPANY.siret}</td></tr>
+          <tr><td>SIREN</td><td>{COMPANY.siren}</td></tr>
+          {COMPANY.siret && <tr><td>SIRET</td><td>{COMPANY.siret}</td></tr>}
+          <tr><td>Immatriculation</td><td>{COMPANY.rcs}</td></tr>
           <tr><td>Adresse professionnelle</td><td>{COMPANY.address}</td></tr>
           <tr><td>Adresse e-mail</td><td>{COMPANY.email}</td></tr>
         </tbody>
