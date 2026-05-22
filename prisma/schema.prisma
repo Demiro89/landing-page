@@ -53,9 +53,10 @@ model Order {
   details        String       // Copie des identifiants au moment de l'achat
   clientEmail    String
   youtubeEmail   String?      // Email Google/YouTube du client (pour invitation famille YouTube Premium)
+  paymentMethod  String?      // "Carte bancaire (Stripe)", "PayPal", "Cryptomonnaie"
   customerId     String?
   customer       Customer?    @relation(fields: [customerId], references: [id])
-  status                   String       @default("active") // "active", "cancelled", "cancelled_pending", "unpaid"
+  status                   String       @default("active") // "pending", "active", "cancelled", "cancelled_pending", "unpaid"
   cancellationRequestedAt  DateTime?
   cancellationEffectiveAt  DateTime?
   unpaidSince              DateTime?

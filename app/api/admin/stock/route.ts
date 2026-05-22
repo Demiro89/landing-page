@@ -4,6 +4,7 @@ import { sendOrderDetailsEmail, sendUnpaidReminderEmail } from '@/lib/nodemailer
 import { sendTelegramNotification } from '@/lib/telegram';
 import { isAdminAuthenticated } from '@/lib/adminAuth';
 import { encrypt, decrypt } from '@/lib/crypto';
+import { createInvoiceForOrder } from '@/lib/invoice';
 
 export const dynamic = 'force-dynamic';
 
@@ -291,6 +292,80 @@ export async function PUT(request: Request) {
       await prisma.order.update({
         where: { id: orderId },
         data: { status: 'active', unpaidSince: null, reminderCount: 0, lastReminderAt: null },
+      });
+      return NextResponse.json({ success: true });
+    }
+
+    // ── Valider une commande manuelle en attente (PayPal / crypto) ──
+    if (action === 'validate_order') {
+      const { orderId } = body;
+      const order = await prisma.order.findUnique({
+        where: { id: orderId },
+        include: { service: true, stockAccount: true },
+      });
+      if (!order) return NextResponse.json({ error: 'Commande introuvable' }, { status: 404 });
+      if (order.status !== 'pending') {
+        return NextResponse.json({ error: "Cette commande n'est pas en attente de validation." }, { status: 400 });
+      }
+      if (order.stockAccount.filledSlots >= order.stockAccount.maxSlots) {
+        return NextResponse.json({ error: 'Plus de place disponible dans ce compte de stock.' }, { status: 400 });
+      }
+
+      const stockDetails = order.stockAccount.details; // déjà chiffré
+      await prisma.$transaction(async (tx) => {
+        await tx.stockAccount.update({
+          where: { id: order.stockAccountId },
+          data: { filledSlots: { increment: 1 } },
+        });
+        await tx.order.update({
+          where: { id: orderId },
+          data: {
+            status: 'active',
+            details: stockDetails,
+            nextBillingAt: new Date(Date.now() + 30 * 86400000),
+          },
+        });
+        const existingThread = await tx.chatThread.findUnique({ where: { orderId } });
+        if (!existingThread) {
+          await tx.chatThread.create({
+            data: {
+              id: orderId,
+              orderId,
+              title: `Support ${order.service.name}`,
+              messages: { create: [{ sender: 'Support StreamMalin', text: `Bonjour ! Merci pour votre abonnement à ${order.service.name}. Vos identifiants de connexion sont disponibles sur votre commande dans votre espace client et vous ont été envoyés par e-mail. Une question ? Écrivez-nous ici.` }] },
+            },
+          });
+        }
+      });
+
+      const invoice = await createInvoiceForOrder({
+        orderId: order.id,
+        clientEmail: order.clientEmail,
+        serviceName: order.service.name,
+        amount: order.total,
+        paymentMethod: order.paymentMethod || 'Paiement manuel',
+      }).catch((err) => { console.error('[validate_order] invoice error:', err); return null; });
+
+      await sendOrderDetailsEmail(
+        order.clientEmail, order.service.name, decrypt(stockDetails), order.id,
+        order.youtubeEmail || undefined,
+        { amount: order.total, invoiceId: invoice?.id, invoiceNumber: invoice?.number }
+      ).catch((err) => console.error('[validate_order] email error:', err));
+
+      return NextResponse.json({ success: true });
+    }
+
+    // ── Refuser une commande manuelle en attente ──
+    if (action === 'reject_order') {
+      const { orderId } = body;
+      const order = await prisma.order.findUnique({ where: { id: orderId } });
+      if (!order) return NextResponse.json({ error: 'Commande introuvable' }, { status: 404 });
+      if (order.status !== 'pending') {
+        return NextResponse.json({ error: "Cette commande n'est pas en attente." }, { status: 400 });
+      }
+      await prisma.order.update({
+        where: { id: orderId },
+        data: { status: 'cancelled', cancellationEffectiveAt: new Date() },
       });
       return NextResponse.json({ success: true });
     }
