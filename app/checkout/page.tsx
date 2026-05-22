@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import Footer from '@/components/Footer';
 
 interface ServiceDetails {
   id: string;
@@ -42,6 +43,10 @@ function CheckoutContent() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [copied, setCopied] = useState('');
+  const [acceptedCgv, setAcceptedCgv] = useState(false);
+  const [acceptedImmediate, setAcceptedImmediate] = useState(false);
+
+  const consentOk = acceptedCgv && acceptedImmediate;
 
   useEffect(() => {
     if (!serviceId) { setLoadingService(false); return; }
@@ -80,6 +85,10 @@ function CheckoutContent() {
       setErrorMsg('Merci d\'indiquer votre adresse e-mail YouTube pour recevoir l\'invitation.');
       return;
     }
+    if (!consentOk) {
+      setErrorMsg('Merci d\'accepter les Conditions générales de vente et la demande d\'exécution immédiate.');
+      return;
+    }
     setIsSubmitting(true);
     setErrorMsg('');
     try {
@@ -91,6 +100,8 @@ function CheckoutContent() {
           stockAccountId: stockId,
           email: email.trim().toLowerCase(),
           youtubeEmail: isYoutube ? youtubeEmail.trim().toLowerCase() : undefined,
+          acceptedCgv,
+          acceptedImmediateExecution: acceptedImmediate,
         }),
       });
       const data = await res.json();
@@ -241,6 +252,48 @@ function CheckoutContent() {
               </>
             )}
 
+            {/* Consentement obligatoire — CGV + exécution immédiate */}
+            <div
+              style={{
+                margin: '4px 0 18px',
+                padding: '14px 16px',
+                borderRadius: 12,
+                background: 'rgba(168,85,247,0.06)',
+                border: '1px solid rgba(168,85,247,0.22)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 12,
+              }}
+            >
+              <label style={{ display: 'flex', gap: 10, cursor: 'pointer', fontSize: '0.82rem', color: 'var(--text-gray)', lineHeight: 1.55 }}>
+                <input
+                  type="checkbox"
+                  checked={acceptedCgv}
+                  onChange={e => setAcceptedCgv(e.target.checked)}
+                  style={{ marginTop: 2, width: 16, height: 16, flexShrink: 0, accentColor: 'var(--primary)' }}
+                />
+                <span>
+                  J&apos;ai lu et j&apos;accepte les{' '}
+                  <a href="/cgv" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)', fontWeight: 600 }}>
+                    Conditions générales de vente
+                  </a>{' '}
+                  de StreamMalin.
+                </span>
+              </label>
+              <label style={{ display: 'flex', gap: 10, cursor: 'pointer', fontSize: '0.82rem', color: 'var(--text-gray)', lineHeight: 1.55 }}>
+                <input
+                  type="checkbox"
+                  checked={acceptedImmediate}
+                  onChange={e => setAcceptedImmediate(e.target.checked)}
+                  style={{ marginTop: 2, width: 16, height: 16, flexShrink: 0, accentColor: 'var(--primary)' }}
+                />
+                <span>
+                  Je demande l&apos;exécution immédiate du service et je reconnais qu&apos;une fois
+                  l&apos;accès fourni, je renonce à mon droit de rétractation.
+                </span>
+              </label>
+            </div>
+
             {/* CB */}
             {payTab === 'cb' && (
               <form onSubmit={handleStripeCheckout}>
@@ -252,10 +305,10 @@ function CheckoutContent() {
                 </div>
                 <button
                   type="submit"
-                  disabled={isSubmitting || !email || (isYoutube && !youtubeEmail.trim())}
+                  disabled={isSubmitting || !email || (isYoutube && !youtubeEmail.trim()) || !consentOk}
                   className="btn-pay"
                 >
-                  🔒 {isSubmitting ? 'Redirection…' : `Régler ${service.price.toFixed(2)}€ par carte`}
+                  🔒 {isSubmitting ? 'Redirection…' : !consentOk ? 'Acceptez les CGV pour continuer' : `Régler ${service.price.toFixed(2)}€ par carte`}
                 </button>
                 <div className="trust-row">
                   <span>🔐 Cryptage AES-256</span>
@@ -299,15 +352,26 @@ function CheckoutContent() {
                   </div>
                 </div>
 
-                <a
-                  href={`https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=novateurlabeille%40gmail.com&amount=${service.price.toFixed(2)}&currency_code=EUR&item_name=StreamMalin+-+${encodeURIComponent(service.name)}&no_shipping=1`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn btn-primary"
-                  style={{ display: 'block', textAlign: 'center', marginTop: 12, background: '#0070ba', boxShadow: '0 4px 16px rgba(0,112,186,0.35)' }}
-                >
-                  🅿️ Payer {service.price.toFixed(2)}€ via PayPal →
-                </a>
+                {consentOk ? (
+                  <a
+                    href={`https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=novateurlabeille%40gmail.com&amount=${service.price.toFixed(2)}&currency_code=EUR&item_name=StreamMalin+-+${encodeURIComponent(service.name)}&no_shipping=1`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-primary"
+                    style={{ display: 'block', textAlign: 'center', marginTop: 12, background: '#0070ba', boxShadow: '0 4px 16px rgba(0,112,186,0.35)' }}
+                  >
+                    🅿️ Payer {service.price.toFixed(2)}€ via PayPal →
+                  </a>
+                ) : (
+                  <button
+                    type="button"
+                    disabled
+                    className="btn btn-primary"
+                    style={{ display: 'block', width: '100%', textAlign: 'center', marginTop: 12, opacity: 0.5, cursor: 'not-allowed' }}
+                  >
+                    Acceptez les CGV pour continuer
+                  </button>
+                )}
 
                 <div className="trust-row">
                   <span>🛡️ Protection Achats PayPal</span>
@@ -395,7 +459,7 @@ function CheckoutContent() {
               </div>
               <div className="recap-service-info">
                 <div className="name">{service.name}</div>
-                <div className="sub">⭐ 5.0 · Accès Officiel · Stable</div>
+                <div className="sub">⭐ 5.0 · Accès vérifié · Stable</div>
               </div>
               <div className="recap-service-price">{service.price.toFixed(2)}€</div>
             </div>
@@ -440,6 +504,8 @@ function CheckoutContent() {
           </div>
         </div>
       </div>
+
+      <Footer />
     </div>
   );
 }

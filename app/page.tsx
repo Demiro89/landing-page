@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import Footer from '@/components/Footer';
 
 interface Service {
   id: string;
@@ -435,11 +436,11 @@ export default function Home() {
   const faqItems = [
     {
       q: 'Comment fonctionne StreamMalin ?',
-      a: 'StreamMalin achète des abonnements de groupe ou familiaux officiels à l\'étranger dans des zones où les tarifs sont beaucoup plus bas. Nous gérons la configuration technique, la facturation et vous louons des places de profil ou des invitations familiales à prix coûtant. Vous économisez jusqu\'à 80% !',
+      a: 'StreamMalin souscrit des offres familiales ou multi-utilisateurs et met à votre disposition, pour une durée déterminée, un accès numérique temporaire (une place de profil ou une invitation famille). Nous gérons la configuration technique et le support. Vous bénéficiez ainsi d\'un accès à prix malin, avec des économies pouvant aller jusqu\'à 80%.',
     },
     {
-      q: 'Le partage de place est-il légal et sécurisé ?',
-      a: 'Oui, 100% légal et sécurisé. Les abonnements familiaux ou multi-profils de YouTube, Disney+ ou Surfshark sont officiellement conçus par les éditeurs pour être utilisés sur plusieurs écrans et comptes séparés. Vous possédez votre propre profil privé ou votre invitation individuelle. Vos données sont privées.',
+      q: 'Le partage de place est-il sécurisé ?',
+      a: 'Les offres familiales et multi-profils sont conçues par les éditeurs pour un usage sur plusieurs profils distincts. StreamMalin met à votre disposition un accès temporaire et personnel à l\'une de ces places : vous disposez de votre propre profil privé ou de votre invitation individuelle, et vos données restent privées. StreamMalin est un service indépendant, non affilié aux plateformes citées.',
     },
     {
       q: 'Y a-t-il un engagement sur mes abonnements ?',
@@ -510,7 +511,7 @@ export default function Home() {
                 <span className="gradient-text">version maline.</span>
               </h1>
               <p className="hero-subtitle">
-                Vos abonnements favoris à prix coûtant avec des remises jusqu&apos;à <strong style={{ color: '#fff' }}>75%</strong> grâce à nos places partagées 100% officielles et sécurisées.
+                Vos accès favoris à prix malin avec des remises jusqu&apos;à <strong style={{ color: '#fff' }}>75%</strong> grâce à des places partagées sécurisées.
               </p>
               <div className="hero-cta">
                 <a href="#offres" className="btn btn-primary btn-lg">
@@ -630,7 +631,7 @@ export default function Home() {
                         </div>
                         <div className="share-details">
                           <div className="share-name">{stock.service.name}</div>
-                          <div className="share-tag">🛡️ Accès Officiel · Stable &amp; Garanti</div>
+                          <div className="share-tag">🛡️ Accès vérifié · Stable &amp; Garanti</div>
                           <div className="share-slots">
                             <span className="slots-label">{avSlots} place{avSlots > 1 ? 's' : ''} libre{avSlots > 1 ? 's' : ''}</span>
                             <div className="share-dots">
@@ -664,7 +665,7 @@ export default function Home() {
                 <h2 className="section-title">
                   Pourquoi payer le <span className="gradient-text">tarif plein</span> ?
                 </h2>
-                <p className="section-subtitle">Comparez les tarifs officiels avec les prix réduits exclusifs de StreamMalin.</p>
+                <p className="section-subtitle">Comparez les tarifs publics avec les prix réduits exclusifs de StreamMalin.</p>
               </div>
 
               <div className="glass-panel comparison">
@@ -839,15 +840,7 @@ export default function Home() {
           </section>
 
           {/* FOOTER */}
-          <footer style={{ padding: '40px 24px', textAlign: 'center', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-            <div className="nav-logo" style={{ justifyContent: 'center', marginBottom: 12 }}>
-              <div className="nav-logo-icon">SM</div>
-              <span className="gradient-text">StreamMalin</span>
-            </div>
-            <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-              © {new Date().getFullYear()} StreamMalin — Le streaming premium, version maline.
-            </p>
-          </footer>
+          <Footer />
         </main>
       )}
 

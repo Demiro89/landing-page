@@ -1,6 +1,8 @@
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Le fallback évite une erreur au build quand la clé est absente (mode simulation) ;
+// chaque fonction vérifie RESEND_API_KEY avant tout envoi réel.
+const resend = new Resend(process.env.RESEND_API_KEY || 're_placeholder');
 
 const FROM_EMAIL = 'StreamMalin <noreply@streammalin.fr>';
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://streammalin.fr';
@@ -10,7 +12,8 @@ export async function sendOrderDetailsEmail(
   serviceName: string,
   details: string,
   orderId: string,
-  youtubeEmail?: string
+  youtubeEmail?: string,
+  meta?: { amount?: number; invoiceId?: string; invoiceNumber?: string }
 ) {
   if (!process.env.RESEND_API_KEY) {
     console.log('--- [SIMULATION EMAIL] ---');
@@ -21,11 +24,24 @@ export async function sendOrderDetailsEmail(
 
   const isYoutube = !!youtubeEmail;
   const credentialsBlock = isYoutube
-    ? `<p>Votre abonnement à <strong>${serviceName}</strong> fonctionne par <strong style="color:#fff">invitation famille</strong>. Sous quelques minutes, vous recevrez une invitation à rejoindre notre groupe YouTube Premium à l'adresse suivante&nbsp;:</p>
+    ? `<p>Votre accès à <strong>${serviceName}</strong> fonctionne par <strong style="color:#fff">invitation famille</strong>. Sous quelques minutes, vous recevrez une invitation à rejoindre notre groupe à l'adresse suivante&nbsp;:</p>
        <div class="creds">📧 ${youtubeEmail}</div>
-       <p style="font-size:0.9rem;color:#9ca3af">Vérifiez votre boîte de réception (et vos spams) et acceptez l'invitation depuis votre compte Google pour activer YouTube Premium. Aucun identifiant à saisir — vous gardez votre propre compte YouTube.</p>`
+       <p style="font-size:0.9rem;color:#9ca3af">Vérifiez votre boîte de réception (et vos spams) et acceptez l'invitation depuis votre compte Google. Aucun identifiant à saisir — vous gardez votre propre compte.</p>`
     : `<p>Vos identifiants d'accès :</p>
        <div class="creds">${details}</div>`;
+
+  const recapBlock = `
+    <div style="background:rgba(15,23,42,.8);border:1px solid rgba(168,85,247,.2);border-radius:12px;padding:16px 20px;margin:22px 0">
+      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.06)"><span style="color:#9ca3af;font-size:13px">Commande</span><span style="color:#e5e7eb;font-size:13px;font-weight:600">${orderId}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.06)"><span style="color:#9ca3af;font-size:13px">Offre</span><span style="color:#e5e7eb;font-size:13px;font-weight:600">${serviceName}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.06)"><span style="color:#9ca3af;font-size:13px">Durée</span><span style="color:#e5e7eb;font-size:13px;font-weight:600">1 mois</span></div>
+      ${meta?.amount != null ? `<div style="display:flex;justify-content:space-between;padding:6px 0"><span style="color:#9ca3af;font-size:13px">Montant payé</span><span style="color:#e5e7eb;font-size:13px;font-weight:700">${meta.amount.toFixed(2)} €</span></div>` : ''}
+    </div>`;
+
+  const invoiceBlock = meta?.invoiceId
+    ? `<p style="font-size:0.9rem">📄 Votre facture${meta.invoiceNumber ? ` <strong style="color:#fff">${meta.invoiceNumber}</strong>` : ''} est disponible :
+       <a href="${APP_URL}/facture/${meta.invoiceId}" style="color:#a855f7">Consulter / télécharger ma facture</a>.</p>`
+    : '';
 
   try {
     const { data, error } = await resend.emails.send({
@@ -54,16 +70,18 @@ export async function sendOrderDetailsEmail(
       <div class="title">Merci pour votre confiance !</div>
     </div>
     <p>Bonjour,</p>
-    <p>Votre paiement a été validé. Votre abonnement à <strong>${serviceName}</strong> est actif dès maintenant.</p>
-    <div style="text-align:center"><span class="badge">Commande : ${orderId}</span></div>
+    <p>Votre paiement a bien été validé. Votre accès à <strong>${serviceName}</strong> est actif dès maintenant.</p>
+    ${recapBlock}
     ${credentialsBlock}
-    <p><strong>Besoin d'aide ?</strong> Connectez-vous à votre Espace Client et utilisez le chat support.</p>
+    ${invoiceBlock}
+    <p><strong>Besoin d'aide ?</strong> Connectez-vous à votre Espace Client pour utiliser le chat support, ou écrivez-nous à <a href="mailto:hello@streammalin.fr" style="color:#a855f7">hello@streammalin.fr</a>.</p>
     <div style="text-align:center;margin-top:25px">
       <a href="${APP_URL}" class="btn">Accéder à mon Espace Client</a>
     </div>
     <div class="footer">
-      <p>&copy; ${new Date().getFullYear()} StreamMalin. Tous droits réservés.</p>
-      <p>Email automatique — merci de ne pas répondre directement.</p>
+      <p>&copy; ${new Date().getFullYear()} StreamMalin — Service indépendant édité en micro-entreprise.</p>
+      <p>StreamMalin n'est ni affilié, ni partenaire, ni revendeur officiel des plateformes citées.</p>
+      <p>Support : hello@streammalin.fr</p>
     </div>
   </div>
 </body>

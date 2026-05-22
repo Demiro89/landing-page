@@ -4,6 +4,8 @@ import { prisma } from '@/lib/prisma';
 import { sendOrderDetailsEmail, sendUnpaidReminderEmail } from '@/lib/nodemailer';
 import { sendTelegramNotification } from '@/lib/telegram';
 
+export const dynamic = 'force-dynamic';
+
 // Fonction utilitaire de vérification d'authentification
 async function checkAuth(): Promise<boolean> {
   const cookieStore = await cookies();

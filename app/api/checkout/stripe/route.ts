@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { prisma } from '@/lib/prisma';
 import { sendOrderDetailsEmail } from '@/lib/nodemailer';
+import { createInvoiceForOrder } from '@/lib/invoice';
+
+export const dynamic = 'force-dynamic';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_mock', {
   apiVersion: '2023-10-16' as any,
@@ -14,7 +17,7 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
  */
 export async function POST(request: Request) {
   try {
-    const { serviceId, stockAccountId, email, youtubeEmail } = await request.json();
+    const { serviceId, stockAccountId, email, youtubeEmail, acceptedCgv, acceptedImmediateExecution } = await request.json();
 
     if (!serviceId || !stockAccountId || !email) {
       return NextResponse.json({ error: 'Paramètres manquants' }, { status: 400 });
@@ -23,6 +26,18 @@ export async function POST(request: Request) {
     if (serviceId === 'youtube' && !youtubeEmail) {
       return NextResponse.json({ error: 'Adresse e-mail YouTube requise pour YouTube Premium' }, { status: 400 });
     }
+
+    if (!acceptedCgv || !acceptedImmediateExecution) {
+      return NextResponse.json(
+        { error: 'Vous devez accepter les CGV et la demande d\'exécution immédiate.' },
+        { status: 400 }
+      );
+    }
+
+    // Preuve d'acceptation : horodatage serveur + métadonnées techniques
+    const acceptedAt = new Date();
+    const acceptanceUserAgent = (request.headers.get('user-agent') || '').slice(0, 450);
+    const acceptanceIp = (request.headers.get('x-forwarded-for') || '').split(',')[0].trim().slice(0, 90);
 
     const service = await prisma.service.findUnique({ where: { id: serviceId } });
     const stockAccount = await prisma.stockAccount.findUnique({ where: { id: stockAccountId } });
@@ -54,6 +69,11 @@ export async function POST(request: Request) {
             youtubeEmail: youtubeEmail || null,
             status: 'active',
             nextBillingAt: new Date(Date.now() + 30 * 86400000),
+            acceptedCgv: true,
+            acceptedImmediateExecution: true,
+            acceptedAt,
+            acceptanceUserAgent,
+            acceptanceIp,
           },
         });
         await tx.chatThread.create({
@@ -66,7 +86,18 @@ export async function POST(request: Request) {
         });
         return createdOrder;
       });
-      await sendOrderDetailsEmail(email, service.name, stockAccount.details, order.id);
+      const invoice = await createInvoiceForOrder({
+        orderId: order.id,
+        clientEmail: email,
+        serviceName: service.name,
+        amount: order.total,
+        paymentMethod: 'Carte bancaire (Stripe)',
+      }).catch((err) => { console.error('[invoice] simulation error:', err); return null; });
+      await sendOrderDetailsEmail(email, service.name, stockAccount.details, order.id, undefined, {
+        amount: order.total,
+        invoiceId: invoice?.id,
+        invoiceNumber: invoice?.number,
+      });
       return NextResponse.json({
         success: true,
         simulated: true,
@@ -101,6 +132,9 @@ export async function POST(request: Request) {
         clientEmail: email,
         price: stockAccount.price.toString(),
         youtubeEmail: youtubeEmail || '',
+        acceptedAt: acceptedAt.toISOString(),
+        acceptanceUserAgent,
+        acceptanceIp,
       },
       subscription_data: {
         metadata: {

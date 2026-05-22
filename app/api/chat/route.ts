@@ -3,6 +3,8 @@ import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 import { sendTelegramNotification } from '@/lib/telegram';
 
+export const dynamic = 'force-dynamic';
+
 // Vérifie si l'utilisateur est authentifié en tant qu'admin
 async function checkIsAdmin(): Promise<boolean> {
   const cookieStore = await cookies();
