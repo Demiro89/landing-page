@@ -483,7 +483,7 @@ export default function Home() {
           <button className="md:hidden text-white text-2xl" onClick={() => setMenuOpen(!menuOpen)}>☰</button>
         </div>
         {menuOpen && (
-          <div className="md:hidden border-t border-white/5 px-6 py-4 flex flex-col gap-3" style={{ background: 'hsla(240,24%,5%,0.95)' }}>
+          <div className="md:hidden border-t border-white/5 px-6 py-4 flex flex-col gap-3" style={{ background: 'hsla(222,44%,7%,0.95)' }}>
             <a href="#offres" onClick={() => { setView('storefront'); setMenuOpen(false); }} className="nav-link">Offres</a>
             <a href="#marketplace" onClick={() => setMenuOpen(false)} className="nav-link">Marketplace</a>
             <a href="#calculateur" onClick={() => setMenuOpen(false)} className="nav-link">Calculateur</a>
@@ -717,7 +717,7 @@ export default function Home() {
                       <div className="calc-tile-label">Tarif public</div>
                       <div className="calc-tile-value" style={{ textDecoration: 'line-through', color: 'var(--text-muted)' }}>{calcOriginal.toFixed(2)}€</div>
                     </div>
-                    <div className="calc-tile" style={{ background: 'linear-gradient(135deg, rgba(138,92,247,0.1), rgba(0,210,255,0.05))', borderColor: 'rgba(138,92,247,0.25)' }}>
+                    <div className="calc-tile" style={{ background: 'linear-gradient(135deg, rgba(138,92,247,0.1), rgba(99,102,241,0.05))', borderColor: 'rgba(138,92,247,0.25)' }}>
                       <div className="calc-tile-label">Avec StreamMalin</div>
                       <div className="calc-tile-value gradient-text">{calcTotal.toFixed(2)}€</div>
                     </div>
@@ -848,14 +848,14 @@ export default function Home() {
       {view === 'dashboard' && (
         <main style={{ position: 'relative', minHeight: '100vh' }}>
           {/* Ambient glows */}
-          <div style={{ position: 'absolute', top: 60, left: '-15%', width: 500, height: 500, borderRadius: '50%', background: 'radial-gradient(circle, hsla(262,88%,64%,0.16), transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none', zIndex: 0 }} />
-          <div style={{ position: 'absolute', top: 300, right: '-12%', width: 420, height: 420, borderRadius: '50%', background: 'radial-gradient(circle, hsla(190,95%,50%,0.1), transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none', zIndex: 0 }} />
+          <div style={{ position: 'absolute', top: 60, left: '-15%', width: 500, height: 500, borderRadius: '50%', background: 'radial-gradient(circle, hsla(258,90%,66%,0.16), transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none', zIndex: 0 }} />
+          <div style={{ position: 'absolute', top: 300, right: '-12%', width: 420, height: 420, borderRadius: '50%', background: 'radial-gradient(circle, hsla(239,84%,67%,0.1), transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none', zIndex: 0 }} />
 
           <div className="dash-wrap">
             {/* Header */}
             <div className="dash-header fade-in-up">
               <div>
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '5px 12px', borderRadius: 50, background: 'rgba(0,230,118,0.1)', border: '1px solid rgba(0,230,118,0.2)', fontSize: '0.7rem', fontWeight: 700, color: 'var(--accent-green)', letterSpacing: '0.06em', marginBottom: 12 }}>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '5px 12px', borderRadius: 50, background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', fontSize: '0.7rem', fontWeight: 700, color: 'var(--accent-green)', letterSpacing: '0.06em', marginBottom: 12 }}>
                   <span className="hero-badge-dot" style={{ width: 6, height: 6 }} />
                   CONNECTÉ · SESSION SÉCURISÉE
                 </div>
@@ -1058,7 +1058,7 @@ export default function Home() {
                       </p>
                     )}
                     {authMsg && (
-                      <p style={{ color: 'var(--accent-green)', fontSize: '0.8rem', marginTop: 12, padding: '8px 12px', background: 'rgba(0,230,118,0.08)', borderRadius: 8 }}>
+                      <p style={{ color: 'var(--accent-green)', fontSize: '0.8rem', marginTop: 12, padding: '8px 12px', background: 'rgba(16,185,129,0.08)', borderRadius: 8 }}>
                         {authMsg}
                       </p>
                     )}
@@ -1126,7 +1126,7 @@ export default function Home() {
                     ) : (
                       <>
                         {cancelSuccess && (
-                          <div style={{ marginBottom: 16, padding: 14, borderRadius: 12, background: 'rgba(0,230,118,0.08)', border: '1px solid rgba(0,230,118,0.25)', color: 'var(--accent-green)', fontSize: '0.88rem' }}>
+                          <div style={{ marginBottom: 16, padding: 14, borderRadius: 12, background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)', color: 'var(--accent-green)', fontSize: '0.88rem' }}>
                             ✅ {cancelSuccess}
                           </div>
                         )}

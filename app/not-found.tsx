@@ -1,8 +1,8 @@
 export default function NotFound() {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, position: 'relative' }}>
-      <div style={{ position: 'absolute', top: '20%', left: '15%', width: 360, height: 360, borderRadius: '50%', background: 'radial-gradient(circle, hsla(262,88%,64%,0.22), transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none' }} />
-      <div style={{ position: 'absolute', bottom: '15%', right: '12%', width: 320, height: 320, borderRadius: '50%', background: 'radial-gradient(circle, hsla(190,95%,50%,0.16), transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', top: '20%', left: '15%', width: 360, height: 360, borderRadius: '50%', background: 'radial-gradient(circle, hsla(258,90%,66%,0.22), transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', bottom: '15%', right: '12%', width: 320, height: 320, borderRadius: '50%', background: 'radial-gradient(circle, hsla(239,84%,67%,0.16), transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none' }} />
 
       <div className="glass-panel" style={{ textAlign: 'center', padding: '50px 40px', maxWidth: 480, position: 'relative', zIndex: 1, borderRadius: 'var(--radius-lg)' }}>
         <div style={{ fontSize: '5rem', fontWeight: 900, fontFamily: "'Outfit',sans-serif", lineHeight: 1, marginBottom: 8 }} className="gradient-text">

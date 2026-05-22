@@ -155,8 +155,8 @@ function CheckoutContent() {
   return (
     <div style={{ minHeight: '100vh', position: 'relative' }}>
       {/* Ambient glows */}
-      <div style={{ position: 'absolute', top: 60, left: '-15%', width: 520, height: 520, borderRadius: '50%', background: 'radial-gradient(circle, hsla(262,88%,64%,0.16), transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none', zIndex: 0 }} />
-      <div style={{ position: 'absolute', top: 300, right: '-12%', width: 460, height: 460, borderRadius: '50%', background: 'radial-gradient(circle, hsla(190,95%,50%,0.12), transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none', zIndex: 0 }} />
+      <div style={{ position: 'absolute', top: 60, left: '-15%', width: 520, height: 520, borderRadius: '50%', background: 'radial-gradient(circle, hsla(258,90%,66%,0.16), transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none', zIndex: 0 }} />
+      <div style={{ position: 'absolute', top: 300, right: '-12%', width: 460, height: 460, borderRadius: '50%', background: 'radial-gradient(circle, hsla(239,84%,67%,0.12), transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none', zIndex: 0 }} />
 
       {/* Navbar */}
       <header className="navbar">
