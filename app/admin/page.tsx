@@ -333,8 +333,8 @@ export default function AdminPage() {
   if (!authed) {
     return (
       <div className="admin-login-wrap">
-        <div style={{ position: 'absolute', top: '20%', left: '15%', width: 360, height: 360, borderRadius: '50%', background: 'radial-gradient(circle, hsla(262,88%,64%,0.25), transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', bottom: '15%', right: '12%', width: 320, height: 320, borderRadius: '50%', background: 'radial-gradient(circle, hsla(190,95%,50%,0.18), transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', top: '20%', left: '15%', width: 360, height: 360, borderRadius: '50%', background: 'radial-gradient(circle, hsla(258,90%,66%,0.25), transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', bottom: '15%', right: '12%', width: 320, height: 320, borderRadius: '50%', background: 'radial-gradient(circle, hsla(239,84%,67%,0.18), transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none' }} />
 
         <div className="glass-panel admin-login-card">
           <div className="admin-login-icon">SM</div>
@@ -439,7 +439,7 @@ export default function AdminPage() {
         {/* Main */}
         <main className="admin-main">
           {/* Ambient */}
-          <div style={{ position: 'absolute', top: 0, right: 0, width: 400, height: 400, borderRadius: '50%', background: 'radial-gradient(circle, hsla(262,88%,64%,0.1), transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none', zIndex: 0 }} />
+          <div style={{ position: 'absolute', top: 0, right: 0, width: 400, height: 400, borderRadius: '50%', background: 'radial-gradient(circle, hsla(258,90%,66%,0.1), transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none', zIndex: 0 }} />
 
           {/* ── DASHBOARD ── */}
           {activePage === 'dashboard' && (
@@ -1058,7 +1058,7 @@ export default function AdminPage() {
                                 )}
                               </div>
                               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                                <button onClick={() => markPaid(o.id)} className="btn btn-ghost btn-sm" style={{ color: 'var(--accent-green)', borderColor: 'rgba(0,230,118,0.3)', fontSize: '0.78rem' }}>
+                                <button onClick={() => markPaid(o.id)} className="btn btn-ghost btn-sm" style={{ color: 'var(--accent-green)', borderColor: 'rgba(16,185,129,0.3)', fontSize: '0.78rem' }}>
                                   ✅ Marquer payé
                                 </button>
                                 {level < 3 && (
@@ -1343,7 +1343,7 @@ export default function AdminPage() {
                 <p className="admin-card-sub">
                   Vente directe d&apos;accès premium. Prix nets, sans commissions cachées.
                 </p>
-                <div className="info-box" style={{ background: 'rgba(0,230,118,0.06)', borderColor: 'rgba(0,230,118,0.2)' }}>
+                <div className="info-box" style={{ background: 'rgba(16,185,129,0.06)', borderColor: 'rgba(16,185,129,0.2)' }}>
                   <div className="info-box-title" style={{ color: 'var(--accent-green)' }}>🛡️ Prix plat garanti</div>
                   <div className="info-box-text">
                     Frais de plateforme / Commissions : <strong style={{ color: 'var(--accent-green)' }}>0,00€</strong>. Tous les revenus restent pour StreamMalin.
@@ -1369,7 +1369,7 @@ export default function AdminPage() {
                         <div className="toggle-row-label">{g.label}</div>
                         <div className="toggle-row-sub">{g.sub}</div>
                       </div>
-                      <span className="badge-pill" style={{ background: on ? 'rgba(0,230,118,0.13)' : 'rgba(255,255,255,0.06)', color: on ? 'var(--accent-green)' : 'var(--text-muted)', border: `1px solid ${on ? 'rgba(0,230,118,0.25)' : 'rgba(255,255,255,0.08)'}` }}>
+                      <span className="badge-pill" style={{ background: on ? 'rgba(16,185,129,0.13)' : 'rgba(255,255,255,0.06)', color: on ? 'var(--accent-green)' : 'var(--text-muted)', border: `1px solid ${on ? 'rgba(16,185,129,0.25)' : 'rgba(255,255,255,0.08)'}` }}>
                         {on ? '● Actif' : '○ Inactif'}
                       </span>
                       <button
@@ -1647,7 +1647,7 @@ function ServiceEditCard({ svc, onSave, onToggle, onDelete, onEditStock, onAddSt
           {svc.icon}
         </span>
         {svc.name}
-        <span className="badge-pill" style={{ marginLeft: 'auto', background: local.active ? 'rgba(0,230,118,0.13)' : 'rgba(255,255,255,0.06)', color: local.active ? 'var(--accent-green)' : 'var(--text-muted)', border: `1px solid ${local.active ? 'rgba(0,230,118,0.25)' : 'rgba(255,255,255,0.08)'}` }}>
+        <span className="badge-pill" style={{ marginLeft: 'auto', background: local.active ? 'rgba(16,185,129,0.13)' : 'rgba(255,255,255,0.06)', color: local.active ? 'var(--accent-green)' : 'var(--text-muted)', border: `1px solid ${local.active ? 'rgba(16,185,129,0.25)' : 'rgba(255,255,255,0.08)'}` }}>
           {local.active ? '● Actif' : '○ Inactif'}
         </span>
       </h4>
