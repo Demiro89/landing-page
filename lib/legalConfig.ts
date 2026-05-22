@@ -38,10 +38,14 @@ export const HOST = {
 } as const;
 
 export const MEDIATION = {
-  /** Médiateur de la consommation — à souscrire et compléter */
-  name: '[NOM DU MÉDIATEUR DE LA CONSOMMATION — À COMPLÉTER]',
-  address: '[ADRESSE DU MÉDIATEUR — À COMPLÉTER]',
-  website: '[SITE WEB DU MÉDIATEUR — À COMPLÉTER]',
+  /** Médiateur de la consommation — CM2C (adhésion StreamMalin valable jusqu'au 22/05/2029) */
+  name: 'CM2C — Centre de la Médiation de la Consommation de Conciliateurs de justice',
+  address: '49 rue de Ponthieu, 75008 Paris',
+  phone: '01 89 47 00 14',
+  email: 'litiges@cm2c.net',
+  website: 'https://www.cm2c.net',
+  declareUrl: 'https://www.cm2c.net/declarer-un-litige.php',
+  approval: 'Association Loi 1901 agréée par la CECMC — N° W751237320',
 } as const;
 
 /** Mention de franchise en base de TVA — modifiable si le régime change. */
