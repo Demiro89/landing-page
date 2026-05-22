@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { SERVICE_CATALOG, CATALOG_CATEGORIES, type ServicePreset } from '@/lib/serviceCatalog';
 
 /* ─── Types ─────────────────────────────────────────────────────────────── */
 interface Service {
@@ -79,6 +80,10 @@ export default function AdminPage() {
   const [editStock, setEditStock] = useState<StockAccount | null>(null);
   const [editOrder, setEditOrder] = useState<Order | null>(null);
   const [srvForm, setSrvForm] = useState({ id: '', name: '', icon: '', gradient: '', price: '', original: '', tagline: '', maxSlots: '', features: '' });
+  const [catalogOpen, setCatalogOpen] = useState(false);
+  const [catalogCat, setCatalogCat] = useState<string>('all');
+  const [catalogSearch, setCatalogSearch] = useState('');
+  const [catalogBusy, setCatalogBusy] = useState<string | null>(null);
 
   // Support chat
   const [supportThreads, setSupportThreads] = useState<SupportThread[]>([]);
@@ -247,6 +252,34 @@ export default function AdminPage() {
     const d = await r.json();
     if (d.success) { toast('Service publié !'); setSrvForm({ id: '', name: '', icon: '', gradient: '', price: '', original: '', tagline: '', maxSlots: '', features: '' }); loadAll(); }
     else toast('Erreur : ' + d.error);
+  };
+
+  const fillFromPreset = (p: ServicePreset) => {
+    setSrvForm({
+      id: p.id, name: p.name, icon: p.icon, gradient: p.gradient,
+      price: String(p.price), original: String(p.original),
+      tagline: p.tagline, maxSlots: String(p.maxSlots),
+      features: p.features.join(', '),
+    });
+    setCatalogOpen(false);
+    toast(`« ${p.name} » chargé dans le formulaire`);
+  };
+
+  const publishPreset = async (p: ServicePreset) => {
+    if (services.some(s => s.id === p.id)) { toast('Ce service existe déjà'); return; }
+    setCatalogBusy(p.id);
+    try {
+      const r = await fetch('/api/admin/stock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'create_service', id: p.id, name: p.name, icon: p.icon, gradient: p.gradient, price: p.price, original: p.original, tagline: p.tagline, maxSlots: p.maxSlots, features: p.features }),
+      });
+      const d = await r.json();
+      if (d.success) { toast(`Service « ${p.name} » publié !`); loadAll(); }
+      else toast('Erreur : ' + d.error);
+    } finally {
+      setCatalogBusy(null);
+    }
   };
 
   const saveService = async (svc: Service) => {
@@ -643,6 +676,21 @@ export default function AdminPage() {
                 <div className="admin-card-head">
                   <div className="icon-bubble">➕</div>
                   Créer un nouveau service
+                  <button
+                    type="button"
+                    onClick={() => { setCatalogOpen(true); setCatalogSearch(''); setCatalogCat('all'); }}
+                    className="btn btn-primary btn-sm"
+                    style={{ marginLeft: 'auto' }}
+                  >
+                    📚 Catalogue ({SERVICE_CATALOG.length} services)
+                  </button>
+                </div>
+
+                <div className="info-box" style={{ marginBottom: 14 }}>
+                  <div className="info-box-title">💡 Astuce</div>
+                  <div className="info-box-text">
+                    Ouvrez le <strong>catalogue</strong> pour ajouter en 1 clic un service parmi {SERVICE_CATALOG.length} préréglages (Netflix, Spotify, ChatGPT, NordVPN…), ou pré-remplissez le formulaire pour ajuster les tarifs avant publication.
+                  </div>
                 </div>
 
                 <form onSubmit={createService}>
@@ -1466,6 +1514,94 @@ export default function AdminPage() {
             </div>
           </div>
         )}
+
+        {catalogOpen && (() => {
+          const q = catalogSearch.trim().toLowerCase();
+          const filtered = SERVICE_CATALOG.filter(p =>
+            (catalogCat === 'all' || p.category === catalogCat) &&
+            (!q || p.name.toLowerCase().includes(q) || p.tagline.toLowerCase().includes(q))
+          );
+          return (
+            <div className="modal-overlay" onClick={() => setCatalogOpen(false)}>
+              <div className="glass-panel modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 920, width: '92vw', maxHeight: '88vh', display: 'flex', flexDirection: 'column' }}>
+                <div className="admin-card-head">
+                  <div className="icon-bubble">📚</div>
+                  Catalogue de services
+                  <button type="button" onClick={() => setCatalogOpen(false)} className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto' }}>✕</button>
+                </div>
+
+                <input
+                  type="text"
+                  value={catalogSearch}
+                  onChange={e => setCatalogSearch(e.target.value)}
+                  className="dash-input"
+                  placeholder="🔍 Rechercher un service (Netflix, Spotify, VPN…)"
+                  style={{ marginBottom: 12 }}
+                />
+
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
+                  <button
+                    type="button"
+                    onClick={() => setCatalogCat('all')}
+                    className={`btn btn-sm ${catalogCat === 'all' ? 'btn-primary' : 'btn-ghost'}`}
+                  >Tous</button>
+                  {CATALOG_CATEGORIES.map(c => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => setCatalogCat(c.id)}
+                      className={`btn btn-sm ${catalogCat === c.id ? 'btn-primary' : 'btn-ghost'}`}
+                    >{c.icon} {c.label}</button>
+                  ))}
+                </div>
+
+                <div style={{ overflowY: 'auto', flex: 1, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 10, paddingRight: 4 }}>
+                  {filtered.length === 0 && (
+                    <p style={{ color: 'var(--text-muted)', gridColumn: '1 / -1', textAlign: 'center', padding: 20 }}>Aucun service ne correspond à la recherche.</p>
+                  )}
+                  {filtered.map(p => {
+                    const exists = services.some(s => s.id === p.id);
+                    return (
+                      <div key={p.id} style={{ background: 'rgba(15,23,42,0.5)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div style={{ width: 38, height: 38, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', background: p.gradient, flexShrink: 0 }}>{p.icon}</div>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontWeight: 700, fontSize: '0.86rem', color: 'var(--text-white)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
+                            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{fmt(p.price)}/mois · {p.maxSlots} place{p.maxSlots > 1 ? 's' : ''}</div>
+                          </div>
+                        </div>
+                        <div style={{ fontSize: '0.74rem', color: 'var(--text-gray)', lineHeight: 1.4, minHeight: 32 }}>{p.tagline}</div>
+                        {exists ? (
+                          <div className="badge-pill success" style={{ alignSelf: 'flex-start' }}>✓ Déjà ajouté</div>
+                        ) : (
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            <button
+                              type="button"
+                              onClick={() => publishPreset(p)}
+                              disabled={catalogBusy === p.id}
+                              className="btn btn-primary btn-sm"
+                              style={{ flex: 1 }}
+                            >{catalogBusy === p.id ? '…' : '⚡ Ajouter'}</button>
+                            <button
+                              type="button"
+                              onClick={() => fillFromPreset(p)}
+                              className="btn btn-ghost btn-sm"
+                              title="Pré-remplir le formulaire pour ajuster les tarifs"
+                            >✏️</button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: 12, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                  ⚡ <strong>Ajouter</strong> publie le service immédiatement · ✏️ pré-remplit le formulaire pour ajuster les tarifs avant publication.
+                </div>
+              </div>
+            </div>
+          );
+        })()}
         </main>
       </div>
     </div>
