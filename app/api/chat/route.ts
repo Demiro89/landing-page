@@ -1,16 +1,18 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 import { sendTelegramNotification } from '@/lib/telegram';
+import { isAdminAuthenticated } from '@/lib/adminAuth';
+import { getCurrentCustomer } from '@/lib/clientAuth';
 
 export const dynamic = 'force-dynamic';
 
-// Vérifie si l'utilisateur est authentifié en tant qu'admin
-async function checkIsAdmin(): Promise<boolean> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get('ADMIN_SECRET_TOKEN')?.value;
-  const secretToken = process.env.ADMIN_SECRET_TOKEN || 'SM_SUPER_SECRET_TOKEN_2026';
-  return token === secretToken;
+/** Un client ne peut accéder qu'aux fils liés à ses propres commandes. */
+function ownsOrder(
+  order: { clientEmail: string; customerId: string | null },
+  customer: { id: string; email: string }
+): boolean {
+  if (order.customerId && order.customerId === customer.id) return true;
+  return order.clientEmail.toLowerCase() === customer.email.toLowerCase();
 }
 
 /**
@@ -20,27 +22,21 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const orderId = searchParams.get('orderId');
-    const isAdmin = await checkIsAdmin();
+    const isAdmin = await isAdminAuthenticated();
 
-    // 1. Si admin veut l'historique complet de tous les chats
+    // 1. Admin : historique complet de tous les fils
     if (isAdmin && !orderId) {
       const threads = await prisma.chatThread.findMany({
         include: {
-          messages: {
-            orderBy: { createdAt: 'asc' },
-          },
-          order: {
-            include: {
-              service: true,
-            },
-          },
+          messages: { orderBy: { createdAt: 'asc' } },
+          order: { include: { service: true } },
         },
         orderBy: { createdAt: 'desc' },
       });
       return NextResponse.json({ success: true, threads });
     }
 
-    // 2. Si client ou admin demande les messages d'un ticket spécifique
+    // 2. Messages d'un ticket spécifique
     if (!orderId) {
       return NextResponse.json({ error: 'orderId requis' }, { status: 400 });
     }
@@ -48,14 +44,8 @@ export async function GET(request: Request) {
     const thread = await prisma.chatThread.findUnique({
       where: { orderId },
       include: {
-        messages: {
-          orderBy: { createdAt: 'asc' },
-        },
-        order: {
-          include: {
-            service: true,
-          },
-        },
+        messages: { orderBy: { createdAt: 'asc' } },
+        order: { include: { service: true } },
       },
     });
 
@@ -63,8 +53,19 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Fil de discussion introuvable' }, { status: 404 });
     }
 
+    // Contrôle de propriété : un client ne peut consulter que ses propres fils.
+    if (!isAdmin) {
+      const customer = await getCurrentCustomer();
+      if (!customer) {
+        return NextResponse.json({ error: 'Authentification requise' }, { status: 401 });
+      }
+      if (!thread.order || !ownsOrder(thread.order, customer)) {
+        return NextResponse.json({ error: 'Accès refusé' }, { status: 403 });
+      }
+    }
+
     return NextResponse.json({ success: true, thread });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Erreur GET chat route:', error);
     return NextResponse.json({ error: 'Erreur interne' }, { status: 500 });
   }
@@ -81,65 +82,59 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Paramètres manquants' }, { status: 400 });
     }
 
-    const isAdmin = await checkIsAdmin();
+    const isAdmin = await isAdminAuthenticated();
 
-    // Protection de sécurité cruciale : Seul l'admin connecté peut signer un message "Support StreamMalin"
-    if (sender.includes('Support') && !isAdmin) {
+    // Seul l'admin connecté peut signer un message "Support StreamMalin".
+    if (String(sender).includes('Support') && !isAdmin) {
       return NextResponse.json({ error: 'Non autorisé à envoyer ce type de message' }, { status: 403 });
     }
 
-    // S'assurer que le thread existe
-    let thread = await prisma.chatThread.findUnique({
-      where: { orderId },
+    // La commande correspondante doit exister.
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: { service: true },
     });
+    if (!order) {
+      return NextResponse.json({ error: 'Commande correspondante introuvable' }, { status: 404 });
+    }
 
-    if (!thread) {
-      // Si absent, on essaie de le lier à une commande existante
-      const order = await prisma.order.findUnique({
-        where: { id: orderId },
-        include: { service: true },
-      });
-
-      if (!order) {
-        return NextResponse.json({ error: 'Commande correspondante introuvable' }, { status: 404 });
+    // Contrôle de propriété : un client ne peut écrire que dans ses propres fils.
+    if (!isAdmin) {
+      const customer = await getCurrentCustomer();
+      if (!customer) {
+        return NextResponse.json({ error: 'Authentification requise' }, { status: 401 });
       }
+      if (!ownsOrder(order, customer)) {
+        return NextResponse.json({ error: 'Accès refusé' }, { status: 403 });
+      }
+    }
 
+    // S'assurer que le fil existe.
+    let thread = await prisma.chatThread.findUnique({ where: { orderId } });
+    if (!thread) {
       thread = await prisma.chatThread.create({
-        data: {
-          id: orderId,
-          orderId,
-          title: `Support ${order.service.name}`,
-        },
+        data: { id: orderId, orderId, title: `Support ${order.service.name}` },
       });
     }
 
-    // Créer le message
     const message = await prisma.message.create({
-      data: {
-        threadId: thread.id,
-        sender,
-        text,
-      },
+      data: { threadId: thread.id, sender, text },
     });
 
-    // Notification Telegram uniquement quand c'est le client qui écrit (pas l'admin)
+    // Notification Telegram uniquement quand c'est le client qui écrit.
     if (!isAdmin) {
-      const order = await prisma.order.findUnique({
-        where: { id: orderId },
-        include: { service: true },
-      });
       const preview = text.length > 200 ? text.slice(0, 200) + '…' : text;
       sendTelegramNotification(
         `💬 <b>Nouveau message client</b>\n` +
-        `👤 <b>${order?.clientEmail || 'Inconnu'}</b>\n` +
-        `📺 Service : ${order?.service?.name || orderId}\n` +
+        `👤 <b>${order.clientEmail}</b>\n` +
+        `📺 Service : ${order.service?.name || orderId}\n` +
         `📝 ${preview}\n\n` +
         `🔗 Répondre : https://streammalin.fr/admin`
       ).catch(() => {});
     }
 
     return NextResponse.json({ success: true, message });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Erreur POST chat route:', error);
     return NextResponse.json({ error: 'Erreur interne' }, { status: 500 });
   }

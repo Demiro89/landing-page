@@ -1,15 +1,10 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
+import { isAdminAuthenticated } from '@/lib/adminAuth';
 
 export const dynamic = 'force-dynamic';
 
-async function checkAuth(): Promise<boolean> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get('ADMIN_SECRET_TOKEN')?.value;
-  const secretToken = process.env.ADMIN_SECRET_TOKEN || 'SM_SUPER_SECRET_TOKEN_2026';
-  return token === secretToken;
-}
+const checkAuth = isAdminAuthenticated;
 
 /**
  * GET /api/admin/clients : Liste des clients uniques dérivés des commandes.

@@ -147,3 +147,11 @@ model Setting {
   key   String @id
   value String
 }
+
+// 7. Évènements webhook Stripe déjà traités — garantit l'idempotence
+//    (un évènement rejoué par Stripe ne crée pas de commande en double).
+model ProcessedWebhookEvent {
+  id        String   @id // event.id fourni par Stripe
+  type      String
+  createdAt DateTime @default(now())
+}
