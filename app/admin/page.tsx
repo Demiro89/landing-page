@@ -256,7 +256,7 @@ export default function AdminPage() {
 
   const fillFromPreset = (p: ServicePreset) => {
     setSrvForm({
-      id: p.id, name: p.name, icon: p.icon, gradient: p.gradient,
+      id: uniqueServiceId(p.id), name: p.name, icon: p.icon, gradient: p.gradient,
       price: String(p.price), original: String(p.original),
       tagline: p.tagline, maxSlots: String(p.maxSlots),
       features: p.features.join(', '),
@@ -265,14 +265,21 @@ export default function AdminPage() {
     toast(`« ${p.name} » chargé dans le formulaire`);
   };
 
+  const uniqueServiceId = (base: string) => {
+    if (!services.some(s => s.id === base)) return base;
+    let n = 2;
+    while (services.some(s => s.id === `${base}-${n}`)) n++;
+    return `${base}-${n}`;
+  };
+
   const publishPreset = async (p: ServicePreset) => {
-    if (services.some(s => s.id === p.id)) { toast('Ce service existe déjà'); return; }
+    const id = uniqueServiceId(p.id);
     setCatalogBusy(p.id);
     try {
       const r = await fetch('/api/admin/stock', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'create_service', id: p.id, name: p.name, icon: p.icon, gradient: p.gradient, price: p.price, original: p.original, tagline: p.tagline, maxSlots: p.maxSlots, features: p.features }),
+        body: JSON.stringify({ action: 'create_service', id, name: p.name, icon: p.icon, gradient: p.gradient, price: p.price, original: p.original, tagline: p.tagline, maxSlots: p.maxSlots, features: p.features }),
       });
       const d = await r.json();
       if (d.success) { toast(`Service « ${p.name} » publié !`); loadAll(); }
@@ -1560,7 +1567,7 @@ export default function AdminPage() {
                     <p style={{ color: 'var(--text-muted)', gridColumn: '1 / -1', textAlign: 'center', padding: 20 }}>Aucun service ne correspond à la recherche.</p>
                   )}
                   {filtered.map(p => {
-                    const exists = services.some(s => s.id === p.id);
+                    const count = services.filter(s => s.id === p.id || s.id.startsWith(p.id + '-')).length;
                     return (
                       <div key={p.id} style={{ background: 'rgba(15,23,42,0.5)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -1571,25 +1578,24 @@ export default function AdminPage() {
                           </div>
                         </div>
                         <div style={{ fontSize: '0.74rem', color: 'var(--text-gray)', lineHeight: 1.4, minHeight: 32 }}>{p.tagline}</div>
-                        {exists ? (
-                          <div className="badge-pill success" style={{ alignSelf: 'flex-start' }}>✓ Déjà ajouté</div>
-                        ) : (
-                          <div style={{ display: 'flex', gap: 6 }}>
-                            <button
-                              type="button"
-                              onClick={() => publishPreset(p)}
-                              disabled={catalogBusy === p.id}
-                              className="btn btn-primary btn-sm"
-                              style={{ flex: 1 }}
-                            >{catalogBusy === p.id ? '…' : '⚡ Ajouter'}</button>
-                            <button
-                              type="button"
-                              onClick={() => fillFromPreset(p)}
-                              className="btn btn-ghost btn-sm"
-                              title="Pré-remplir le formulaire pour ajuster les tarifs"
-                            >✏️</button>
-                          </div>
+                        {count > 0 && (
+                          <div className="badge-pill success" style={{ alignSelf: 'flex-start' }}>✓ {count} fiche{count > 1 ? 's' : ''} au catalogue</div>
                         )}
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button
+                            type="button"
+                            onClick={() => publishPreset(p)}
+                            disabled={catalogBusy === p.id}
+                            className="btn btn-primary btn-sm"
+                            style={{ flex: 1 }}
+                          >{catalogBusy === p.id ? '…' : (count > 0 ? '⚡ Ajouter une autre fiche' : '⚡ Ajouter')}</button>
+                          <button
+                            type="button"
+                            onClick={() => fillFromPreset(p)}
+                            className="btn btn-ghost btn-sm"
+                            title="Pré-remplir le formulaire pour ajuster les tarifs"
+                          >✏️</button>
+                        </div>
                       </div>
                     );
                   })}
