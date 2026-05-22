@@ -1,34 +1,33 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getCurrentCustomer } from '@/lib/clientAuth';
 
 export const dynamic = 'force-dynamic';
 
 /**
- * GET /api/client/orders : Récupère les abonnements d'un client par son adresse email.
+ * GET /api/client/orders : commandes du client actuellement connecté.
+ * L'identité provient exclusivement de la session — aucun paramètre email.
  */
-export async function GET(request: Request) {
+export async function GET() {
   try {
-    const { searchParams } = new URL(request.url);
-    const email = searchParams.get('email');
-
-    if (!email) {
-      return NextResponse.json({ error: 'Adresse email requise' }, { status: 400 });
+    const customer = await getCurrentCustomer();
+    if (!customer) {
+      return NextResponse.json({ error: 'Authentification requise' }, { status: 401 });
     }
 
-    const cleanedEmail = email.trim().toLowerCase();
+    // Rattache rétroactivement les anciennes commandes passées avec ce même email.
+    await prisma.order.updateMany({
+      where: { clientEmail: customer.email, customerId: null },
+      data: { customerId: customer.id },
+    });
 
     const orders = await prisma.order.findMany({
-      where: {
-        clientEmail: cleanedEmail,
-        status: 'active',
-      },
+      where: { customerId: customer.id, status: 'active' },
       include: {
         service: true,
         chats: {
           include: {
-            messages: {
-              orderBy: { createdAt: 'asc' },
-            },
+            messages: { orderBy: { createdAt: 'asc' } },
           },
         },
       },
@@ -36,7 +35,7 @@ export async function GET(request: Request) {
     });
 
     return NextResponse.json({ success: true, orders });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Erreur GET client orders:', error);
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
   }

@@ -12,6 +12,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_mock', {
 });
 
 export async function POST(request: Request) {
+  let processedEventId: string | null = null;
   try {
     const body = await request.text();
     const sig = request.headers.get('stripe-signature') || '';
@@ -22,6 +23,19 @@ export async function POST(request: Request) {
     } catch (err: any) {
       console.error('❌ Erreur signature Webhook:', err.message);
       return NextResponse.json({ error: `Webhook Error: ${err.message}` }, { status: 400 });
+    }
+
+    // Idempotence : ne jamais retraiter un évènement déjà reçu (Stripe rejoue les évènements).
+    const alreadyProcessed = await prisma.processedWebhookEvent.findUnique({ where: { id: event.id } });
+    if (alreadyProcessed) {
+      return NextResponse.json({ received: true, duplicate: true });
+    }
+    try {
+      await prisma.processedWebhookEvent.create({ data: { id: event.id, type: event.type } });
+      processedEventId = event.id;
+    } catch {
+      // Livraison concurrente du même évènement : déjà prise en charge.
+      return NextResponse.json({ received: true, duplicate: true });
     }
 
     switch (event.type) {
@@ -247,6 +261,11 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ received: true });
   } catch (error: any) {
+    // Le traitement a échoué : on retire le marqueur d'idempotence pour que
+    // Stripe puisse réessayer la livraison de l'évènement.
+    if (processedEventId) {
+      await prisma.processedWebhookEvent.delete({ where: { id: processedEventId } }).catch(() => {});
+    }
     console.error('Erreur Webhook Stripe:', error);
     return NextResponse.json({ error: 'Erreur interne' }, { status: 500 });
   }

@@ -60,8 +60,8 @@ function CheckoutContent() {
       })
       .finally(() => setLoadingService(false));
 
-    // Fetch crypto addresses from settings (OPTIONS = public)
-    fetch('/api/admin/settings', { method: 'OPTIONS' })
+    // Récupère les paramètres publics du paiement (adresses crypto, passerelles).
+    fetch('/api/settings/public')
       .then(r => r.json())
       .then(d => {
         if (d.success) {

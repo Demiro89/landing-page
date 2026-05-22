@@ -3,8 +3,18 @@ import { cookies } from 'next/headers';
 import { prisma } from './prisma';
 
 const SESSION_COOKIE = 'sm_client_session';
-const SECRET = process.env.CLIENT_SESSION_SECRET || process.env.ADMIN_SECRET_TOKEN || 'SM_CLIENT_DEFAULT_SECRET_2026';
 const SESSION_MAX_AGE = 60 * 60 * 24 * 30; // 30 jours
+
+// Le secret de session est obligatoire : aucune valeur par défaut.
+// Sans lui, n'importe qui pourrait forger un cookie de session valide.
+const RAW_SECRET = process.env.CLIENT_SESSION_SECRET;
+if (!RAW_SECRET || RAW_SECRET.length < 16) {
+  throw new Error(
+    'CLIENT_SESSION_SECRET manquant ou trop court : définissez une valeur secrète aléatoire ' +
+    "d'au moins 16 caractères dans vos variables d'environnement."
+  );
+}
+const SECRET: string = RAW_SECRET;
 
 /* ─── Mots de passe (scrypt) ─────────────────────────────────────────────── */
 export function hashPassword(password: string): string {

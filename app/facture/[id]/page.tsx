@@ -3,6 +3,8 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import { COMPANY, CURRENT_VAT_EXEMPTION_TEXT } from '@/lib/legalConfig';
+import { getCurrentCustomer } from '@/lib/clientAuth';
+import { isAdminAuthenticated } from '@/lib/adminAuth';
 import PrintButton from '@/components/PrintButton';
 
 export const dynamic = 'force-dynamic';
@@ -13,8 +15,25 @@ const fmtDate = (d: Date) =>
 
 export default async function InvoicePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const invoice = await prisma.invoice.findUnique({ where: { id } });
+  const invoice = await prisma.invoice.findUnique({
+    where: { id },
+    include: { order: true },
+  });
   if (!invoice) notFound();
+
+  // Contrôle d'accès : seul l'admin ou le client propriétaire peut voir la facture.
+  const isAdmin = await isAdminAuthenticated();
+  if (!isAdmin) {
+    const customer = await getCurrentCustomer();
+    const email = customer?.email.toLowerCase();
+    const owns = !!customer && (
+      (invoice.order?.customerId != null && invoice.order.customerId === customer.id) ||
+      invoice.clientEmail.toLowerCase() === email ||
+      invoice.order?.clientEmail.toLowerCase() === email
+    );
+    // On renvoie un 404 plutôt qu'un 403 pour ne pas révéler l'existence de la facture.
+    if (!owns) notFound();
+  }
 
   return (
     <div className="invoice-screen">

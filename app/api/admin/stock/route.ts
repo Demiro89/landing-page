@@ -1,18 +1,13 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 import { sendOrderDetailsEmail, sendUnpaidReminderEmail } from '@/lib/nodemailer';
 import { sendTelegramNotification } from '@/lib/telegram';
+import { isAdminAuthenticated } from '@/lib/adminAuth';
 
 export const dynamic = 'force-dynamic';
 
-// Fonction utilitaire de vérification d'authentification
-async function checkAuth(): Promise<boolean> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get('ADMIN_SECRET_TOKEN')?.value;
-  const secretToken = process.env.ADMIN_SECRET_TOKEN || 'SM_SUPER_SECRET_TOKEN_2026';
-  return token === secretToken;
-}
+// Vérification d'authentification admin (centralisée dans lib/adminAuth).
+const checkAuth = isAdminAuthenticated;
 
 /**
  * Récupère l'intégralité du stock, des commandes et calcule les KPIs financiers pour l'admin.
