@@ -165,14 +165,22 @@ export default function CGVPage() {
       <p>
         Conformément aux articles L.612-1 et suivants du Code de la consommation, le client
         consommateur a le droit de recourir gratuitement à un médiateur de la consommation en vue de la
-        résolution amiable d&apos;un litige qui l&apos;opposerait à StreamMalin, après avoir tenté au
-        préalable de le résoudre directement auprès du service client.
+        résolution amiable d&apos;un litige qui l&apos;opposerait à StreamMalin.
+      </p>
+      <p>
+        Conformément aux dispositions du Code de la consommation concernant le processus de médiation
+        des litiges de la consommation, après nous avoir sollicités et à défaut de réponse vous
+        satisfaisant, vous avez la possibilité de recourir gratuitement à une procédure de médiation
+        de la consommation auprès du médiateur dont relève StreamMalin&nbsp;:
       </p>
       <table className="legal-info-table">
         <tbody>
           <tr><td>Médiateur</td><td>{MEDIATION.name}</td></tr>
           <tr><td>Adresse</td><td>{MEDIATION.address}</td></tr>
-          <tr><td>Site web</td><td>{MEDIATION.website}</td></tr>
+          <tr><td>Téléphone</td><td>{MEDIATION.phone}</td></tr>
+          <tr><td>E-mail</td><td><a href={`mailto:${MEDIATION.email}`}>{MEDIATION.email}</a></td></tr>
+          <tr><td>Saisir une médiation</td><td><a href={MEDIATION.declareUrl} target="_blank" rel="noopener noreferrer">{MEDIATION.declareUrl}</a></td></tr>
+          <tr><td>Agrément</td><td>{MEDIATION.approval}</td></tr>
         </tbody>
       </table>
       <p>
