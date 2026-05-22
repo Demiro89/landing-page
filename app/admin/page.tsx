@@ -65,7 +65,15 @@ export default function AdminPage() {
   const [authed, setAuthed] = useState(false);
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
+  const [totpCode, setTotpCode] = useState('');
+  const [needsTotp, setNeedsTotp] = useState(false);
   const [activePage, setActivePage] = useState<AdminPage>('dashboard');
+
+  // Double authentification (2FA / TOTP)
+  const [twoFaEnabled, setTwoFaEnabled] = useState(false);
+  const [twoFaSetup, setTwoFaSetup] = useState<{ secret: string; uri: string } | null>(null);
+  const [twoFaCode, setTwoFaCode] = useState('');
+  const [twoFaBusy, setTwoFaBusy] = useState(false);
 
   const [services, setServices] = useState<Service[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -104,11 +112,16 @@ export default function AdminPage() {
     const r = await fetch('/api/admin/auth', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password }),
+      body: JSON.stringify({ password, totp: totpCode || undefined }),
     });
     const d = await r.json();
-    if (d.success) { setAuthed(true); loadAll(); }
-    else setLoginError('Mot de passe incorrect. Veuillez réessayer.');
+    if (d.success) { setAuthed(true); setNeedsTotp(false); setTotpCode(''); loadAll(); return; }
+    if (d.needsTotp) {
+      setNeedsTotp(true);
+      setLoginError(totpCode ? 'Code de vérification incorrect.' : '');
+      return;
+    }
+    setLoginError('Mot de passe incorrect. Veuillez réessayer.');
   };
 
   const doLogout = async () => {
@@ -118,14 +131,57 @@ export default function AdminPage() {
 
   /* ─── Data ────────────────────────────────────────────────────────────── */
   const loadAll = async () => {
-    const [stockRes, clientRes, settRes] = await Promise.all([
+    const [stockRes, clientRes, settRes, twoFaRes] = await Promise.all([
       fetch('/api/admin/stock').then(r => r.json()),
       fetch('/api/admin/clients').then(r => r.json()),
       fetch('/api/admin/settings').then(r => r.json()),
+      fetch('/api/admin/2fa').then(r => r.json()).catch(() => ({})),
     ]);
     if (stockRes.success) { setServices(stockRes.services); setOrders(stockRes.orders); setKpis(stockRes.kpis); }
     if (clientRes.success) setClients(clientRes.clients);
     if (settRes.success) setSettings(settRes.settings);
+    if (twoFaRes.success) setTwoFaEnabled(twoFaRes.enabled);
+  };
+
+  /* ─── 2FA (TOTP) ──────────────────────────────────────────────────────── */
+  const start2faSetup = async () => {
+    setTwoFaBusy(true);
+    try {
+      const r = await fetch('/api/admin/2fa', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'setup' }),
+      });
+      const d = await r.json();
+      if (d.success) { setTwoFaSetup({ secret: d.secret, uri: d.uri }); setTwoFaCode(''); }
+      else toast(d.error || 'Erreur');
+    } finally { setTwoFaBusy(false); }
+  };
+
+  const confirm2fa = async () => {
+    if (!twoFaSetup) return;
+    setTwoFaBusy(true);
+    try {
+      const r = await fetch('/api/admin/2fa', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'enable', secret: twoFaSetup.secret, token: twoFaCode }),
+      });
+      const d = await r.json();
+      if (d.success) { setTwoFaEnabled(true); setTwoFaSetup(null); setTwoFaCode(''); toast('Double authentification activée !'); }
+      else toast(d.error || 'Code incorrect');
+    } finally { setTwoFaBusy(false); }
+  };
+
+  const disable2fa = async () => {
+    setTwoFaBusy(true);
+    try {
+      const r = await fetch('/api/admin/2fa', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'disable', token: twoFaCode }),
+      });
+      const d = await r.json();
+      if (d.success) { setTwoFaEnabled(false); setTwoFaCode(''); toast('Double authentification désactivée'); }
+      else toast(d.error || 'Code incorrect');
+    } finally { setTwoFaBusy(false); }
   };
 
   const loadSupportThreads = async () => {
@@ -358,6 +414,25 @@ export default function AdminPage() {
                 autoFocus
               />
             </div>
+            {needsTotp && (
+              <div className="form-field">
+                <label className="form-label">Code de vérification (2FA)</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  placeholder="123456"
+                  value={totpCode}
+                  onChange={e => setTotpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  className="dash-input"
+                  required
+                  autoFocus
+                />
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 6 }}>
+                  Saisissez le code à 6 chiffres de votre application d&apos;authentification.
+                </div>
+              </div>
+            )}
             {loginError && <div className="error-box">⚠️ {loginError}</div>}
             <button type="submit" className="btn-pay">🔐 Connexion sécurisée</button>
           </form>
@@ -1380,6 +1455,64 @@ export default function AdminPage() {
                     </div>
                   );
                 })}
+              </div>
+
+              <div className="glass-panel admin-card fade-in-up">
+                <div className="admin-card-head">
+                  <div className="icon-bubble">🔐</div>
+                  Double authentification (2FA)
+                </div>
+                <p className="admin-card-sub">
+                  Protège l&apos;accès admin avec un code à usage unique généré par votre téléphone.
+                </p>
+                {twoFaEnabled ? (
+                  <>
+                    <div className="info-box" style={{ background: 'rgba(16,185,129,0.06)', borderColor: 'rgba(16,185,129,0.2)' }}>
+                      <div className="info-box-title" style={{ color: 'var(--accent-green)' }}>✅ 2FA activée</div>
+                      <div className="info-box-text">Un code à 6 chiffres est demandé à chaque connexion administrateur.</div>
+                    </div>
+                    <div className="form-field" style={{ marginTop: 14 }}>
+                      <label className="form-label">Pour désactiver, saisissez un code de votre application</label>
+                      <input type="text" inputMode="numeric" placeholder="123456" value={twoFaCode}
+                        onChange={e => setTwoFaCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                        className="dash-input" style={{ maxWidth: 200 }} />
+                    </div>
+                    <button onClick={disable2fa} disabled={twoFaBusy || twoFaCode.length !== 6} className="btn btn-danger btn-sm">
+                      {twoFaBusy ? '…' : 'Désactiver la 2FA'}
+                    </button>
+                  </>
+                ) : twoFaSetup ? (
+                  <>
+                    <div className="info-box">
+                      <div className="info-box-title">📱 Étape 1 — Ajoutez le compte</div>
+                      <div className="info-box-text">
+                        Dans Google Authenticator (ou Authy, Microsoft Authenticator…), choisissez
+                        « Saisir une clé de configuration » et entrez la clé ci-dessous.
+                      </div>
+                    </div>
+                    <div style={{ fontFamily: "'SF Mono',Menlo,monospace", fontSize: '1rem', fontWeight: 800, letterSpacing: '0.1em', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '12px 14px', margin: '12px 0', wordBreak: 'break-all', textAlign: 'center', color: 'var(--text-white)' }}>
+                      {twoFaSetup.secret}
+                    </div>
+                    <div className="form-field">
+                      <label className="form-label">Étape 2 — Saisissez le code à 6 chiffres affiché par l&apos;application</label>
+                      <input type="text" inputMode="numeric" placeholder="123456" value={twoFaCode}
+                        onChange={e => setTwoFaCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                        className="dash-input" style={{ maxWidth: 200 }} autoFocus />
+                    </div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button onClick={confirm2fa} disabled={twoFaBusy || twoFaCode.length !== 6} className="btn btn-primary btn-sm">
+                        {twoFaBusy ? '…' : 'Confirmer et activer'}
+                      </button>
+                      <button onClick={() => { setTwoFaSetup(null); setTwoFaCode(''); }} className="btn btn-ghost btn-sm">
+                        Annuler
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <button onClick={start2faSetup} disabled={twoFaBusy} className="btn btn-primary btn-sm">
+                    {twoFaBusy ? '…' : '🔐 Activer la double authentification'}
+                  </button>
+                )}
               </div>
 
               <div className="glass-panel admin-card fade-in-up">

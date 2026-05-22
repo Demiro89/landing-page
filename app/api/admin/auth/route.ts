@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import crypto from 'crypto';
+import { prisma } from '@/lib/prisma';
 import { ADMIN_COOKIE_NAME, readAdminSecret, isAdminAuthenticated } from '@/lib/adminAuth';
 import { enforceRateLimit } from '@/lib/rateLimit';
+import { verifyTotp } from '@/lib/totp';
+import { decrypt } from '@/lib/crypto';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,7 +20,7 @@ function timingSafeEqualStr(a: string, b: string): boolean {
  */
 export async function POST(request: Request) {
   try {
-    const { password, action } = await request.json();
+    const { password, action, totp } = await request.json();
 
     // Gestion de la déconnexion
     if (action === 'logout') {
@@ -51,6 +54,23 @@ export async function POST(request: Request) {
     }
 
     if (typeof password === 'string' && timingSafeEqualStr(password, adminPassword)) {
+      // Second facteur (2FA / TOTP) si activé.
+      const totpEnabled =
+        (await prisma.setting.findUnique({ where: { key: 'admin_totp_enabled' } }))?.value === 'true';
+      if (totpEnabled) {
+        if (!totp) {
+          return NextResponse.json({ success: false, needsTotp: true }, { status: 401 });
+        }
+        const secretRow = await prisma.setting.findUnique({ where: { key: 'admin_totp_secret' } });
+        const secret = secretRow?.value ? decrypt(secretRow.value) : '';
+        if (!secret || !verifyTotp(secret, String(totp))) {
+          return NextResponse.json(
+            { success: false, needsTotp: true, error: 'Code de vérification incorrect' },
+            { status: 401 }
+          );
+        }
+      }
+
       const cookieStore = await cookies();
       cookieStore.set({
         name: ADMIN_COOKIE_NAME,
