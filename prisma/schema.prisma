@@ -155,3 +155,10 @@ model ProcessedWebhookEvent {
   type      String
   createdAt DateTime @default(now())
 }
+
+// 8. Compteurs de limitation de débit (anti brute-force / anti-spam).
+model RateLimit {
+  key       String   @id // ex: "login:1.2.3.4"
+  count     Int      @default(0)
+  windowEnd DateTime
+}

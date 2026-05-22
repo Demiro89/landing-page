@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { sendTelegramNotification } from '@/lib/telegram';
 import { isAdminAuthenticated } from '@/lib/adminAuth';
 import { getCurrentCustomer } from '@/lib/clientAuth';
+import { enforceRateLimit } from '@/lib/rateLimit';
 
 export const dynamic = 'force-dynamic';
 
@@ -76,6 +77,9 @@ export async function GET(request: Request) {
  */
 export async function POST(request: Request) {
   try {
+    const limited = await enforceRateLimit(request, 'chat', 30, 300);
+    if (limited) return limited;
+
     const { orderId, text, sender } = await request.json();
 
     if (!orderId || !text || !sender) {

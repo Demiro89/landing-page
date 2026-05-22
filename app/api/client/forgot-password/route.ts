@@ -2,11 +2,15 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { generateVerificationToken } from '@/lib/clientAuth';
 import { sendResetPasswordEmail } from '@/lib/nodemailer';
+import { enforceRateLimit } from '@/lib/rateLimit';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   try {
+    const limited = await enforceRateLimit(request, 'forgot-password', 5, 3600);
+    if (limited) return limited;
+
     const { email } = await request.json();
     if (!email) {
       return NextResponse.json({ error: 'Email requis' }, { status: 400 });
