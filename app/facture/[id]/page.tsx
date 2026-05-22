@@ -82,7 +82,8 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
             <p><strong>{COMPANY.legalName}</strong></p>
             <p>Nom commercial : {COMPANY.brandName}</p>
             <p>{COMPANY.status}</p>
-            <p>SIREN / SIRET : {COMPANY.siren} / {COMPANY.siret}</p>
+            <p>SIREN : {COMPANY.siren}{COMPANY.siret ? ` — SIRET : ${COMPANY.siret}` : ''}</p>
+            <p>{COMPANY.rcs}</p>
             <p>{COMPANY.address}</p>
             <p>{COMPANY.email}</p>
           </div>
