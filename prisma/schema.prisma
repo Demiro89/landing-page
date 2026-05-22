@@ -69,7 +69,44 @@ model Order {
   cardExpMonth         Int?
   cardExpYear          Int?
   nextBillingAt        DateTime?
+  // Preuve d'acceptation des conditions de vente (checkout)
+  acceptedCgv                Boolean   @default(false)
+  acceptedImmediateExecution Boolean   @default(false)
+  acceptedAt                 DateTime?
+  acceptanceUserAgent        String?
+  acceptanceIp               String?
   chats          ChatThread?
+  invoice        Invoice?
+}
+
+// 5. Factures émises (facturation micro-entreprise)
+model Invoice {
+  id            String   @id @default(cuid())
+  number        String   @unique // ex: SM-2026-0001
+  orderId       String   @unique
+  order         Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  issuedAt      DateTime @default(now())
+  paidAt        DateTime
+  clientEmail   String
+  clientName    String?
+  clientAddress String?
+  serviceName   String
+  description   String
+  durationLabel String   @default("1 mois")
+  quantity      Int      @default(1)
+  unitPriceHT   Float
+  totalHT       Float
+  vatAmount     Float    @default(0)
+  totalTTC      Float
+  paymentMethod String   // "Carte bancaire (Stripe)" | "PayPal"
+  status        String   @default("Payée")
+  createdAt     DateTime @default(now())
+}
+
+// Compteurs séquentiels (numérotation continue des factures)
+model Counter {
+  id    String @id // ex: "invoice-2026"
+  value Int    @default(0)
 }
 
 // 3-bis. Comptes clients (auth email/mot de passe)

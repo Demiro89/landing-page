@@ -1457,6 +1457,42 @@ select.dash-input option, select option { background: #14151f; color: var(--text
   display: flex; align-items: center; gap: 8px;
 }
 
+/* ─── LEGAL PAGES ─── */
+.legal-wrap {
+  max-width: 860px; margin: 0 auto; padding: 120px 24px 72px;
+  position: relative; z-index: 1;
+}
+.legal-wrap h1 { font-size: 2rem; font-weight: 800; color: var(--text-white); margin: 0 0 6px; }
+.legal-updated { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 28px; }
+.legal-wrap h2 {
+  font-size: 1.12rem; font-weight: 700; color: var(--text-white);
+  margin: 38px 0 12px; padding-top: 22px; border-top: 1px solid rgba(255,255,255,0.06);
+  scroll-margin-top: 90px;
+}
+.legal-wrap h3 { font-size: 0.96rem; font-weight: 700; color: var(--text-white); margin: 22px 0 8px; }
+.legal-wrap p, .legal-wrap li { font-size: 0.9rem; line-height: 1.75; color: var(--text-gray); }
+.legal-wrap p { margin: 0 0 12px; }
+.legal-wrap ul { padding-left: 22px; margin: 10px 0 14px; list-style: disc; }
+.legal-wrap li { margin-bottom: 6px; }
+.legal-wrap strong { color: var(--text-white); font-weight: 700; }
+.legal-wrap a { color: var(--primary); }
+.legal-callout {
+  background: rgba(168,85,247,0.08); border: 1px solid rgba(168,85,247,0.22);
+  border-radius: 12px; padding: 14px 18px; margin: 18px 0;
+}
+.legal-callout p:last-child { margin-bottom: 0; }
+.legal-toc { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 30px; }
+.legal-toc a {
+  font-size: 0.76rem; padding: 5px 12px; border-radius: 50px;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+  color: var(--text-gray); text-decoration: none;
+}
+.legal-toc a:hover { border-color: var(--primary); color: var(--text-white); }
+.legal-info-table { width: 100%; border-collapse: collapse; margin: 12px 0 16px; }
+.legal-info-table td { padding: 9px 12px; font-size: 0.86rem; border-bottom: 1px solid rgba(255,255,255,0.05); vertical-align: top; }
+.legal-info-table td:first-child { color: var(--text-muted); width: 200px; font-weight: 600; }
+.legal-info-table td:last-child { color: var(--text-gray); }
+
 /* ─── RESPONSIVE ─── */
 @media (max-width: 768px) {
   .section { padding: 70px 20px; }
@@ -1465,4 +1501,6 @@ select.dash-input option, select option { background: #14151f; color: var(--text
   .comparison { padding: 24px 16px; }
   .share-item { padding: 16px; gap: 12px; flex-wrap: wrap; }
   .share-price { width: 100%; text-align: left; }
+  .legal-wrap { padding: 100px 18px 56px; }
+  .legal-info-table td:first-child { width: 130px; }
 }

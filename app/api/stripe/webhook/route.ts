@@ -3,10 +3,11 @@ import Stripe from 'stripe';
 import { prisma } from '@/lib/prisma';
 import { sendOrderDetailsEmail, sendUnpaidReminderEmail } from '@/lib/nodemailer';
 import { sendTelegramNotification } from '@/lib/telegram';
+import { createInvoiceForOrder } from '@/lib/invoice';
 
 export const dynamic = 'force-dynamic';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_mock', {
   apiVersion: '2023-10-16' as any,
 });
 
@@ -30,7 +31,7 @@ export async function POST(request: Request) {
         const metadata = session.metadata;
         if (!metadata) break;
 
-        const { serviceId, stockAccountId, clientEmail, price, migrateOrderId, youtubeEmail } = metadata as any;
+        const { serviceId, stockAccountId, clientEmail, price, migrateOrderId, youtubeEmail, acceptedAt, acceptanceUserAgent, acceptanceIp } = metadata as any;
 
         // Cas 1 : migration d'une commande existante vers Stripe Subscription
         if (migrateOrderId && session.subscription) {
@@ -97,6 +98,11 @@ export async function POST(request: Request) {
               cardExpMonth: pm?.card?.exp_month || null,
               cardExpYear: pm?.card?.exp_year || null,
               nextBillingAt: sub ? new Date((sub.items.data[0]?.current_period_end || 0) * 1000) : new Date(Date.now() + 30 * 86400000),
+              acceptedCgv: true,
+              acceptedImmediateExecution: true,
+              acceptedAt: acceptedAt ? new Date(acceptedAt) : new Date(),
+              acceptanceUserAgent: acceptanceUserAgent || null,
+              acceptanceIp: acceptanceIp || null,
             },
           });
           await tx.chatThread.create({
@@ -109,7 +115,18 @@ export async function POST(request: Request) {
           });
           return createdOrder;
         });
-        await sendOrderDetailsEmail(clientEmail, service.name, stockAccount.details, order.id, youtubeEmail || undefined);
+        const invoice = await createInvoiceForOrder({
+          orderId: order.id,
+          clientEmail,
+          serviceName: service.name,
+          amount: order.total,
+          paymentMethod: 'Carte bancaire (Stripe)',
+        }).catch((err) => { console.error('[invoice] webhook error:', err); return null; });
+        await sendOrderDetailsEmail(clientEmail, service.name, stockAccount.details, order.id, youtubeEmail || undefined, {
+          amount: order.total,
+          invoiceId: invoice?.id,
+          invoiceNumber: invoice?.number,
+        });
         if (serviceId === 'youtube' && youtubeEmail) {
           sendTelegramNotification(
             `▶️ <b>Nouvelle commande YouTube Premium</b>\n👤 ${clientEmail}\n📧 <b>Email YouTube à inviter :</b> <code>${youtubeEmail}</code>\n💶 ${parsedPrice.toFixed(2)}€`

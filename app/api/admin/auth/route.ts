@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * API pour gérer l'authentification Administrateur via cookie httpOnly fait maison.
  */
