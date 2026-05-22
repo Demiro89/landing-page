@@ -16,12 +16,8 @@ export const COMPANY = {
   siren: '104 981 014',
   /** Immatriculation au Registre du Commerce et des Sociétés */
   rcs: 'RCS Auxerre 104 981 014',
-  /**
-   * Numéro SIRET (14 chiffres = SIREN + code établissement NIC).
-   * Laisser vide tant que le NIC n'est pas connu — il figure sur
-   * l'avis de situation au répertoire SIRENE (insee.fr/sirene).
-   */
-  siret: '',
+  /** Numéro SIRET du siège (14 chiffres = SIREN + code établissement NIC) */
+  siret: '104 981 014 00012',
   /** Code d'activité (NAF/APE) */
   nafCode: '4791A',
   /** Adresse professionnelle déclarée */
