@@ -45,6 +45,8 @@ function CheckoutContent() {
   const [copied, setCopied] = useState('');
   const [acceptedCgv, setAcceptedCgv] = useState(false);
   const [acceptedImmediate, setAcceptedImmediate] = useState(false);
+  const [manualOrderId, setManualOrderId] = useState<string | null>(null);
+  const [manualBusy, setManualBusy] = useState(false);
 
   const consentOk = acceptedCgv && acceptedImmediate;
 
@@ -124,6 +126,51 @@ function CheckoutContent() {
     setTimeout(() => setCopied(''), 2000);
   };
 
+  // Enregistre une commande « en attente » pour les paiements PayPal / crypto.
+  const createManualOrder = async (method: 'paypal' | 'crypto'): Promise<string | null> => {
+    if (!serviceId || !stockId || !email) {
+      setErrorMsg('Merci de renseigner votre adresse email.');
+      return null;
+    }
+    if (isYoutube && !youtubeEmail.trim()) {
+      setErrorMsg('Merci d\'indiquer votre adresse e-mail YouTube.');
+      return null;
+    }
+    if (!consentOk) {
+      setErrorMsg('Merci d\'accepter les CGV et la demande d\'exécution immédiate.');
+      return null;
+    }
+    setManualBusy(true);
+    setErrorMsg('');
+    try {
+      const res = await fetch('/api/checkout/manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          serviceId,
+          stockAccountId: stockId,
+          email: email.trim().toLowerCase(),
+          youtubeEmail: isYoutube ? youtubeEmail.trim().toLowerCase() : undefined,
+          paymentMethod: method,
+          acceptedCgv,
+          acceptedImmediateExecution: acceptedImmediate,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.orderId) {
+        setManualOrderId(data.orderId);
+        return data.orderId;
+      }
+      setErrorMsg(data.error || 'Erreur lors de l\'enregistrement de la commande.');
+      return null;
+    } catch {
+      setErrorMsg('Erreur de communication avec le serveur.');
+      return null;
+    } finally {
+      setManualBusy(false);
+    }
+  };
+
   const savings = service ? (service.original - service.price).toFixed(2) : '0.00';
 
   if (loadingService) {
@@ -151,6 +198,9 @@ function CheckoutContent() {
 
   const cryptoPrecision = (coin: CryptoCoin) =>
     coin === 'btc' ? 6 : coin === 'eth' ? 5 : coin === 'usdt' ? 2 : 4;
+
+  const orderRef = manualOrderId ? manualOrderId.slice(0, 8).toUpperCase() : '';
+  const paypalUrl = `https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=novateurlabeille%40gmail.com&amount=${service.price.toFixed(2)}&currency_code=EUR&item_name=StreamMalin+-+${encodeURIComponent(service.name)}&no_shipping=1`;
 
   return (
     <div style={{ minHeight: '100vh', position: 'relative' }}>
@@ -201,7 +251,7 @@ function CheckoutContent() {
               ]).map(tab => (
                 <button
                   key={tab.id}
-                  onClick={() => setPayTab(tab.id)}
+                  onClick={() => { setPayTab(tab.id); setManualOrderId(null); setErrorMsg(''); }}
                   className={`pay-tab ${payTab === tab.id ? 'active' : ''}`}
                 >
                   <span className="pay-icon">{tab.icon}</span>
@@ -352,24 +402,38 @@ function CheckoutContent() {
                   </div>
                 </div>
 
-                {consentOk ? (
-                  <a
-                    href={`https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=novateurlabeille%40gmail.com&amount=${service.price.toFixed(2)}&currency_code=EUR&item_name=StreamMalin+-+${encodeURIComponent(service.name)}&no_shipping=1`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn btn-primary"
-                    style={{ display: 'block', textAlign: 'center', marginTop: 12, background: '#0070ba', boxShadow: '0 4px 16px rgba(0,112,186,0.35)' }}
-                  >
-                    🅿️ Payer {service.price.toFixed(2)}€ via PayPal →
-                  </a>
+                {manualOrderId ? (
+                  <div className="info-box" style={{ marginTop: 12, borderColor: 'rgba(16,185,129,0.3)', background: 'rgba(16,185,129,0.06)' }}>
+                    <div className="info-box-title" style={{ color: 'var(--accent-green)' }}>
+                      ✅ Commande enregistrée — référence {orderRef}
+                    </div>
+                    <div className="info-box-text">
+                      Effectuez le paiement PayPal en indiquant la référence{' '}
+                      <strong style={{ color: 'var(--text-white)' }}>{orderRef}</strong> dans la note.
+                      Vos accès seront activés dès vérification du paiement reçu.
+                    </div>
+                    <a
+                      href={paypalUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-primary"
+                      style={{ display: 'block', textAlign: 'center', marginTop: 10, background: '#0070ba' }}
+                    >
+                      🅿️ Rouvrir PayPal →
+                    </a>
+                  </div>
                 ) : (
                   <button
                     type="button"
-                    disabled
+                    disabled={!consentOk || manualBusy || !email}
+                    onClick={async () => {
+                      const id = await createManualOrder('paypal');
+                      if (id) window.open(paypalUrl, '_blank', 'noopener,noreferrer');
+                    }}
                     className="btn btn-primary"
-                    style={{ display: 'block', width: '100%', textAlign: 'center', marginTop: 12, opacity: 0.5, cursor: 'not-allowed' }}
+                    style={{ display: 'block', width: '100%', textAlign: 'center', marginTop: 12, background: consentOk ? '#0070ba' : undefined, opacity: consentOk ? 1 : 0.5, cursor: consentOk ? 'pointer' : 'not-allowed' }}
                   >
-                    Acceptez les CGV pour continuer
+                    {manualBusy ? 'Enregistrement…' : !consentOk ? 'Acceptez les CGV pour continuer' : `🅿️ Payer ${service.price.toFixed(2)}€ via PayPal →`}
                   </button>
                 )}
 
@@ -433,6 +497,29 @@ function CheckoutContent() {
                     </button>
                   )}
                 </div>
+
+                {manualOrderId ? (
+                  <div className="info-box" style={{ marginTop: 14, borderColor: 'rgba(16,185,129,0.3)', background: 'rgba(16,185,129,0.06)' }}>
+                    <div className="info-box-title" style={{ color: 'var(--accent-green)' }}>
+                      ✅ Commande enregistrée — référence {orderRef}
+                    </div>
+                    <div className="info-box-text">
+                      Envoyez le paiement à l&apos;adresse ci-dessus, puis transmettez votre TXID à{' '}
+                      <strong style={{ color: 'var(--text-white)' }}>hello@streammalin.fr</strong> en précisant la
+                      référence <strong style={{ color: 'var(--text-white)' }}>{orderRef}</strong>.
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={!consentOk || manualBusy || !email || !cryptoAddr[activeCoin]}
+                    onClick={() => createManualOrder('crypto')}
+                    className="btn btn-primary"
+                    style={{ display: 'block', width: '100%', textAlign: 'center', marginTop: 14, opacity: (consentOk && cryptoAddr[activeCoin]) ? 1 : 0.5, cursor: (consentOk && cryptoAddr[activeCoin]) ? 'pointer' : 'not-allowed' }}
+                  >
+                    {manualBusy ? 'Enregistrement…' : !consentOk ? 'Acceptez les CGV pour continuer' : '✅ Enregistrer ma commande crypto'}
+                  </button>
+                )}
 
                 <div className="warn-box" style={{ marginTop: 16 }}>
                   <strong>⚠️ Important :</strong> Une fois la transaction envoyée, transmettez le <strong>TXID</strong> à <strong>hello@streammalin.fr</strong> avec votre email de livraison. Votre slot sera activé sous 1h max après {activeCoin === 'btc' ? '1-3' : '2-12'} confirmation{activeCoin === 'btc' ? 's' : ''} réseau.

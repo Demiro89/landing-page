@@ -105,6 +105,7 @@ export async function POST(request: Request) {
               details: updatedStock.details,
               clientEmail,
               youtubeEmail: youtubeEmail || null,
+              paymentMethod: 'Carte bancaire (Stripe)',
               status: 'active',
               stripeSubscriptionId: sub?.id || null,
               stripeCustomerId,

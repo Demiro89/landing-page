@@ -18,6 +18,8 @@ interface Order {
   clientEmail: string; youtubeEmail?: string | null; status: string; details: string;
   serviceId: string;
   stockAccountId: string;
+  paymentMethod?: string | null;
+  acceptanceIp?: string | null;
   cancellationRequestedAt?: string | null;
   cancellationEffectiveAt?: string | null;
   unpaidSince?: string | null;
@@ -26,7 +28,7 @@ interface Order {
   nextBillingAt?: string | null;
   cardLast4?: string | null;
   cardBrand?: string | null;
-  service: { name: string; icon: string };
+  service: { name: string; icon: string; gradient?: string };
   stockAccount: { accountsBoughtPrice: number };
 }
 interface Kpis {
@@ -47,7 +49,7 @@ interface Client {
 }
 interface Settings { [key: string]: string }
 
-type AdminPage = 'dashboard' | 'stocks' | 'services' | 'subscribers' | 'clients' | 'unpaid' | 'cancellations' | 'support' | 'settings';
+type AdminPage = 'dashboard' | 'pending' | 'stocks' | 'services' | 'subscribers' | 'clients' | 'unpaid' | 'cancellations' | 'support' | 'settings';
 
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
 const fmt = (n: number) => n.toFixed(2).replace('.', ',') + '€';
@@ -182,6 +184,29 @@ export default function AdminPage() {
       if (d.success) { setTwoFaEnabled(false); setTwoFaCode(''); toast('Double authentification désactivée'); }
       else toast(d.error || 'Code incorrect');
     } finally { setTwoFaBusy(false); }
+  };
+
+  /* ─── Validation des commandes manuelles (PayPal / crypto) ────────────── */
+  const validateOrder = async (orderId: string) => {
+    if (!confirm('Valider cette commande ? Les identifiants seront livrés au client par email.')) return;
+    const r = await fetch('/api/admin/stock', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'validate_order', orderId }),
+    });
+    const d = await r.json();
+    if (d.success) { toast('Commande validée et livrée !'); loadAll(); }
+    else toast(d.error || 'Erreur');
+  };
+
+  const rejectOrder = async (orderId: string) => {
+    if (!confirm('Refuser cette commande en attente ?')) return;
+    const r = await fetch('/api/admin/stock', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'reject_order', orderId }),
+    });
+    const d = await r.json();
+    if (d.success) { toast('Commande refusée'); loadAll(); }
+    else toast(d.error || 'Erreur');
   };
 
   const loadSupportThreads = async () => {
@@ -450,6 +475,7 @@ export default function AdminPage() {
 
   const navItems: [AdminPage, string, string][] = [
     ['dashboard', '📊', 'Tableau de bord'],
+    ['pending', '🕓', 'Commandes à valider'],
     ['stocks', '📦', 'Gestion des Stocks'],
     ['services', '🎬', 'Gestion des Services'],
     ['subscribers', '🎫', 'Abonnés par service'],
@@ -636,6 +662,60 @@ export default function AdminPage() {
               </div>
             </div>
           )}
+
+          {/* ── COMMANDES À VALIDER ── */}
+          {activePage === 'pending' && (() => {
+            const pending = orders.filter(o => o.status === 'pending');
+            return (
+              <div style={{ position: 'relative', zIndex: 1 }}>
+                <div className="admin-section-head fade-in-up">
+                  <div className="eyebrow">🕓 Validation</div>
+                  <h1>Commandes <span className="gradient-text">à valider</span></h1>
+                  <p>Paiements PayPal et crypto enregistrés, en attente de votre vérification.</p>
+                </div>
+
+                {pending.length === 0 ? (
+                  <div className="dash-empty">
+                    <div className="dash-empty-icon">✅</div>
+                    <p>Aucune commande en attente. Les paiements PayPal et crypto apparaîtront ici.</p>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {pending.map(o => (
+                      <div key={o.id} className="glass-panel admin-card fade-in-up">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                          <span style={{ width: 40, height: 40, borderRadius: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', background: o.service?.gradient || 'rgba(255,255,255,0.06)' }}>
+                            {o.service?.icon}
+                          </span>
+                          <div style={{ flex: 1, minWidth: 200 }}>
+                            <div style={{ fontWeight: 800 }}>{o.service?.name || o.serviceId}</div>
+                            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{o.clientEmail}</div>
+                          </div>
+                          <span className="badge-pill" style={{ background: 'rgba(245,158,11,0.13)', color: 'var(--accent-yellow)', border: '1px solid rgba(245,158,11,0.25)' }}>
+                            {o.paymentMethod || 'Paiement manuel'}
+                          </span>
+                          <span style={{ fontWeight: 900, fontSize: '1.1rem' }}>{o.total.toFixed(2)}€</span>
+                        </div>
+                        <div style={{ fontSize: '0.73rem', color: 'var(--text-muted)', marginTop: 10, fontFamily: "'SF Mono',Menlo,monospace", lineHeight: 1.7 }}>
+                          Réf. {o.id.slice(0, 8).toUpperCase()} · {new Date(o.date).toLocaleString('fr-FR')}
+                          {o.acceptanceIp ? ` · CGV acceptées depuis ${o.acceptanceIp}` : ''}
+                          {o.youtubeEmail ? ` · YouTube : ${o.youtubeEmail}` : ''}
+                        </div>
+                        <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                          <button onClick={() => validateOrder(o.id)} className="btn btn-primary btn-sm">
+                            ✅ Valider &amp; livrer
+                          </button>
+                          <button onClick={() => rejectOrder(o.id)} className="btn btn-danger btn-sm">
+                            ✕ Refuser
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* ── STOCKS ── */}
           {activePage === 'stocks' && (

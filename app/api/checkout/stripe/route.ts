@@ -68,6 +68,7 @@ export async function POST(request: Request) {
             details: updatedStock.details,
             clientEmail: email,
             youtubeEmail: youtubeEmail || null,
+            paymentMethod: 'Carte bancaire (Stripe)',
             status: 'active',
             nextBillingAt: new Date(Date.now() + 30 * 86400000),
             acceptedCgv: true,
