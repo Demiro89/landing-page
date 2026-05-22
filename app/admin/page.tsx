@@ -77,6 +77,10 @@ export default function AdminPage() {
   const [twoFaCode, setTwoFaCode] = useState('');
   const [twoFaBusy, setTwoFaBusy] = useState(false);
 
+  // Chiffrement des données héritées
+  const [encryptBusy, setEncryptBusy] = useState(false);
+  const [encryptResult, setEncryptResult] = useState('');
+
   const [services, setServices] = useState<Service[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [kpis, setKpis] = useState<Kpis>({ totalRevenue: 0, totalCogs: 0, totalInvestment: 0, netProfit: 0, marginPercentage: 0 });
@@ -184,6 +188,26 @@ export default function AdminPage() {
       if (d.success) { setTwoFaEnabled(false); setTwoFaCode(''); toast('Double authentification désactivée'); }
       else toast(d.error || 'Code incorrect');
     } finally { setTwoFaBusy(false); }
+  };
+
+  /* ─── Chiffrement des identifiants hérités ────────────────────────────── */
+  const runLegacyEncryption = async () => {
+    if (!confirm('Chiffrer tous les identifiants encore en clair dans la base ? Action sûre et relançable.')) return;
+    setEncryptBusy(true);
+    try {
+      const r = await fetch('/api/admin/encrypt-legacy', { method: 'POST' });
+      const d = await r.json();
+      if (d.success) {
+        setEncryptResult(`${d.stocksDone} compte(s) de stock et ${d.ordersDone} commande(s) chiffré(s).`);
+        toast('Chiffrement terminé !');
+      } else {
+        toast(d.error || 'Erreur');
+      }
+    } catch {
+      toast('Erreur réseau');
+    } finally {
+      setEncryptBusy(false);
+    }
   };
 
   /* ─── Validation des commandes manuelles (PayPal / crypto) ────────────── */
@@ -1593,6 +1617,31 @@ export default function AdminPage() {
                     {twoFaBusy ? '…' : '🔐 Activer la double authentification'}
                   </button>
                 )}
+              </div>
+
+              <div className="glass-panel admin-card fade-in-up">
+                <div className="admin-card-head">
+                  <div className="icon-bubble">🔒</div>
+                  Chiffrement des données
+                </div>
+                <p className="admin-card-sub">
+                  Chiffre les identifiants des comptes encore stockés en clair (anciennes données).
+                  Les nouveaux ajouts sont déjà chiffrés automatiquement. Action sûre et relançable.
+                </p>
+                {encryptResult && (
+                  <div className="info-box" style={{ background: 'rgba(16,185,129,0.06)', borderColor: 'rgba(16,185,129,0.2)' }}>
+                    <div className="info-box-title" style={{ color: 'var(--accent-green)' }}>✅ Chiffrement terminé</div>
+                    <div className="info-box-text">{encryptResult}</div>
+                  </div>
+                )}
+                <button
+                  onClick={runLegacyEncryption}
+                  disabled={encryptBusy}
+                  className="btn btn-primary btn-sm"
+                  style={{ marginTop: encryptResult ? 12 : 0 }}
+                >
+                  {encryptBusy ? '⏳ Chiffrement en cours…' : '🔒 Chiffrer les anciens identifiants'}
+                </button>
               </div>
 
               <div className="glass-panel admin-card fade-in-up">
