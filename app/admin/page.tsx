@@ -1646,6 +1646,31 @@ function ServiceEditCard({ svc, onSave, onToggle, onDelete, onEditStock, onAddSt
         </span>
       </h4>
 
+      <div className="form-field" style={{ background: 'rgba(168,85,247,0.06)', border: '1px solid rgba(168,85,247,0.2)', borderRadius: 10, padding: '10px 12px' }}>
+        <label className="form-label" style={{ marginBottom: 6 }}>🎯 Normaliser selon le catalogue</label>
+        <select
+          value=""
+          onChange={e => {
+            const preset = SERVICE_CATALOG.find(p => p.id === e.target.value);
+            if (!preset) return;
+            setLocal(l => ({ ...l, name: preset.name, tagline: preset.tagline, icon: preset.icon, gradient: preset.gradient, features: [...preset.features] }));
+          }}
+          className="dash-input"
+        >
+          <option value="">— Choisir un modèle de référence —</option>
+          {CATALOG_CATEGORIES.map(cat => (
+            <optgroup key={cat.id} label={`${cat.icon} ${cat.label}`}>
+              {SERVICE_CATALOG.filter(p => p.category === cat.id).map(p => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+        <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: 6, fontStyle: 'italic' }}>
+          Aligne le nom, l&apos;accroche, l&apos;icône et les caractéristiques sur le modèle officiel — pour que tous les services similaires soient écrits exactement pareil. Le prix et les places restent inchangés. Cliquez ensuite sur « Sauvegarder ».
+        </div>
+      </div>
+
       <div className="form-field">
         <label className="form-label">Nom affiché</label>
         <input type="text" value={local.name} onChange={e => setLocal(l => ({ ...l, name: e.target.value }))}
