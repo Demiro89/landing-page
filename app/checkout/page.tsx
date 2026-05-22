@@ -422,7 +422,7 @@ function CheckoutContent() {
                     Adresse de réception
                   </div>
                   <div className="crypto-addr">
-                    {cryptoAddr[activeCoin] || '⚠️ Adresse non configurée — contactez novateurlabeille@gmail.com'}
+                    {cryptoAddr[activeCoin] || '⚠️ Adresse non configurée — contactez hello@streammalin.fr'}
                   </div>
                   {cryptoAddr[activeCoin] && (
                     <button
@@ -435,7 +435,7 @@ function CheckoutContent() {
                 </div>
 
                 <div className="warn-box" style={{ marginTop: 16 }}>
-                  <strong>⚠️ Important :</strong> Une fois la transaction envoyée, transmettez le <strong>TXID</strong> à <strong>novateurlabeille@gmail.com</strong> avec votre email de livraison. Votre slot sera activé sous 1h max après {activeCoin === 'btc' ? '1-3' : '2-12'} confirmation{activeCoin === 'btc' ? 's' : ''} réseau.
+                  <strong>⚠️ Important :</strong> Une fois la transaction envoyée, transmettez le <strong>TXID</strong> à <strong>hello@streammalin.fr</strong> avec votre email de livraison. Votre slot sera activé sous 1h max après {activeCoin === 'btc' ? '1-3' : '2-12'} confirmation{activeCoin === 'btc' ? 's' : ''} réseau.
                 </div>
 
                 <div className="trust-row">
