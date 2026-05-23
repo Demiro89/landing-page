@@ -64,6 +64,13 @@ const fmt = (n: number) => n.toFixed(2).replace('.', ',') + '€';
 
 const accentStyle = (value: string): AccentStyle => ({ '--accent-color': value });
 const serviceFields: Array<{ label: string; key: ServiceFormKey; placeholder: string; type?: string }> = [
+  { label: 'Identifiant (minuscules)', key: 'id', placeholder: 'netflix' },
+  { label: 'Nom du service', key: 'name', placeholder: 'Netflix Premium' },
+  { label: 'Icône / Emoji', key: 'icon', placeholder: '🍿' },
+  { label: 'Prix location (€)', key: 'price', placeholder: '4.99', type: 'number' },
+  { label: 'Tarif public (€)', key: 'original', placeholder: '19.99', type: 'number' },
+  { label: 'Phrase d\'accroche', key: 'tagline', placeholder: 'Séries et films Ultra HD' },
+  { label: 'Places max', key: 'maxSlots', placeholder: '4', type: 'number' },
 ];
 
 function toast(msg: string) {
