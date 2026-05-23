@@ -26,7 +26,7 @@ const DEFAULT_SERVICES = [
     active: true,
     icon: '▶',
     gradient: 'linear-gradient(135deg, #ff0000 0%, #b30000 100%)',
-    features: ['Zéro publicité sur YouTube', 'Lecture en arrière-plan', 'YouTube Music Premium', 'Téléchargement hors-ligne', 'Accès immédiat après achat'],
+    features: ['Sans publicité sur YouTube', 'Lecture en arrière-plan', 'YouTube Music Premium', 'Téléchargement hors-ligne', 'Accès transmis après validation'],
   },
   {
     id: 'spotify',
@@ -50,7 +50,7 @@ const DEFAULT_SERVICES = [
     active: true,
     icon: '✦',
     gradient: 'linear-gradient(135deg, #0063e5 0%, #002d6b 100%)',
-    features: ['Catalogue complet Disney+', 'Qualité 4K HDR & Dolby Atmos', 'Profil individuel dédié', 'Téléchargement hors-ligne', 'Accès immédiat après achat'],
+    features: ['Catalogue Disney+', 'Qualité 4K HDR & Dolby Atmos selon offre', 'Profil individuel dédié', 'Téléchargement hors-ligne', 'Accès transmis après validation'],
   },
   {
     id: 'surfshark',
@@ -62,7 +62,7 @@ const DEFAULT_SERVICES = [
     active: true,
     icon: '🦈',
     gradient: 'linear-gradient(135deg, hsl(175, 100%, 45%), hsl(182, 100%, 25%))',
-    features: ['Connexions simultanées illimitées', 'Bloqueur de pubs et trackers', '3200+ serveurs dans 100 pays', 'Politique stricte No-Logs', 'Accès immédiat après achat'],
+    features: ['Connexions simultanées selon offre', 'Bloqueur de pubs et trackers', 'Serveurs dans plusieurs pays', 'Politique No-Logs annoncée par le fournisseur', 'Accès transmis après validation'],
   },
 ];
 
@@ -115,8 +115,9 @@ export async function GET() {
     });
 
     return NextResponse.json({ success: true, services: formattedServices });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Erreur GET public services:', error);
-    return NextResponse.json({ error: error.message || 'Erreur serveur' }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'Erreur serveur';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

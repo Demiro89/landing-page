@@ -15,8 +15,8 @@ const COLUMNS: { title: string; links: { label: string; href: string }[] }[] = [
     title: 'Aide & support',
     links: [
       { label: 'Contact / Support', href: `mailto:${COMPANY.email}` },
-      { label: 'Réclamation', href: '/cgv#reclamations' },
-      { label: 'Médiation de la consommation', href: '/cgv#mediation' },
+      { label: 'Réclamation', href: '/reclamation' },
+      { label: 'Médiation de la consommation', href: '/mediation' },
       { label: 'FAQ & guide des abonnements', href: '/#faq' },
     ],
   },
@@ -24,9 +24,9 @@ const COLUMNS: { title: string; links: { label: string; href: string }[] }[] = [
     title: 'StreamMalin',
     links: [
       { label: 'Nos offres', href: '/#offres' },
-      { label: 'Non-affiliation', href: '/mentions-legales#non-affiliation' },
-      { label: 'Droit de rétractation', href: '/cgv#retractation' },
-      { label: 'Remboursements', href: '/cgv#remboursements' },
+      { label: 'Non-affiliation', href: '/non-affiliation' },
+      { label: 'Droit de rétractation', href: '/retractation' },
+      { label: 'Remboursements', href: '/remboursements' },
     ],
   },
 ];

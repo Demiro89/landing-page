@@ -6,10 +6,11 @@ import { getCurrentCustomer } from '@/lib/clientAuth';
 export const dynamic = 'force-dynamic';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_mock', {
-  apiVersion: '2023-10-16' as any,
+  apiVersion: '2026-04-22.dahlia',
 });
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+const errorMessage = (error: unknown) => error instanceof Error ? error.message : 'Erreur serveur';
 
 /**
  * Migre une commande existante (PayPal/manuel) vers un abonnement Stripe.
@@ -49,7 +50,7 @@ export async function POST(request: Request) {
 
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
-      payment_method_types: ['card', 'link'] as any,
+      payment_method_types: ['card', 'link'],
       customer_email: customer.email,
       line_items: [
         {
@@ -84,8 +85,8 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({ success: true, url: session.url });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[migrate-to-subscription]', error);
-    return NextResponse.json({ error: error.message || 'Erreur serveur' }, { status: 500 });
+    return NextResponse.json({ error: errorMessage(error) }, { status: 500 });
   }
 }

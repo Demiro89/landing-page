@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { getCurrentCustomer } from '@/lib/clientAuth';
 import { enforceRateLimit } from '@/lib/rateLimit';
 import { sendTelegramNotification } from '@/lib/telegram';
+import { LEGAL_LAST_UPDATED } from '@/lib/legalConfig';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,7 +23,7 @@ export async function POST(request: Request) {
     const limited = await enforceRateLimit(request, 'checkout-manual', 10, 600);
     if (limited) return limited;
 
-    const { serviceId, stockAccountId, email, youtubeEmail, paymentMethod, acceptedCgv, acceptedImmediateExecution } =
+    const { serviceId, stockAccountId, email, youtubeEmail, paymentMethod, acceptedCgv, acceptedImmediateExecution, acceptedEligibility } =
       await request.json();
 
     if (!serviceId || !stockAccountId || !email) {
@@ -32,9 +33,9 @@ export async function POST(request: Request) {
     if (!methodLabel) {
       return NextResponse.json({ error: 'Moyen de paiement invalide' }, { status: 400 });
     }
-    if (!acceptedCgv || !acceptedImmediateExecution) {
+    if (!acceptedCgv || !acceptedImmediateExecution || !acceptedEligibility) {
       return NextResponse.json(
-        { error: "Vous devez accepter les CGV et la demande d'exécution immédiate." },
+        { error: "Vous devez accepter les CGV, la demande d'exécution immédiate et confirmer votre éligibilité." },
         { status: 400 }
       );
     }
@@ -51,22 +52,48 @@ export async function POST(request: Request) {
     if (!service || !stock) {
       return NextResponse.json({ error: 'Service ou stock introuvable' }, { status: 404 });
     }
+    if (stock.serviceId !== serviceId) {
+      return NextResponse.json({ error: 'Ce stock ne correspond pas au service sélectionné' }, { status: 400 });
+    }
     if (stock.filledSlots >= stock.maxSlots) {
       return NextResponse.json({ error: 'Plus de places disponibles dans ce compte' }, { status: 400 });
     }
+
+    // Preuve d'acceptation des CGV : horodatage serveur + métadonnées techniques.
+    const acceptedAt = new Date();
+    const acceptanceUserAgent = (request.headers.get('user-agent') || '').slice(0, 450);
+    const acceptanceIp = (
+      request.headers.get('x-forwarded-for') ||
+      request.headers.get('x-real-ip') ||
+      ''
+    ).split(',')[0].trim().slice(0, 90);
+    const termsVersion = LEGAL_LAST_UPDATED;
 
     // Évite les doublons sur double-clic : réutilise une commande en attente identique.
     const existing = await prisma.order.findFirst({
       where: { stockAccountId, clientEmail: cleanedEmail, status: 'pending' },
     });
     if (existing) {
+      await prisma.order.update({
+        where: { id: existing.id },
+        data: {
+          price: stock.price,
+          total: stock.price,
+          paymentMethod: methodLabel,
+          youtubeEmail: youtubeEmail ? String(youtubeEmail).trim().toLowerCase() : null,
+          acceptedCgv: true,
+          acceptedImmediateExecution: true,
+          acceptedAt,
+          acceptedTermsAt: acceptedAt,
+          acceptedWithdrawalWaiverAt: acceptedAt,
+          acceptedEligibilityAt: acceptedAt,
+          termsVersion,
+          acceptanceUserAgent,
+          acceptanceIp,
+        },
+      });
       return NextResponse.json({ success: true, orderId: existing.id, reused: true });
     }
-
-    // Preuve d'acceptation des CGV : horodatage serveur + métadonnées techniques.
-    const acceptedAt = new Date();
-    const acceptanceUserAgent = (request.headers.get('user-agent') || '').slice(0, 450);
-    const acceptanceIp = (request.headers.get('x-forwarded-for') || '').split(',')[0].trim().slice(0, 90);
 
     const customer = await getCurrentCustomer();
 
@@ -85,6 +112,10 @@ export async function POST(request: Request) {
         acceptedCgv: true,
         acceptedImmediateExecution: true,
         acceptedAt,
+        acceptedTermsAt: acceptedAt,
+        acceptedWithdrawalWaiverAt: acceptedAt,
+        acceptedEligibilityAt: acceptedAt,
+        termsVersion,
         acceptanceUserAgent,
         acceptanceIp,
       },

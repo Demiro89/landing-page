@@ -6,10 +6,11 @@ import { getCurrentCustomer } from '@/lib/clientAuth';
 export const dynamic = 'force-dynamic';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_mock', {
-  apiVersion: '2023-10-16' as any,
+  apiVersion: '2026-04-22.dahlia',
 });
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+const errorMessage = (error: unknown) => error instanceof Error ? error.message : 'Erreur serveur';
 
 export async function POST() {
   try {
@@ -40,8 +41,8 @@ export async function POST() {
     });
 
     return NextResponse.json({ success: true, url: session.url });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[billing-portal]', error);
-    return NextResponse.json({ error: error.message || 'Erreur serveur' }, { status: 500 });
+    return NextResponse.json({ error: errorMessage(error) }, { status: 500 });
   }
 }

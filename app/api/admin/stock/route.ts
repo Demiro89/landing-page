@@ -10,6 +10,7 @@ export const dynamic = 'force-dynamic';
 
 // Vérification d'authentification admin (centralisée dans lib/adminAuth).
 const checkAuth = isAdminAuthenticated;
+const errorMessage = (error: unknown) => error instanceof Error ? error.message : 'Erreur serveur';
 
 /**
  * Récupère l'intégralité du stock, des commandes et calcule les KPIs financiers pour l'admin.
@@ -58,7 +59,7 @@ export async function GET() {
 
     // Si on veut faire plus précis, on somme le coût de revient (accountsBoughtPrice) de tous les StockAccounts existants
     const allStockAccounts = await prisma.stockAccount.findMany();
-    let totalInvestment = allStockAccounts.reduce((acc, curr) => acc + curr.accountsBoughtPrice, 0);
+    const totalInvestment = allStockAccounts.reduce((acc, curr) => acc + curr.accountsBoughtPrice, 0);
 
     const netProfit = totalRevenue - totalCogs;
     const marginPercentage = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
@@ -151,9 +152,9 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ error: 'Action non reconnue' }, { status: 400 });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Erreur POST stock admin:', error);
-    return NextResponse.json({ error: error.message || 'Erreur serveur' }, { status: 500 });
+    return NextResponse.json({ error: errorMessage(error) }, { status: 500 });
   }
 }
 
@@ -371,9 +372,9 @@ export async function PUT(request: Request) {
     }
 
     return NextResponse.json({ error: 'Action non reconnue' }, { status: 400 });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Erreur PUT stock admin:', error);
-    return NextResponse.json({ error: error.message || 'Erreur serveur' }, { status: 500 });
+    return NextResponse.json({ error: errorMessage(error) }, { status: 500 });
   }
 }
 
@@ -409,8 +410,8 @@ export async function DELETE(request: Request) {
     }
 
     return NextResponse.json({ error: 'Type invalide' }, { status: 400 });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Erreur DELETE stock admin:', error);
-    return NextResponse.json({ error: error.message || 'Erreur serveur' }, { status: 500 });
+    return NextResponse.json({ error: errorMessage(error) }, { status: 500 });
   }
 }

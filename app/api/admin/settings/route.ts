@@ -17,6 +17,7 @@ const DEFAULT_SETTINGS: Record<string, string> = {
 };
 
 const checkAuth = isAdminAuthenticated;
+const errorMessage = (error: unknown) => error instanceof Error ? error.message : 'Erreur serveur';
 
 export async function GET() {
   if (!(await checkAuth())) {
@@ -27,8 +28,8 @@ export async function GET() {
     const settings: Record<string, string> = { ...DEFAULT_SETTINGS };
     rows.forEach((r) => { settings[r.key] = r.value; });
     return NextResponse.json({ success: true, settings });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json({ error: errorMessage(error) }, { status: 500 });
   }
 }
 
@@ -49,7 +50,7 @@ export async function PUT(request: Request) {
     }
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json({ error: errorMessage(error) }, { status: 500 });
   }
 }

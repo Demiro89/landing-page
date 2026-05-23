@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import Footer from '@/components/Footer';
 
@@ -12,6 +13,11 @@ interface ServiceDetails {
   original: number;
   icon: string;
   gradient: string;
+}
+
+interface PublicStockSummary {
+  id: string;
+  serviceId: string;
 }
 
 type PayTab = 'cb' | 'paypal' | 'crypto';
@@ -45,22 +51,48 @@ function CheckoutContent() {
   const [copied, setCopied] = useState('');
   const [acceptedCgv, setAcceptedCgv] = useState(false);
   const [acceptedImmediate, setAcceptedImmediate] = useState(false);
+  const [acceptedEligibility, setAcceptedEligibility] = useState(false);
+  const [stockChecked, setStockChecked] = useState(false);
+  const [stockAvailable, setStockAvailable] = useState(false);
   const [manualOrderId, setManualOrderId] = useState<string | null>(null);
   const [manualBusy, setManualBusy] = useState(false);
 
-  const consentOk = acceptedCgv && acceptedImmediate;
+  const consentOk = acceptedCgv && acceptedImmediate && acceptedEligibility;
 
   useEffect(() => {
-    if (!serviceId) { setLoadingService(false); return; }
-    fetch('/api/services')
-      .then(r => r.json())
-      .then(d => {
-        if (d.success) {
-          const found = d.services.find((s: any) => s.id === serviceId);
+    if (!serviceId || !stockId) {
+      void Promise.resolve().then(() => {
+        setLoadingService(false);
+        setStockChecked(true);
+      });
+      return;
+    }
+
+    const loadCheckoutData = async () => {
+      try {
+        const [servicesRes, stocksRes] = await Promise.all([
+          fetch('/api/services', { cache: 'no-store' }),
+          fetch('/api/stocks/public', { cache: 'no-store' }),
+        ]);
+        const [servicesData, stocksData] = await Promise.all([
+          servicesRes.json() as Promise<{ success?: boolean; services?: ServiceDetails[] }>,
+          stocksRes.json() as Promise<{ success?: boolean; stocks?: PublicStockSummary[] }>,
+        ]);
+        if (servicesData.success) {
+          const found = servicesData.services?.find((s) => s.id === serviceId);
           if (found) setService(found);
         }
-      })
-      .finally(() => setLoadingService(false));
+        if (stocksData.success) {
+          setStockAvailable(
+            Boolean(stocksData.stocks?.some((stock) => stock.id === stockId && stock.serviceId === serviceId))
+          );
+        }
+      } finally {
+        setStockChecked(true);
+        setLoadingService(false);
+      }
+    };
+    loadCheckoutData();
 
     // Récupère les paramètres publics du paiement (adresses crypto, passerelles).
     fetch('/api/settings/public')
@@ -76,7 +108,7 @@ function CheckoutContent() {
         }
       })
       .catch(() => {});
-  }, [serviceId]);
+  }, [serviceId, stockId]);
 
   const isYoutube = serviceId === 'youtube';
 
@@ -88,7 +120,11 @@ function CheckoutContent() {
       return;
     }
     if (!consentOk) {
-      setErrorMsg('Merci d\'accepter les Conditions générales de vente et la demande d\'exécution immédiate.');
+      setErrorMsg('Merci d\'accepter les CGV, la demande d\'exécution immédiate et la confirmation d\'éligibilité.');
+      return;
+    }
+    if (!stockAvailable) {
+      setErrorMsg('Cette offre n\'est plus disponible. Merci de sélectionner une autre offre.');
       return;
     }
     setIsSubmitting(true);
@@ -104,6 +140,7 @@ function CheckoutContent() {
           youtubeEmail: isYoutube ? youtubeEmail.trim().toLowerCase() : undefined,
           acceptedCgv,
           acceptedImmediateExecution: acceptedImmediate,
+          acceptedEligibility,
         }),
       });
       const data = await res.json();
@@ -137,7 +174,11 @@ function CheckoutContent() {
       return null;
     }
     if (!consentOk) {
-      setErrorMsg('Merci d\'accepter les CGV et la demande d\'exécution immédiate.');
+      setErrorMsg('Merci d\'accepter les CGV, la demande d\'exécution immédiate et la confirmation d\'éligibilité.');
+      return null;
+    }
+    if (!stockAvailable) {
+      setErrorMsg('Cette offre n\'est plus disponible. Merci de sélectionner une autre offre.');
       return null;
     }
     setManualBusy(true);
@@ -154,6 +195,7 @@ function CheckoutContent() {
           paymentMethod: method,
           acceptedCgv,
           acceptedImmediateExecution: acceptedImmediate,
+          acceptedEligibility,
         }),
       });
       const data = await res.json();
@@ -183,15 +225,15 @@ function CheckoutContent() {
     );
   }
 
-  if (!service || !stockId) {
+  if (!service || !stockId || (stockChecked && !stockAvailable)) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center' }}>
         <div className="dash-empty-icon" style={{ marginBottom: 24 }}>⚠️</div>
         <h2 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: 10 }}>Session de checkout invalide</h2>
         <p style={{ fontSize: '0.9rem', color: 'var(--text-gray)', maxWidth: 420, marginBottom: 24 }}>
-          Le lien de paiement est erroné ou ce compte de stock n&apos;est plus disponible.
+          Le lien de paiement est erroné ou cette offre n&apos;est plus disponible actuellement.
         </p>
-        <a href="/" className="btn btn-primary">← Retour à la boutique</a>
+        <Link href="/" className="btn btn-primary">← Retour à la boutique</Link>
       </div>
     );
   }
@@ -211,11 +253,11 @@ function CheckoutContent() {
       {/* Navbar */}
       <header className="navbar">
         <div className="nav-inner">
-          <a href="/" className="nav-logo">
+          <Link href="/" className="nav-logo">
             <div className="nav-logo-icon">SM</div>
             <span className="gradient-text">StreamMalin</span>
-          </a>
-          <a href="/" className="btn btn-ghost btn-sm">← Boutique</a>
+          </Link>
+          <Link href="/" className="btn btn-ghost btn-sm">← Boutique</Link>
         </div>
       </header>
 
@@ -229,7 +271,7 @@ function CheckoutContent() {
           <h1>
             Finaliser votre <span className="gradient-text">commande</span>
           </h1>
-          <p>Paiement 100% sécurisé — activation immédiate de vos accès Premium</p>
+          <p>Paiement sécurisé — accès transmis après validation de la commande et selon disponibilité</p>
         </div>
 
         <div className="checkout-grid">
@@ -282,7 +324,7 @@ function CheckoutContent() {
                 <div className="info-box" style={{ borderColor: 'rgba(255,0,0,0.3)', background: 'rgba(255,0,0,0.06)' }}>
                   <div className="info-box-title">▶️ YouTube Premium fonctionne par invitation famille</div>
                   <div className="info-box-text">
-                    Contrairement à un compte partagé classique, YouTube Premium nécessite que nous vous invitions dans notre groupe famille. Indiquez ci-dessous l&apos;<strong style={{ color: 'var(--text-white)' }}>adresse e-mail Google associée à votre compte YouTube</strong>. Vous recevrez l&apos;invitation directement par e-mail (et dans l&apos;app YouTube) sous quelques minutes après le paiement — il vous suffira de l&apos;accepter pour activer YouTube Premium.
+                    YouTube Premium nécessite une invitation dans un groupe famille compatible. Indiquez ci-dessous l&apos;<strong style={{ color: 'var(--text-white)' }}>adresse e-mail Google associée à votre compte YouTube</strong>. L&apos;invitation est envoyée après validation du paiement et selon disponibilité ; il vous suffira de l&apos;accepter pour activer l&apos;accès si votre compte est éligible.
                   </div>
                 </div>
                 <div className="form-field">
@@ -302,7 +344,7 @@ function CheckoutContent() {
               </>
             )}
 
-            {/* Consentement obligatoire — CGV + exécution immédiate */}
+            {/* Consentements obligatoires — CGV + exécution immédiate + éligibilité */}
             <div
               style={{
                 margin: '4px 0 18px',
@@ -325,7 +367,7 @@ function CheckoutContent() {
                 <span>
                   J&apos;ai lu et j&apos;accepte les{' '}
                   <a href="/cgv" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)', fontWeight: 600 }}>
-                    Conditions générales de vente
+                    CGV
                   </a>{' '}
                   de StreamMalin.
                 </span>
@@ -338,8 +380,18 @@ function CheckoutContent() {
                   style={{ marginTop: 2, width: 16, height: 16, flexShrink: 0, accentColor: 'var(--primary)' }}
                 />
                 <span>
-                  Je demande l&apos;exécution immédiate du service et je reconnais qu&apos;une fois
-                  l&apos;accès fourni, je renonce à mon droit de rétractation.
+                  Je demande l&apos;exécution immédiate du service et reconnais renoncer à mon droit de rétractation une fois l&apos;accès numérique transmis.
+                </span>
+              </label>
+              <label style={{ display: 'flex', gap: 10, cursor: 'pointer', fontSize: '0.82rem', color: 'var(--text-gray)', lineHeight: 1.55 }}>
+                <input
+                  type="checkbox"
+                  checked={acceptedEligibility}
+                  onChange={e => setAcceptedEligibility(e.target.checked)}
+                  style={{ marginTop: 2, width: 16, height: 16, flexShrink: 0, accentColor: 'var(--primary)' }}
+                />
+                <span>
+                  Je confirme avoir vérifié que mon compte est éligible à l&apos;offre choisie et qu&apos;il n&apos;est pas soumis à une restriction récente de groupe familial, de pays, de foyer ou d&apos;historique d&apos;utilisation.
                 </span>
               </label>
             </div>
@@ -355,15 +407,15 @@ function CheckoutContent() {
                 </div>
                 <button
                   type="submit"
-                  disabled={isSubmitting || !email || (isYoutube && !youtubeEmail.trim()) || !consentOk}
+                  disabled={isSubmitting || !email || (isYoutube && !youtubeEmail.trim()) || !consentOk || !stockAvailable}
                   className="btn-pay"
                 >
-                  🔒 {isSubmitting ? 'Redirection…' : !consentOk ? 'Acceptez les CGV pour continuer' : `Régler ${service.price.toFixed(2)}€ par carte`}
+                  🔒 {isSubmitting ? 'Redirection…' : !consentOk ? 'Cochez les 3 confirmations pour continuer' : !stockAvailable ? 'Offre indisponible' : `Régler ${service.price.toFixed(2)}€ par carte`}
                 </button>
                 <div className="trust-row">
                   <span>🔐 Cryptage AES-256</span>
                   <span>✓ 3D Secure</span>
-                  <span>⚡ Activation immédiate</span>
+                  <span>⚡ Accès après validation</span>
                 </div>
               </form>
             )}
@@ -381,7 +433,7 @@ function CheckoutContent() {
                     <li>Connectez-vous à votre compte PayPal.</li>
                     <li>Envoyez <strong style={{ color: 'var(--text-white)' }}>{service.price.toFixed(2)}€</strong> en mode <strong style={{ color: 'var(--accent-yellow)' }}>« Biens et Services »</strong>.</li>
                     <li>Dans la note : indiquez <strong style={{ color: 'var(--text-white)' }}>{email || 'votre email de livraison'}</strong>.</li>
-                    <li>Vos accès sont activés sous <strong style={{ color: 'var(--text-white)' }}>10 à 30 min</strong> après vérification.</li>
+                    <li>Vos accès sont traités rapidement après vérification du paiement et selon disponibilité.</li>
                   </ol>
                 </div>
 
@@ -410,7 +462,7 @@ function CheckoutContent() {
                     <div className="info-box-text">
                       Effectuez le paiement PayPal en indiquant la référence{' '}
                       <strong style={{ color: 'var(--text-white)' }}>{orderRef}</strong> dans la note.
-                      Vos accès seront activés dès vérification du paiement reçu.
+                      Vos accès seront traités après vérification du paiement reçu et selon disponibilité.
                     </div>
                     <a
                       href={paypalUrl}
@@ -425,20 +477,20 @@ function CheckoutContent() {
                 ) : (
                   <button
                     type="button"
-                    disabled={!consentOk || manualBusy || !email}
+                    disabled={!consentOk || manualBusy || !email || !stockAvailable}
                     onClick={async () => {
                       const id = await createManualOrder('paypal');
                       if (id) window.open(paypalUrl, '_blank', 'noopener,noreferrer');
                     }}
                     className="btn btn-primary"
-                    style={{ display: 'block', width: '100%', textAlign: 'center', marginTop: 12, background: consentOk ? '#0070ba' : undefined, opacity: consentOk ? 1 : 0.5, cursor: consentOk ? 'pointer' : 'not-allowed' }}
+                    style={{ display: 'block', width: '100%', textAlign: 'center', marginTop: 12, background: consentOk && stockAvailable ? '#0070ba' : undefined, opacity: consentOk && stockAvailable ? 1 : 0.5, cursor: consentOk && stockAvailable ? 'pointer' : 'not-allowed' }}
                   >
-                    {manualBusy ? 'Enregistrement…' : !consentOk ? 'Acceptez les CGV pour continuer' : `🅿️ Payer ${service.price.toFixed(2)}€ via PayPal →`}
+                    {manualBusy ? 'Enregistrement…' : !consentOk ? 'Cochez les 3 confirmations pour continuer' : !stockAvailable ? 'Offre indisponible' : `🅿️ Payer ${service.price.toFixed(2)}€ via PayPal →`}
                   </button>
                 )}
 
                 <div className="trust-row">
-                  <span>🛡️ Protection Achats PayPal</span>
+                  <span>🛡️ Paiement PayPal traçable</span>
                   <span>✓ Biens &amp; Services</span>
                 </div>
               </div>
@@ -512,22 +564,22 @@ function CheckoutContent() {
                 ) : (
                   <button
                     type="button"
-                    disabled={!consentOk || manualBusy || !email || !cryptoAddr[activeCoin]}
+                    disabled={!consentOk || manualBusy || !email || !cryptoAddr[activeCoin] || !stockAvailable}
                     onClick={() => createManualOrder('crypto')}
                     className="btn btn-primary"
-                    style={{ display: 'block', width: '100%', textAlign: 'center', marginTop: 14, opacity: (consentOk && cryptoAddr[activeCoin]) ? 1 : 0.5, cursor: (consentOk && cryptoAddr[activeCoin]) ? 'pointer' : 'not-allowed' }}
+                    style={{ display: 'block', width: '100%', textAlign: 'center', marginTop: 14, opacity: (consentOk && cryptoAddr[activeCoin] && stockAvailable) ? 1 : 0.5, cursor: (consentOk && cryptoAddr[activeCoin] && stockAvailable) ? 'pointer' : 'not-allowed' }}
                   >
-                    {manualBusy ? 'Enregistrement…' : !consentOk ? 'Acceptez les CGV pour continuer' : '✅ Enregistrer ma commande crypto'}
+                    {manualBusy ? 'Enregistrement…' : !consentOk ? 'Cochez les 3 confirmations pour continuer' : !stockAvailable ? 'Offre indisponible' : '✅ Enregistrer ma commande crypto'}
                   </button>
                 )}
 
                 <div className="warn-box" style={{ marginTop: 16 }}>
-                  <strong>⚠️ Important :</strong> Une fois la transaction envoyée, transmettez le <strong>TXID</strong> à <strong>hello@streammalin.fr</strong> avec votre email de livraison. Votre slot sera activé sous 1h max après {activeCoin === 'btc' ? '1-3' : '2-12'} confirmation{activeCoin === 'btc' ? 's' : ''} réseau.
+                  <strong>⚠️ Important :</strong> Une fois la transaction envoyée, transmettez le <strong>TXID</strong> à <strong>hello@streammalin.fr</strong> avec votre email de livraison. Votre demande sera traitée après les confirmations réseau nécessaires et selon disponibilité.
                 </div>
 
                 <div className="trust-row">
                   <span>🔗 Confirmations on-chain</span>
-                  <span>⚡ Activation &lt; 1h</span>
+                  <span>⚡ Validation manuelle</span>
                 </div>
               </div>
             )}
@@ -577,16 +629,16 @@ function CheckoutContent() {
             </div>
 
             <div className="guarantee-box">
-              <div className="guarantee-box-title">🛡️ Garanties StreamMalin incluses</div>
+              <div className="guarantee-box-title">🛡️ Suivi StreamMalin inclus</div>
               <div className="guarantee-box-text">
-                Remplacement ou remboursement garanti sous 24h en cas de dysfonctionnement du compte. Support 7j/7.
+                Suivi des accès et assistance en cas de dysfonctionnement, avec traitement selon les CGV et les disponibilités.
               </div>
             </div>
 
             <div className="trust-row" style={{ marginTop: 18 }}>
               <span>🔒 Paiement SSL</span>
-              <span>⚡ Activation instantanée</span>
-              <span>💬 Support 7j/7</span>
+              <span>⚡ Accès après validation</span>
+              <span>💬 Support client réactif</span>
             </div>
           </div>
         </div>

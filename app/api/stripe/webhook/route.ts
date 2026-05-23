@@ -9,7 +9,7 @@ import { decrypt } from '@/lib/crypto';
 export const dynamic = 'force-dynamic';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_mock', {
-  apiVersion: '2023-10-16' as any,
+  apiVersion: '2026-04-22.dahlia',
 });
 
 export async function POST(request: Request) {
@@ -21,9 +21,10 @@ export async function POST(request: Request) {
     let event: Stripe.Event;
     try {
       event = stripe.webhooks.constructEvent(body, sig, process.env.STRIPE_WEBHOOK_SECRET || '');
-    } catch (err: any) {
-      console.error('❌ Erreur signature Webhook:', err.message);
-      return NextResponse.json({ error: `Webhook Error: ${err.message}` }, { status: 400 });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Signature invalide';
+      console.error('❌ Erreur signature Webhook:', message);
+      return NextResponse.json({ error: `Webhook Error: ${message}` }, { status: 400 });
     }
 
     // Idempotence : ne jamais retraiter un évènement déjà reçu (Stripe rejoue les évènements).
@@ -46,7 +47,21 @@ export async function POST(request: Request) {
         const metadata = session.metadata;
         if (!metadata) break;
 
-        const { serviceId, stockAccountId, clientEmail, price, migrateOrderId, youtubeEmail, acceptedAt, acceptanceUserAgent, acceptanceIp } = metadata as any;
+        const {
+          serviceId,
+          stockAccountId,
+          clientEmail,
+          price,
+          migrateOrderId,
+          youtubeEmail,
+          acceptedAt,
+          acceptedTermsAt,
+          acceptedWithdrawalWaiverAt,
+          acceptedEligibilityAt,
+          termsVersion,
+          acceptanceUserAgent,
+          acceptanceIp,
+        } = metadata as Record<string, string | undefined>;
 
         // Cas 1 : migration d'une commande existante vers Stripe Subscription
         if (migrateOrderId && session.subscription) {
@@ -80,18 +95,33 @@ export async function POST(request: Request) {
         }
 
         // Cas 2 : nouveau checkout
+        if (!serviceId || !stockAccountId || !clientEmail || !price) {
+          throw new Error(`Stripe checkout sans métadonnées complètes: ${session.id}`);
+        }
         const parsedPrice = parseFloat(price);
         const service = await prisma.service.findUnique({ where: { id: serviceId } });
         const stockAccount = await prisma.stockAccount.findUnique({ where: { id: stockAccountId } });
-        if (!service || !stockAccount) break;
+        if (!service || !stockAccount) {
+          throw new Error(`Stripe checkout avec service ou stock introuvable: ${session.id}`);
+        }
+        if (stockAccount.serviceId !== serviceId || stockAccount.filledSlots >= stockAccount.maxSlots) {
+          sendTelegramNotification(
+            `⚠️ <b>Paiement Stripe reçu sans stock disponible</b>\n👤 ${clientEmail}\n📺 ${service.name}\n💶 ${parsedPrice.toFixed(2)}€\n🔖 Session ${session.id}`
+          ).catch(() => {});
+          throw new Error(`Stock indisponible après paiement Stripe: ${session.id}`);
+        }
 
         const sub = session.subscription
           ? await stripe.subscriptions.retrieve(session.subscription as string, { expand: ['default_payment_method'] })
           : null;
         const pm = sub?.default_payment_method as Stripe.PaymentMethod | null;
-        const stripeCustomerId = sub && typeof sub.customer === 'string' ? sub.customer : (sub?.customer as any)?.id || null;
+        const stripeCustomerId = sub ? (typeof sub.customer === 'string' ? sub.customer : sub.customer.id) : null;
 
         const order = await prisma.$transaction(async (tx) => {
+          const currentStock = await tx.stockAccount.findUnique({ where: { id: stockAccountId } });
+          if (!currentStock || currentStock.serviceId !== serviceId || currentStock.filledSlots >= currentStock.maxSlots) {
+            throw new Error('Stock indisponible pour cette commande Stripe');
+          }
           const updatedStock = await tx.stockAccount.update({
             where: { id: stockAccountId },
             data: { filledSlots: { increment: 1 } },
@@ -117,6 +147,10 @@ export async function POST(request: Request) {
               acceptedCgv: true,
               acceptedImmediateExecution: true,
               acceptedAt: acceptedAt ? new Date(acceptedAt) : new Date(),
+              acceptedTermsAt: acceptedTermsAt ? new Date(acceptedTermsAt) : acceptedAt ? new Date(acceptedAt) : new Date(),
+              acceptedWithdrawalWaiverAt: acceptedWithdrawalWaiverAt ? new Date(acceptedWithdrawalWaiverAt) : acceptedAt ? new Date(acceptedAt) : new Date(),
+              acceptedEligibilityAt: acceptedEligibilityAt ? new Date(acceptedEligibilityAt) : acceptedAt ? new Date(acceptedAt) : new Date(),
+              termsVersion: termsVersion || null,
               acceptanceUserAgent: acceptanceUserAgent || null,
               acceptanceIp: acceptanceIp || null,
             },
@@ -262,7 +296,7 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ received: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Le traitement a échoué : on retire le marqueur d'idempotence pour que
     // Stripe puisse réessayer la livraison de l'évènement.
     if (processedEventId) {

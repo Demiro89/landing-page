@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { SERVICE_CATALOG, CATALOG_CATEGORIES, type ServicePreset } from '@/lib/serviceCatalog';
 
 /* ─── Types ─────────────────────────────────────────────────────────────── */
@@ -50,9 +51,27 @@ interface Client {
 interface Settings { [key: string]: string }
 
 type AdminPage = 'dashboard' | 'pending' | 'stocks' | 'services' | 'subscribers' | 'clients' | 'unpaid' | 'cancellations' | 'support' | 'settings';
+type AccentStyle = React.CSSProperties & { '--accent-color': string };
+type StockWithService = StockAccount & { serviceName: string; serviceIcon: string; serviceGradient: string };
+interface ServiceForm {
+  id: string; name: string; icon: string; gradient: string; price: string; original: string;
+  tagline: string; maxSlots: string; features: string;
+}
+type ServiceFormKey = keyof ServiceForm;
 
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
 const fmt = (n: number) => n.toFixed(2).replace('.', ',') + '€';
+
+const accentStyle = (value: string): AccentStyle => ({ '--accent-color': value });
+const serviceFields: Array<{ label: string; key: ServiceFormKey; placeholder: string; type?: string }> = [
+  { label: 'Identifiant (minuscules)', key: 'id', placeholder: 'netflix' },
+  { label: 'Nom du service', key: 'name', placeholder: 'Netflix Premium' },
+  { label: 'Icône / Emoji', key: 'icon', placeholder: '🍿' },
+  { label: 'Prix location (€)', key: 'price', placeholder: '4.99', type: 'number' },
+  { label: 'Tarif public (€)', key: 'original', placeholder: '19.99', type: 'number' },
+  { label: 'Phrase d\'accroche', key: 'tagline', placeholder: 'Séries et films Ultra HD' },
+  { label: 'Places max', key: 'maxSlots', placeholder: '4', type: 'number' },
+];
 
 function toast(msg: string) {
   const el = document.getElementById('sm-toast');
@@ -93,7 +112,7 @@ export default function AdminPage() {
   const [stockForm, setStockForm] = useState({ serviceId: '', accountsBoughtPrice: '', price: '', maxSlots: '', details: '' });
   const [editStock, setEditStock] = useState<StockAccount | null>(null);
   const [editOrder, setEditOrder] = useState<Order | null>(null);
-  const [srvForm, setSrvForm] = useState({ id: '', name: '', icon: '', gradient: '', price: '', original: '', tagline: '', maxSlots: '', features: '' });
+  const [srvForm, setSrvForm] = useState<ServiceForm>({ id: '', name: '', icon: '', gradient: '', price: '', original: '', tagline: '', maxSlots: '', features: '' });
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [catalogCat, setCatalogCat] = useState<string>('all');
   const [catalogSearch, setCatalogSearch] = useState('');
@@ -108,10 +127,6 @@ export default function AdminPage() {
   const supportPollRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
 
   /* ─── Auth ───────────────────────────────────────────────────────────── */
-  useEffect(() => {
-    fetch('/api/admin/auth').then(r => r.json()).then(d => { if (d.authenticated) { setAuthed(true); loadAll(); } });
-  }, []);
-
   const doLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError('');
@@ -148,6 +163,10 @@ export default function AdminPage() {
     if (settRes.success) setSettings(settRes.settings);
     if (twoFaRes.success) setTwoFaEnabled(twoFaRes.enabled);
   };
+
+  useEffect(() => {
+    fetch('/api/admin/auth').then(r => r.json()).then(d => { if (d.authenticated) { setAuthed(true); loadAll(); } });
+  }, []);
 
   /* ─── 2FA (TOTP) ──────────────────────────────────────────────────────── */
   const start2faSetup = async () => {
@@ -241,7 +260,7 @@ export default function AdminPage() {
 
   React.useEffect(() => {
     if (activePage === 'support') {
-      loadSupportThreads();
+      void Promise.resolve().then(loadSupportThreads);
       supportPollRef.current = setInterval(loadSupportThreads, 5000);
     } else {
       if (supportPollRef.current) clearInterval(supportPollRef.current);
@@ -495,7 +514,7 @@ export default function AdminPage() {
   }
 
   /* ─── ADMIN UI ─────────────────────────────────────────────────────────── */
-  const allStocks = services.flatMap(s => s.stocks.map(st => ({ ...st, serviceName: s.name, serviceIcon: s.icon, serviceGradient: s.gradient })));
+  const allStocks: StockWithService[] = services.flatMap(s => s.stocks.map(st => ({ ...st, serviceName: s.name, serviceIcon: s.icon, serviceGradient: s.gradient })));
 
   const navItems: [AdminPage, string, string][] = [
     ['dashboard', '📊', 'Tableau de bord'],
@@ -517,10 +536,10 @@ export default function AdminPage() {
       {/* Topbar */}
       <header className="admin-topbar">
         <div className="admin-topbar-inner">
-          <a href="/" className="nav-logo">
+          <Link href="/" className="nav-logo">
             <div className="nav-logo-icon">SM</div>
             <span className="gradient-text">StreamMalin</span>
-          </a>
+          </Link>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             <div className="admin-topbar-status">
               <span className="hero-badge-dot" style={{ width: 6, height: 6 }} />
@@ -549,9 +568,9 @@ export default function AdminPage() {
 
           <div className="dash-sidebar-divider" />
 
-          <a href="/" className="dash-sidebar-btn">
+          <Link href="/" className="dash-sidebar-btn">
             <span style={{ fontSize: '1.05rem' }}>🏠</span> Retour au site
-          </a>
+          </Link>
 
           <div className="dash-sidebar-foot" style={{ marginTop: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, color: 'var(--text-soft)', fontWeight: 600 }}>
@@ -577,22 +596,22 @@ export default function AdminPage() {
 
               {/* KPI */}
               <div className="kpi-grid fade-in-up-stagger">
-                <div className="glass-panel kpi-card" style={{ ['--accent-color' as any]: 'linear-gradient(90deg, hsl(145,80%,48%), hsl(170,80%,50%))' }}>
+                <div className="glass-panel kpi-card" style={accentStyle('linear-gradient(90deg, hsl(145,80%,48%), hsl(170,80%,50%))')}>
                   <div className="kpi-label">Chiffre d&apos;affaires brut</div>
                   <div className="kpi-value" style={{ color: 'var(--accent-green)' }}>{fmt(kpis.totalRevenue)}</div>
                   <div className="kpi-sub">↑ Total des abonnements loués</div>
                 </div>
-                <div className="glass-panel kpi-card" style={{ ['--accent-color' as any]: 'linear-gradient(90deg, hsl(355,85%,58%), hsl(20,85%,58%))' }}>
+                <div className="glass-panel kpi-card" style={accentStyle('linear-gradient(90deg, hsl(355,85%,58%), hsl(20,85%,58%))')}>
                   <div className="kpi-label">Coût de revient (COGS)</div>
                   <div className="kpi-value" style={{ color: 'var(--accent-red)' }}>{fmt(kpis.totalInvestment)}</div>
                   <div className="kpi-sub">↓ Achats des comptes à l&apos;étranger</div>
                 </div>
-                <div className="glass-panel kpi-card" style={{ ['--accent-color' as any]: 'var(--gradient-aurora)' }}>
+                <div className="glass-panel kpi-card" style={accentStyle('var(--gradient-aurora)')}>
                   <div className="kpi-label">Bénéfice net réel</div>
                   <div className="kpi-value gradient-text">{fmt(kpis.netProfit)}</div>
                   <div className="kpi-sub">↑ Marge nette cumulée</div>
                 </div>
-                <div className="glass-panel kpi-card" style={{ ['--accent-color' as any]: 'linear-gradient(90deg, hsl(42,100%,58%), hsl(36,100%,55%))' }}>
+                <div className="glass-panel kpi-card" style={accentStyle('linear-gradient(90deg, hsl(42,100%,58%), hsl(36,100%,55%))')}>
                   <div className="kpi-label">Taux de marge</div>
                   <div className="kpi-value" style={{ color: 'var(--accent-yellow)' }}>{kpis.marginPercentage.toFixed(1).replace('.', ',')}%</div>
                   <div className="kpi-sub">📊 Rentabilité globale</div>
@@ -820,12 +839,12 @@ export default function AdminPage() {
                 ) : (
                   allStocks.map(st => (
                     <div key={st.id} className="stock-item">
-                      <div className="stock-icon-lg" style={{ background: (st as any).serviceGradient }}>
-                        {(st as any).serviceIcon}
+                      <div className="stock-icon-lg" style={{ background: st.serviceGradient }}>
+                        {st.serviceIcon}
                       </div>
                       <div className="stock-info">
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                          <strong style={{ fontSize: '0.95rem', color: 'var(--text-white)' }}>{(st as any).serviceName}</strong>
+                          <strong style={{ fontSize: '0.95rem', color: 'var(--text-white)' }}>{st.serviceName}</strong>
                           <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontFamily: "'SF Mono',Menlo,monospace" }}>#{st.id.slice(0, 8)}</span>
                           {st.filledSlots >= st.maxSlots && <span className="badge-pill warn">Complet</span>}
                         </div>
@@ -881,15 +900,7 @@ export default function AdminPage() {
 
                 <form onSubmit={createService}>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14, marginBottom: 14 }}>
-                    {[
-                      { label: 'Identifiant (minuscules)', key: 'id', placeholder: 'netflix' },
-                      { label: 'Nom du service', key: 'name', placeholder: 'Netflix Premium' },
-                      { label: 'Icône / Emoji', key: 'icon', placeholder: '🍿' },
-                      { label: 'Prix location (€)', key: 'price', placeholder: '4.99', type: 'number' },
-                      { label: 'Tarif public (€)', key: 'original', placeholder: '19.99', type: 'number' },
-                      { label: 'Phrase d\'accroche', key: 'tagline', placeholder: 'Séries et films Ultra HD' },
-                      { label: 'Places max', key: 'maxSlots', placeholder: '4', type: 'number' },
-                    ].map(f => (
+                    {serviceFields.map(f => (
                       <div key={f.key} className="form-field" style={{ marginBottom: 0 }}>
                         <label className="form-label">{f.label} <span className="required">*</span></label>
                         <input
@@ -897,7 +908,7 @@ export default function AdminPage() {
                           step={f.type === 'number' ? '0.01' : undefined}
                           required
                           placeholder={f.placeholder}
-                          value={(srvForm as any)[f.key]}
+                          value={srvForm[f.key]}
                           onChange={e => setSrvForm(form => ({ ...form, [f.key]: e.target.value }))}
                           className="dash-input"
                         />
@@ -1890,7 +1901,9 @@ function ServiceEditCard({ svc, onSave, onToggle, onDelete, onEditStock, onAddSt
   const [addSlots, setAddSlots] = useState('');
   const [addDetails, setAddDetails] = useState('');
   const [adding, setAdding] = useState(false);
-  useEffect(() => { setLocal(svc); }, [svc]);
+  useEffect(() => {
+    void Promise.resolve().then(() => setLocal(svc));
+  }, [svc]);
 
   const handleSaveAll = async () => {
     setAdding(true);

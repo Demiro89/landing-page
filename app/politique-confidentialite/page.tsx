@@ -36,16 +36,20 @@ export default function PolitiqueConfidentialitePage() {
       <ul>
         <li><strong>Adresse e-mail</strong> — pour la création de compte, la livraison de l&apos;accès et le support&nbsp;;</li>
         <li><strong>Nom</strong> — uniquement s&apos;il est fourni volontairement par le client&nbsp;;</li>
-        <li><strong>Données de commande</strong> — offre souscrite, date, montant, statut, identifiant de commande&nbsp;;</li>
-        <li><strong>Données de paiement</strong> — traitées par les prestataires de paiement&nbsp;; StreamMalin ne conserve pas le numéro de carte bancaire, mais peut conserver des données limitées (4 derniers chiffres, type de carte, identifiant de transaction)&nbsp;;</li>
-        <li><strong>Données techniques et journaux</strong> — adresse IP, type de navigateur (user-agent), horodatage, notamment afin de conserver la preuve de l&apos;acceptation des conditions de vente et de sécuriser le service.</li>
+        <li><strong>Données de commande</strong> — offre souscrite, date, montant, statut, moyen de paiement choisi, identifiant de commande&nbsp;;</li>
+        <li><strong>Données de paiement</strong> — traitées par les prestataires de paiement&nbsp;; StreamMalin ne conserve pas le numéro de carte bancaire, mais peut conserver des données limitées (4 derniers chiffres, type de carte, identifiants Stripe ou PayPal lorsque nécessaires au suivi de la commande)&nbsp;;</li>
+        <li><strong>Preuves contractuelles</strong> — date d&apos;acceptation des CGV, date d&apos;acceptation de la renonciation au droit de rétractation, date de confirmation d&apos;éligibilité et version des CGV acceptée&nbsp;;</li>
+        <li><strong>Données techniques et journaux</strong> — adresse IP, type de navigateur (user-agent), horodatage, notamment afin de conserver la preuve de l&apos;acceptation des conditions de vente, de sécuriser le service et de prévenir la fraude&nbsp;;</li>
+        <li><strong>Messages de support</strong> — échanges transmis via l&apos;espace client, par e-mail ou, lorsque le service l&apos;utilise, via Telegram pour les notifications internes de support et de suivi des commandes.</li>
       </ul>
 
       <h2 id="finalites">3. Finalités et bases légales</h2>
       <ul>
         <li><strong>Gestion des commandes et livraison de l&apos;accès</strong> — exécution du contrat&nbsp;;</li>
+        <li><strong>Conservation des preuves contractuelles</strong> — exécution du contrat, intérêt légitime et gestion des litiges&nbsp;;</li>
         <li><strong>Traitement des paiements</strong> — exécution du contrat&nbsp;;</li>
         <li><strong>Support client et réclamations</strong> — exécution du contrat et intérêt légitime&nbsp;;</li>
+        <li><strong>Gestion des litiges et demandes Stripe/PayPal</strong> — intérêt légitime et défense des droits&nbsp;;</li>
         <li><strong>Facturation et obligations comptables</strong> — obligation légale&nbsp;;</li>
         <li><strong>Sécurité du service et prévention de la fraude</strong> — intérêt légitime&nbsp;;</li>
         <li><strong>Respect des obligations légales</strong> — obligation légale.</li>
@@ -61,6 +65,7 @@ export default function PolitiqueConfidentialitePage() {
         <li><strong>PayPal</strong> — traitement des paiements PayPal&nbsp;;</li>
         <li><strong>Vercel</strong> — hébergement du site et des journaux techniques&nbsp;;</li>
         <li><strong>Resend</strong> — envoi des e-mails transactionnels&nbsp;;</li>
+        <li><strong>Telegram</strong> — notifications internes de support et de suivi des commandes lorsque configuré&nbsp;;</li>
         <li><strong>Fournisseur de base de données</strong> — stockage sécurisé des données de commande.</li>
       </ul>
       <p>
@@ -72,6 +77,7 @@ export default function PolitiqueConfidentialitePage() {
       <ul>
         <li><strong>Données de compte</strong> — conservées tant que le compte est actif, puis supprimées sur demande&nbsp;;</li>
         <li><strong>Données de commande et de facturation</strong> — conservées dix (10) ans au titre des obligations comptables et fiscales&nbsp;;</li>
+        <li><strong>Preuves contractuelles</strong> — conservées avec les données de commande afin d&apos;établir l&apos;acceptation des CGV, la renonciation au droit de rétractation, l&apos;éligibilité déclarée et la version applicable&nbsp;;</li>
         <li><strong>Journaux techniques</strong> — conservés pour une durée limitée à des fins de sécurité (généralement douze mois maximum).</li>
       </ul>
 

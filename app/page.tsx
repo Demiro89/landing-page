@@ -97,17 +97,22 @@ export default function Home() {
   const [authLoading, setAuthLoading] = useState(false);
   const [resetToken, setResetToken] = useState('');
 
-  const [clientEmail, setClientEmail] = useState('');
   const [searchedEmail, setSearchedEmail] = useState('');
   const [orders, setOrders] = useState<Order[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
-  const [ordersError, setOrdersError] = useState('');
+  const [, setOrdersError] = useState('');
   const [activeChatOrderId, setActiveChatOrderId] = useState<string | null>(null);
   const [chatMessages, setChatMessages] = useState<Message[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [sendingMsg, setSendingMsg] = useState(false);
   const chatBottomRef = useRef<HTMLDivElement>(null);
   const chatPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [cancelOrderId, setCancelOrderId] = useState<string | null>(null);
+  const [cancellingOrder, setCancellingOrder] = useState(false);
+  const [cancelError, setCancelError] = useState('');
+  const [cancelSuccess, setCancelSuccess] = useState('');
+  const [portalLoading, setPortalLoading] = useState(false);
+  const [migratingOrderId, setMigratingOrderId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchServices = () => {
@@ -129,32 +134,34 @@ export default function Home() {
       setAuthChecked(true);
     });
 
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('success') && params.get('email')) {
-      setView('dashboard');
-    }
-    if (params.get('verify') === 'success') {
-      setView('dashboard');
-      setAuthMsg('✅ Email confirmé ! Vous êtes connecté.');
-    } else if (params.get('verify') === 'invalid') {
-      setView('dashboard');
-      setAuthError('Lien de vérification invalide ou expiré.');
-    }
-    const rt = params.get('reset');
-    if (rt) {
-      setView('dashboard');
-      setAuthMode('reset');
-      setResetToken(rt);
-    }
-    if (params.get('migrated') === 'true') {
-      setView('dashboard');
-      setCancelSuccess('Prélèvement automatique activé. Votre carte est enregistrée pour les prochains paiements.');
-      window.history.replaceState({}, '', window.location.pathname);
-    }
-    if (params.get('from') === 'portal') {
-      setView('dashboard');
-      window.history.replaceState({}, '', window.location.pathname);
-    }
+    void Promise.resolve().then(() => {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('success') && params.get('email')) {
+        setView('dashboard');
+      }
+      if (params.get('verify') === 'success') {
+        setView('dashboard');
+        setAuthMsg('✅ Email confirmé ! Vous êtes connecté.');
+      } else if (params.get('verify') === 'invalid') {
+        setView('dashboard');
+        setAuthError('Lien de vérification invalide ou expiré.');
+      }
+      const rt = params.get('reset');
+      if (rt) {
+        setView('dashboard');
+        setAuthMode('reset');
+        setResetToken(rt);
+      }
+      if (params.get('migrated') === 'true') {
+        setView('dashboard');
+        setCancelSuccess('Prélèvement automatique activé. Votre carte est enregistrée pour les prochains paiements.');
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+      if (params.get('from') === 'portal') {
+        setView('dashboard');
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    });
 
     return () => {
       clearInterval(servicesInterval);
@@ -289,13 +296,6 @@ export default function Home() {
     }
   };
 
-  const [cancelOrderId, setCancelOrderId] = useState<string | null>(null);
-  const [cancellingOrder, setCancellingOrder] = useState(false);
-  const [cancelError, setCancelError] = useState('');
-  const [cancelSuccess, setCancelSuccess] = useState('');
-  const [portalLoading, setPortalLoading] = useState(false);
-  const [migratingOrderId, setMigratingOrderId] = useState<string | null>(null);
-
   const openBillingPortal = async () => {
     setPortalLoading(true);
     try {
@@ -352,14 +352,6 @@ export default function Home() {
   };
 
   useEffect(() => {
-    if (activeChatOrderId) {
-      fetchChat(activeChatOrderId);
-      chatPollRef.current = setInterval(() => fetchChat(activeChatOrderId), 5000);
-    }
-    return () => { if (chatPollRef.current) clearInterval(chatPollRef.current); };
-  }, [activeChatOrderId]);
-
-  useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages]);
 
@@ -384,6 +376,7 @@ export default function Home() {
       setLoadingOrders(false);
     }
   };
+  void fetchOrders;
 
   const fetchChat = async (orderId: string) => {
     try {
@@ -392,6 +385,14 @@ export default function Home() {
       if (d.success && d.thread) setChatMessages(d.thread.messages || []);
     } catch {}
   };
+
+  useEffect(() => {
+    if (activeChatOrderId) {
+      void Promise.resolve().then(() => fetchChat(activeChatOrderId));
+      chatPollRef.current = setInterval(() => fetchChat(activeChatOrderId), 5000);
+    }
+    return () => { if (chatPollRef.current) clearInterval(chatPollRef.current); };
+  }, [activeChatOrderId]);
 
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -432,11 +433,14 @@ export default function Home() {
   }, 0);
 
   const calcSavings = calcOriginal - calcTotal;
+  const calcHasValidSelection = Object.entries(calcSel).some(([id, on]) =>
+    on && services.some(s => s.id === id)
+  );
 
   const faqItems = [
     {
       q: 'Comment fonctionne StreamMalin ?',
-      a: 'StreamMalin souscrit des offres familiales ou multi-utilisateurs et met à votre disposition, pour une durée déterminée, un accès numérique temporaire (une place de profil ou une invitation famille). Nous gérons la configuration technique et le support. Vous bénéficiez ainsi d\'un accès à prix malin, avec des économies pouvant aller jusqu\'à 80%.',
+      a: 'StreamMalin souscrit des offres familiales ou multi-utilisateurs et met à votre disposition, pour une durée déterminée, un accès numérique temporaire (une place de profil ou une invitation famille). Nous gérons la configuration technique et le support. Vous bénéficiez ainsi d\'un accès à prix malin, avec des économies variables selon l\'offre disponible.',
     },
     {
       q: 'Le partage de place est-il sécurisé ?',
@@ -448,7 +452,7 @@ export default function Home() {
     },
     {
       q: 'Que se passe-t-il si un compte cesse de fonctionner ?',
-      a: 'Nous fournissons une Garantie Anti-Coupure exclusive. Si vous rencontrez la moindre difficulté d\'accès, notre équipe intervient immédiatement pour mettre à jour les accès ou vous transférer sur un autre compte de stock en moins de 24 heures ouvrées.',
+      a: 'Nous assurons le suivi des accès et une assistance en cas de dysfonctionnement. Si une difficulté survient, contactez le support afin que notre équipe analyse la situation et propose une solution adaptée selon les disponibilités.',
     },
   ];
 
@@ -504,14 +508,14 @@ export default function Home() {
             <div className="hero-content">
               <div className="hero-badge">
                 <span className="hero-badge-dot" />
-                STREAMING PREMIUM · LIVRAISON INSTANTANÉE
+                STREAMING PREMIUM · LIVRAISON RAPIDE
               </div>
               <h1>
                 Le streaming premium,<br />
                 <span className="gradient-text">version maline.</span>
               </h1>
               <p className="hero-subtitle">
-                Vos accès favoris à prix malin avec des remises jusqu&apos;à <strong style={{ color: '#fff' }}>75%</strong> grâce à des places partagées sécurisées.
+                Vos accès favoris à prix malin avec des remises jusqu&apos;à <strong style={{ color: '#fff' }}>75%</strong> selon les offres disponibles.
               </p>
               <div className="hero-cta">
                 <a href="#offres" className="btn btn-primary btn-lg">
@@ -522,10 +526,10 @@ export default function Home() {
                 </button>
               </div>
               <div className="hero-trust">
-                <span><span className="check">✓</span> Support 24/7 par Chat</span>
-                <span><span className="check">✓</span> Livraison instantanée</span>
+                <span><span className="check">✓</span> Support client réactif en français</span>
+                <span><span className="check">✓</span> Livraison rapide après validation</span>
                 <span><span className="check">✓</span> Sans engagement</span>
-                <span><span className="check">✓</span> Paiement sécurisé</span>
+                <span><span className="check">✓</span> Paiement via prestataires spécialisés</span>
               </div>
             </div>
           </section>
@@ -538,7 +542,7 @@ export default function Home() {
                 <h2 className="section-title">
                   Tous vos <span className="gradient-text">abonnements préférés</span>
                 </h2>
-                <p className="section-subtitle">Sélectionnez votre service. Les accès sécurisés sont envoyés immédiatement après validation du paiement.</p>
+                <p className="section-subtitle">Sélectionnez votre service. Les accès sont transmis après validation de la commande, selon disponibilité.</p>
               </div>
 
               <div className="filters">
@@ -591,7 +595,7 @@ export default function Home() {
                           </a>
                         ) : (
                           <button disabled className="product-cta disabled">
-                            ✗ Rupture de stock
+                            Aucune place disponible
                           </button>
                         )}
                       </div>
@@ -613,13 +617,13 @@ export default function Home() {
                 <h2 className="section-title">
                   Places <span className="gradient-text">disponibles maintenant</span>
                 </h2>
-                <p className="section-subtitle">Vos accès sont gérés en direct par notre équipe et garantis sans coupure.</p>
+                <p className="section-subtitle">Vos accès sont suivis par notre équipe, avec assistance en cas de dysfonctionnement.</p>
               </div>
 
               <div className="shares-list fade-in-up-stagger">
                 {filteredStocks.length === 0 ? (
                   <div className="glass-panel p-12 text-center" style={{ borderRadius: 'var(--radius)', color: 'var(--text-gray)', fontWeight: 400 }}>
-                    Aucun accès disponible en stock actuellement pour ce service. Notre équipe réapprovisionne régulièrement, revenez d&apos;ici quelques minutes !
+                    Aucune place disponible actuellement. Contactez-nous pour connaître les prochaines disponibilités.
                   </div>
                 ) : (
                   filteredStocks.map((stock) => {
@@ -631,7 +635,7 @@ export default function Home() {
                         </div>
                         <div className="share-details">
                           <div className="share-name">{stock.service.name}</div>
-                          <div className="share-tag">🛡️ Accès vérifié · Stable &amp; Garanti</div>
+                          <div className="share-tag">🛡️ Accès suivi · Assistance incluse</div>
                           <div className="share-slots">
                             <span className="slots-label">{avSlots} place{avSlots > 1 ? 's' : ''} libre{avSlots > 1 ? 's' : ''}</span>
                             <div className="share-dots">
@@ -641,7 +645,7 @@ export default function Home() {
                         </div>
                         <div className="share-price">
                           <span className="price-val">{stock.price.toFixed(2)}€</span>
-                          <span className="price-sub">/mois tout inclus</span>
+                          <span className="price-sub">/mois selon offre</span>
                         </div>
                         <a
                           href={`/checkout?service=${stock.serviceId}&stock=${stock.id}`}
@@ -665,7 +669,7 @@ export default function Home() {
                 <h2 className="section-title">
                   Pourquoi payer le <span className="gradient-text">tarif plein</span> ?
                 </h2>
-                <p className="section-subtitle">Comparez les tarifs publics avec les prix réduits exclusifs de StreamMalin.</p>
+                <p className="section-subtitle">Comparez les tarifs publics indicatifs avec les prix proposés par StreamMalin selon les offres disponibles.</p>
               </div>
 
               <div className="glass-panel comparison">
@@ -712,30 +716,38 @@ export default function Home() {
                       </button>
                     ))}
                   </div>
-                  <div className="calc-result">
-                    <div className="calc-tile">
-                      <div className="calc-tile-label">Tarif public</div>
-                      <div className="calc-tile-value" style={{ textDecoration: 'line-through', color: 'var(--text-muted)' }}>{calcOriginal.toFixed(2)}€</div>
-                    </div>
-                    <div className="calc-tile" style={{ background: 'linear-gradient(135deg, rgba(138,92,247,0.1), rgba(99,102,241,0.05))', borderColor: 'rgba(138,92,247,0.25)' }}>
-                      <div className="calc-tile-label">Avec StreamMalin</div>
-                      <div className="calc-tile-value gradient-text">{calcTotal.toFixed(2)}€</div>
-                    </div>
-                    <div className="calc-tile">
-                      <div className="calc-tile-label">Vous économisez</div>
-                      <div className="calc-tile-value" style={{ color: 'var(--accent-green)' }}>{calcSavings.toFixed(2)}€/m</div>
-                    </div>
-                  </div>
+                  {calcHasValidSelection ? (
+                    <>
+                      <div className="calc-result">
+                        <div className="calc-tile">
+                          <div className="calc-tile-label">Tarif public</div>
+                          <div className="calc-tile-value" style={{ textDecoration: 'line-through', color: 'var(--text-muted)' }}>{calcOriginal.toFixed(2)}€</div>
+                        </div>
+                        <div className="calc-tile" style={{ background: 'linear-gradient(135deg, rgba(138,92,247,0.1), rgba(99,102,241,0.05))', borderColor: 'rgba(138,92,247,0.25)' }}>
+                          <div className="calc-tile-label">Avec StreamMalin</div>
+                          <div className="calc-tile-value gradient-text">{calcTotal.toFixed(2)}€</div>
+                        </div>
+                        <div className="calc-tile">
+                          <div className="calc-tile-label">Vous économisez</div>
+                          <div className="calc-tile-value" style={{ color: 'var(--accent-green)' }}>{calcSavings.toFixed(2)}€/m</div>
+                        </div>
+                      </div>
 
-                  <div style={{ marginTop: 24, display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'center', justifyContent: 'space-between' }}>
-                    <p style={{ fontSize: '0.88rem', color: 'var(--text-gray)' }}>
-                      🚀 Sur l&apos;année, vous économisez{' '}
-                      <strong className="gradient-text" style={{ fontSize: '1.05rem' }}>{(calcSavings * 12).toFixed(0)}€</strong> !
-                    </p>
-                    <a href="#offres" className="btn btn-primary btn-sm">
-                      🔥 Choisir mes abonnements
-                    </a>
-                  </div>
+                      <div style={{ marginTop: 24, display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'center', justifyContent: 'space-between' }}>
+                        <p style={{ fontSize: '0.88rem', color: 'var(--text-gray)' }}>
+                          Sur l&apos;année, vous économisez{' '}
+                          <strong className="gradient-text" style={{ fontSize: '1.05rem' }}>{(calcSavings * 12).toFixed(0)}€</strong>.
+                        </p>
+                        <a href="#offres" className="btn btn-primary btn-sm">
+                          Choisir mes abonnements
+                        </a>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="glass-panel p-12 text-center" style={{ marginTop: 18, borderRadius: 'var(--radius)', color: 'var(--text-gray)', fontWeight: 400 }}>
+                      Sélectionnez une offre pour calculer vos économies.
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -754,8 +766,8 @@ export default function Home() {
               <div className="steps-grid fade-in-up-stagger">
                 {[
                   { n: '1', title: 'Sélectionnez une offre', text: 'Parcourez notre catalogue et choisissez l\'offre qui correspond à vos besoins parmi nos services premium.' },
-                  { n: '2', title: 'Réglez en sécurité', text: 'Payez chaque mois par carte bancaire, PayPal (Biens & Services) ou cryptomonnaies. Transactions 100% sécurisées.' },
-                  { n: '3', title: 'Accédez instantanément', text: 'Récupérez les identifiants ou le lien d\'invitation directement dans votre Espace Client et profitez immédiatement.' },
+                  { n: '2', title: 'Réglez en sécurité', text: 'Payez chaque mois par carte bancaire, PayPal (Biens & Services) ou cryptomonnaies via les moyens proposés.' },
+                  { n: '3', title: 'Recevez votre accès', text: 'Les informations d\'accès ou le lien d\'invitation sont transmis après validation du paiement et selon disponibilité.' },
                 ].map((step) => (
                   <div key={step.n} className="step-card glass-panel">
                     <div className="step-number">{step.n}</div>
@@ -775,14 +787,14 @@ export default function Home() {
                 <h2 className="section-title">
                   Partagez en toute <span className="gradient-text">sérénité</span>
                 </h2>
-                <p className="section-subtitle">Sécurité renforcée et conformité légale garanties à 100%.</p>
+                <p className="section-subtitle">Service encadré par des CGV, avec support client dédié et non-affiliation claire aux plateformes citées.</p>
               </div>
               <div className="guarantees-grid fade-in-up-stagger">
                 {[
-                  { icon: '🛡️', title: 'Protection Acheteur', text: 'Remplacement ou remboursement immédiat si le compte partagé présente un défaut.' },
+                  { icon: '🛡️', title: 'Suivi des accès', text: 'Assistance en cas de dysfonctionnement et traitement des demandes selon les CGV.' },
                   { icon: '🔐', title: 'Identifiants Chiffrés', text: 'Vos mots de passe et liens de connexion sont cryptés avec la norme AES-256.' },
-                  { icon: '⚡', title: 'Livraison Flash', text: 'Pas d\'attente. Votre accès Premium est disponible dès la confirmation de la transaction.' },
-                  { icon: '💬', title: 'Support 7j/7', text: 'Une équipe dédiée en français disponible pour résoudre tout conflit ou question.' },
+                  { icon: '⚡', title: 'Livraison rapide', text: 'Votre accès est transmis après validation de la commande et selon disponibilité.' },
+                  { icon: '💬', title: 'Support client', text: 'Une équipe dédiée en français répond aux demandes liées aux commandes et aux accès.' },
                 ].map((g, i) => (
                   <div key={i} className="guarantee-card glass-panel">
                     <div className="guarantee-icon">{g.icon}</div>
@@ -829,7 +841,7 @@ export default function Home() {
               <div className="cta-block glass-panel">
                 <div className="section-eyebrow">— Dernier appel —</div>
                 <h2>Prêt à réduire vos factures dès <span className="gradient-text">aujourd&apos;hui</span> ?</h2>
-                <p>Rejoignez nos clients économes. Accès instantané, résiliable à tout moment, sans engagement.</p>
+                <p>Rejoignez nos clients économes. Accès transmis après validation, résiliable à tout moment, sans engagement.</p>
                 <div className="cta-buttons">
                   <a href="#offres" onClick={() => setFilter('streaming')} className="btn btn-primary">▶ YouTube — dès 3,49€</a>
                   <a href="#offres" onClick={() => setFilter('streaming')} className="btn btn-outline">✦ Disney+ — dès 2,99€</a>
@@ -1104,7 +1116,7 @@ export default function Home() {
                               </a>
                             ) : (
                               <button disabled className="btn btn-ghost" style={{ width: '100%', opacity: 0.5 }}>
-                                ✗ Rupture de stock
+                                Aucune place disponible
                               </button>
                             )}
                           </div>
@@ -1241,7 +1253,7 @@ export default function Home() {
                                   Vous êtes sur le point de résilier votre abonnement <strong style={{ color: 'var(--text-white)' }}>{order.service.name}</strong>.
                                 </p>
                                 <div style={{ padding: 14, borderRadius: 10, background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)', marginBottom: 16, fontSize: '0.85rem', lineHeight: 1.7 }}>
-                                  ⚠️ <strong>Sans engagement</strong> — votre accès reste <strong>actif jusqu'au {effectiveAt.toLocaleDateString('fr-FR')}</strong> (30 jours après souscription). Un email de confirmation vous sera envoyé immédiatement.
+                                  ⚠️ <strong>Sans engagement</strong> — votre accès reste <strong>actif jusqu&apos;au {effectiveAt.toLocaleDateString('fr-FR')}</strong> (30 jours après souscription). Un email de confirmation vous sera envoyé.
                                 </div>
                                 {cancelError && (
                                   <div style={{ marginBottom: 12, padding: 10, borderRadius: 8, background: 'rgba(239,68,68,0.1)', color: '#f87171', fontSize: '0.82rem' }}>

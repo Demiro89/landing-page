@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 export default function NotFound() {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, position: 'relative' }}>
@@ -12,9 +14,9 @@ export default function NotFound() {
         <p style={{ color: 'var(--text-gray)', fontSize: '0.92rem', marginBottom: 28 }}>
           Cette page n&apos;existe pas ou a été déplacée. Retournez à la boutique pour découvrir nos offres.
         </p>
-        <a href="/" className="btn btn-primary btn-lg">
+        <Link href="/" className="btn btn-primary btn-lg">
           ← Retour à la boutique
-        </a>
+        </Link>
       </div>
     </div>
   );
