@@ -324,7 +324,7 @@ function CheckoutContent() {
                 <div className="info-box" style={{ borderColor: 'rgba(255,0,0,0.3)', background: 'rgba(255,0,0,0.06)' }}>
                   <div className="info-box-title">▶️ YouTube Premium fonctionne par invitation famille</div>
                   <div className="info-box-text">
-                    Contrairement à un compte partagé classique, YouTube Premium nécessite que nous vous invitions dans notre groupe famille. Indiquez ci-dessous l&apos;<strong style={{ color: 'var(--text-white)' }}>adresse e-mail Google associée à votre compte YouTube</strong>. Vous recevrez l&apos;invitation directement par e-mail (et dans l&apos;app YouTube) sous quelques minutes après le paiement — il vous suffira de l&apos;accepter pour activer YouTube Premium.
+                    YouTube Premium nécessite une invitation dans un groupe famille compatible. Indiquez ci-dessous l&apos;<strong style={{ color: 'var(--text-white)' }}>adresse e-mail Google associée à votre compte YouTube</strong>. L&apos;invitation est envoyée après validation du paiement et selon disponibilité ; il vous suffira de l&apos;accepter pour activer l&apos;accès si votre compte est éligible.
                   </div>
                 </div>
                 <div className="form-field">
@@ -433,7 +433,7 @@ function CheckoutContent() {
                     <li>Connectez-vous à votre compte PayPal.</li>
                     <li>Envoyez <strong style={{ color: 'var(--text-white)' }}>{service.price.toFixed(2)}€</strong> en mode <strong style={{ color: 'var(--accent-yellow)' }}>« Biens et Services »</strong>.</li>
                     <li>Dans la note : indiquez <strong style={{ color: 'var(--text-white)' }}>{email || 'votre email de livraison'}</strong>.</li>
-                    <li>Vos accès sont activés sous <strong style={{ color: 'var(--text-white)' }}>10 à 30 min</strong> après vérification.</li>
+                    <li>Vos accès sont traités rapidement après vérification du paiement et selon disponibilité.</li>
                   </ol>
                 </div>
 
@@ -462,7 +462,7 @@ function CheckoutContent() {
                     <div className="info-box-text">
                       Effectuez le paiement PayPal en indiquant la référence{' '}
                       <strong style={{ color: 'var(--text-white)' }}>{orderRef}</strong> dans la note.
-                      Vos accès seront activés dès vérification du paiement reçu.
+                      Vos accès seront traités après vérification du paiement reçu et selon disponibilité.
                     </div>
                     <a
                       href={paypalUrl}
@@ -490,7 +490,7 @@ function CheckoutContent() {
                 )}
 
                 <div className="trust-row">
-                  <span>🛡️ Protection Achats PayPal</span>
+                  <span>🛡️ Paiement PayPal traçable</span>
                   <span>✓ Biens &amp; Services</span>
                 </div>
               </div>
@@ -574,7 +574,7 @@ function CheckoutContent() {
                 )}
 
                 <div className="warn-box" style={{ marginTop: 16 }}>
-                  <strong>⚠️ Important :</strong> Une fois la transaction envoyée, transmettez le <strong>TXID</strong> à <strong>hello@streammalin.fr</strong> avec votre email de livraison. Votre slot sera activé sous 1h max après {activeCoin === 'btc' ? '1-3' : '2-12'} confirmation{activeCoin === 'btc' ? 's' : ''} réseau.
+                  <strong>⚠️ Important :</strong> Une fois la transaction envoyée, transmettez le <strong>TXID</strong> à <strong>hello@streammalin.fr</strong> avec votre email de livraison. Votre demande sera traitée après les confirmations réseau nécessaires et selon disponibilité.
                 </div>
 
                 <div className="trust-row">

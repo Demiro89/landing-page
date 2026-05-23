@@ -440,7 +440,7 @@ export default function Home() {
   const faqItems = [
     {
       q: 'Comment fonctionne StreamMalin ?',
-      a: 'StreamMalin souscrit des offres familiales ou multi-utilisateurs et met à votre disposition, pour une durée déterminée, un accès numérique temporaire (une place de profil ou une invitation famille). Nous gérons la configuration technique et le support. Vous bénéficiez ainsi d\'un accès à prix malin, avec des économies pouvant aller jusqu\'à 80%.',
+      a: 'StreamMalin souscrit des offres familiales ou multi-utilisateurs et met à votre disposition, pour une durée déterminée, un accès numérique temporaire (une place de profil ou une invitation famille). Nous gérons la configuration technique et le support. Vous bénéficiez ainsi d\'un accès à prix malin, avec des économies variables selon l\'offre disponible.',
     },
     {
       q: 'Le partage de place est-il sécurisé ?',
@@ -515,7 +515,7 @@ export default function Home() {
                 <span className="gradient-text">version maline.</span>
               </h1>
               <p className="hero-subtitle">
-                Vos accès favoris à prix malin avec des remises jusqu&apos;à <strong style={{ color: '#fff' }}>75%</strong> grâce à des places partagées sécurisées.
+                Vos accès favoris à prix malin avec des remises jusqu&apos;à <strong style={{ color: '#fff' }}>75%</strong> selon les offres disponibles.
               </p>
               <div className="hero-cta">
                 <a href="#offres" className="btn btn-primary btn-lg">
@@ -529,7 +529,7 @@ export default function Home() {
                 <span><span className="check">✓</span> Support client réactif en français</span>
                 <span><span className="check">✓</span> Livraison rapide après validation</span>
                 <span><span className="check">✓</span> Sans engagement</span>
-                <span><span className="check">✓</span> Paiement sécurisé</span>
+                <span><span className="check">✓</span> Paiement via prestataires spécialisés</span>
               </div>
             </div>
           </section>
@@ -645,7 +645,7 @@ export default function Home() {
                         </div>
                         <div className="share-price">
                           <span className="price-val">{stock.price.toFixed(2)}€</span>
-                          <span className="price-sub">/mois tout inclus</span>
+                          <span className="price-sub">/mois selon offre</span>
                         </div>
                         <a
                           href={`/checkout?service=${stock.serviceId}&stock=${stock.id}`}
@@ -669,7 +669,7 @@ export default function Home() {
                 <h2 className="section-title">
                   Pourquoi payer le <span className="gradient-text">tarif plein</span> ?
                 </h2>
-                <p className="section-subtitle">Comparez les tarifs publics avec les prix réduits exclusifs de StreamMalin.</p>
+                <p className="section-subtitle">Comparez les tarifs publics indicatifs avec les prix proposés par StreamMalin selon les offres disponibles.</p>
               </div>
 
               <div className="glass-panel comparison">

@@ -222,8 +222,10 @@ export default function CGVPage() {
         </tbody>
       </table>
       <p>
-        Le client peut également recourir à la plateforme européenne de règlement en ligne des litiges
-        accessible à l&apos;adresse&nbsp;: <a href="https://ec.europa.eu/consumers/odr" target="_blank" rel="noopener noreferrer">https://ec.europa.eu/consumers/odr</a>.
+        La médiation ne peut être engagée qu&apos;à l&apos;initiative du consommateur, après une démarche
+        écrite préalable auprès du support StreamMalin restée sans solution satisfaisante.
+        Pour les litiges transfrontaliers au sein de l&apos;Union européenne, le consommateur peut
+        également se rapprocher du Centre Européen des Consommateurs compétent.
       </p>
 
       <h2 id="non-affiliation">12. Non-affiliation</h2>

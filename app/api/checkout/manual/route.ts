@@ -77,6 +77,10 @@ export async function POST(request: Request) {
       await prisma.order.update({
         where: { id: existing.id },
         data: {
+          price: stock.price,
+          total: stock.price,
+          paymentMethod: methodLabel,
+          youtubeEmail: youtubeEmail ? String(youtubeEmail).trim().toLowerCase() : null,
           acceptedCgv: true,
           acceptedImmediateExecution: true,
           acceptedAt,

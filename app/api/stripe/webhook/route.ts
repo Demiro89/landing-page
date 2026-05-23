@@ -95,12 +95,21 @@ export async function POST(request: Request) {
         }
 
         // Cas 2 : nouveau checkout
-        if (!serviceId || !stockAccountId || !clientEmail || !price) break;
+        if (!serviceId || !stockAccountId || !clientEmail || !price) {
+          throw new Error(`Stripe checkout sans métadonnées complètes: ${session.id}`);
+        }
         const parsedPrice = parseFloat(price);
         const service = await prisma.service.findUnique({ where: { id: serviceId } });
         const stockAccount = await prisma.stockAccount.findUnique({ where: { id: stockAccountId } });
-        if (!service || !stockAccount) break;
-        if (stockAccount.serviceId !== serviceId || stockAccount.filledSlots >= stockAccount.maxSlots) break;
+        if (!service || !stockAccount) {
+          throw new Error(`Stripe checkout avec service ou stock introuvable: ${session.id}`);
+        }
+        if (stockAccount.serviceId !== serviceId || stockAccount.filledSlots >= stockAccount.maxSlots) {
+          sendTelegramNotification(
+            `⚠️ <b>Paiement Stripe reçu sans stock disponible</b>\n👤 ${clientEmail}\n📺 ${service.name}\n💶 ${parsedPrice.toFixed(2)}€\n🔖 Session ${session.id}`
+          ).catch(() => {});
+          throw new Error(`Stock indisponible après paiement Stripe: ${session.id}`);
+        }
 
         const sub = session.subscription
           ? await stripe.subscriptions.retrieve(session.subscription as string, { expand: ['default_payment_method'] })

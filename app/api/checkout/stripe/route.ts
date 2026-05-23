@@ -25,7 +25,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Paramètres manquants' }, { status: 400 });
     }
 
-    if (serviceId === 'youtube' && !youtubeEmail) {
+    const cleanedEmail = String(email).trim().toLowerCase();
+    const cleanedYoutubeEmail = youtubeEmail ? String(youtubeEmail).trim().toLowerCase() : '';
+    if (!cleanedEmail.includes('@')) {
+      return NextResponse.json({ error: 'Adresse email invalide' }, { status: 400 });
+    }
+
+    if (serviceId === 'youtube' && !cleanedYoutubeEmail) {
       return NextResponse.json({ error: 'Adresse e-mail YouTube requise pour YouTube Premium' }, { status: 400 });
     }
 
@@ -76,8 +82,8 @@ export async function POST(request: Request) {
             price: updatedStock.price,
             total: updatedStock.price,
             details: updatedStock.details,
-            clientEmail: email,
-            youtubeEmail: youtubeEmail || null,
+            clientEmail: cleanedEmail,
+            youtubeEmail: cleanedYoutubeEmail || null,
             paymentMethod: 'Carte bancaire (Stripe)',
             status: 'active',
             nextBillingAt: new Date(Date.now() + 30 * 86400000),
@@ -104,12 +110,12 @@ export async function POST(request: Request) {
       });
       const invoice = await createInvoiceForOrder({
         orderId: order.id,
-        clientEmail: email,
+        clientEmail: cleanedEmail,
         serviceName: service.name,
         amount: order.total,
         paymentMethod: 'Carte bancaire (Stripe)',
       }).catch((err) => { console.error('[invoice] simulation error:', err); return null; });
-      await sendOrderDetailsEmail(email, service.name, decrypt(stockAccount.details), order.id, undefined, {
+      await sendOrderDetailsEmail(cleanedEmail, service.name, decrypt(stockAccount.details), order.id, cleanedYoutubeEmail || undefined, {
         amount: order.total,
         invoiceId: invoice?.id,
         invoiceNumber: invoice?.number,
@@ -117,7 +123,7 @@ export async function POST(request: Request) {
       return NextResponse.json({
         success: true,
         simulated: true,
-        url: `${APP_URL}/?success=true&email=${encodeURIComponent(email)}&orderId=${order.id}`,
+        url: `${APP_URL}/?success=true&email=${encodeURIComponent(cleanedEmail)}&orderId=${order.id}`,
       });
     }
 
@@ -125,7 +131,7 @@ export async function POST(request: Request) {
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       payment_method_types: ['card', 'link'],
-      customer_email: email,
+      customer_email: cleanedEmail,
       line_items: [
         {
           price_data: {
@@ -140,14 +146,14 @@ export async function POST(request: Request) {
           quantity: 1,
         },
       ],
-      success_url: `${APP_URL}/?success=true&email=${encodeURIComponent(email)}&session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${APP_URL}/?success=true&email=${encodeURIComponent(cleanedEmail)}&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${APP_URL}/checkout?service=${serviceId}&stock=${stockAccountId}&cancelled=true`,
       metadata: {
         serviceId,
         stockAccountId,
-        clientEmail: email,
+        clientEmail: cleanedEmail,
         price: stockAccount.price.toString(),
-        youtubeEmail: youtubeEmail || '',
+        youtubeEmail: cleanedYoutubeEmail,
         acceptedAt: acceptedAt.toISOString(),
         acceptedTermsAt: acceptedAt.toISOString(),
         acceptedWithdrawalWaiverAt: acceptedAt.toISOString(),
@@ -160,8 +166,8 @@ export async function POST(request: Request) {
         metadata: {
           serviceId,
           stockAccountId,
-          clientEmail: email,
-          youtubeEmail: youtubeEmail || '',
+          clientEmail: cleanedEmail,
+          youtubeEmail: cleanedYoutubeEmail,
         },
       },
     });
