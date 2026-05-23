@@ -74,6 +74,10 @@ model Order {
   acceptedCgv                Boolean   @default(false)
   acceptedImmediateExecution Boolean   @default(false)
   acceptedAt                 DateTime?
+  acceptedTermsAt            DateTime?
+  acceptedWithdrawalWaiverAt DateTime?
+  acceptedEligibilityAt      DateTime?
+  termsVersion               String?
   acceptanceUserAgent        String?
   acceptanceIp               String?
   chats          ChatThread?

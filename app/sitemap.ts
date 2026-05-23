@@ -10,6 +10,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: '/mentions-legales', priority: 0.4, changeFrequency: 'monthly' },
     { path: '/politique-confidentialite', priority: 0.4, changeFrequency: 'monthly' },
     { path: '/cookies', priority: 0.4, changeFrequency: 'monthly' },
+    { path: '/reclamation', priority: 0.3, changeFrequency: 'monthly' },
+    { path: '/mediation', priority: 0.3, changeFrequency: 'monthly' },
+    { path: '/non-affiliation', priority: 0.3, changeFrequency: 'monthly' },
+    { path: '/retractation', priority: 0.3, changeFrequency: 'monthly' },
+    { path: '/remboursements', priority: 0.3, changeFrequency: 'monthly' },
   ];
   return routes.map((r) => ({
     url: `${BASE}${r.path}`,

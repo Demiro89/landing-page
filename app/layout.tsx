@@ -4,7 +4,7 @@ import './globals.css';
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.streammalin.fr';
 const TITLE = 'StreamMalin - Abonnements Streaming Premium à Prix Malin';
 const DESCRIPTION =
-  "Économisez jusqu'à 75% sur vos abonnements Netflix, YouTube Premium, Spotify, Disney+ et plus. Accès instantanés et support client réactif.";
+  "Économisez jusqu'à 75% sur vos abonnements Netflix, YouTube Premium, Spotify, Disney+ et plus. Accès transmis après validation et support client réactif.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(APP_URL),

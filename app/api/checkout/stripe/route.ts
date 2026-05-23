@@ -4,11 +4,12 @@ import { prisma } from '@/lib/prisma';
 import { sendOrderDetailsEmail } from '@/lib/nodemailer';
 import { createInvoiceForOrder } from '@/lib/invoice';
 import { decrypt } from '@/lib/crypto';
+import { LEGAL_LAST_UPDATED } from '@/lib/legalConfig';
 
 export const dynamic = 'force-dynamic';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_mock', {
-  apiVersion: '2023-10-16' as any,
+  apiVersion: '2026-04-22.dahlia',
 });
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
@@ -18,7 +19,7 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
  */
 export async function POST(request: Request) {
   try {
-    const { serviceId, stockAccountId, email, youtubeEmail, acceptedCgv, acceptedImmediateExecution } = await request.json();
+    const { serviceId, stockAccountId, email, youtubeEmail, acceptedCgv, acceptedImmediateExecution, acceptedEligibility } = await request.json();
 
     if (!serviceId || !stockAccountId || !email) {
       return NextResponse.json({ error: 'Paramètres manquants' }, { status: 400 });
@@ -28,9 +29,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Adresse e-mail YouTube requise pour YouTube Premium' }, { status: 400 });
     }
 
-    if (!acceptedCgv || !acceptedImmediateExecution) {
+    if (!acceptedCgv || !acceptedImmediateExecution || !acceptedEligibility) {
       return NextResponse.json(
-        { error: 'Vous devez accepter les CGV et la demande d\'exécution immédiate.' },
+        { error: 'Vous devez accepter les CGV, la demande d\'exécution immédiate et confirmer votre éligibilité.' },
         { status: 400 }
       );
     }
@@ -38,13 +39,22 @@ export async function POST(request: Request) {
     // Preuve d'acceptation : horodatage serveur + métadonnées techniques
     const acceptedAt = new Date();
     const acceptanceUserAgent = (request.headers.get('user-agent') || '').slice(0, 450);
-    const acceptanceIp = (request.headers.get('x-forwarded-for') || '').split(',')[0].trim().slice(0, 90);
+    const acceptanceIp = (
+      request.headers.get('x-forwarded-for') ||
+      request.headers.get('x-real-ip') ||
+      ''
+    ).split(',')[0].trim().slice(0, 90);
+    const termsVersion = LEGAL_LAST_UPDATED;
 
     const service = await prisma.service.findUnique({ where: { id: serviceId } });
     const stockAccount = await prisma.stockAccount.findUnique({ where: { id: stockAccountId } });
 
     if (!service || !stockAccount) {
       return NextResponse.json({ error: 'Service ou stock introuvable' }, { status: 404 });
+    }
+
+    if (stockAccount.serviceId !== serviceId) {
+      return NextResponse.json({ error: 'Ce stock ne correspond pas au service sélectionné' }, { status: 400 });
     }
 
     if (stockAccount.filledSlots >= stockAccount.maxSlots) {
@@ -74,6 +84,10 @@ export async function POST(request: Request) {
             acceptedCgv: true,
             acceptedImmediateExecution: true,
             acceptedAt,
+            acceptedTermsAt: acceptedAt,
+            acceptedWithdrawalWaiverAt: acceptedAt,
+            acceptedEligibilityAt: acceptedAt,
+            termsVersion,
             acceptanceUserAgent,
             acceptanceIp,
           },
@@ -110,7 +124,7 @@ export async function POST(request: Request) {
     // Stripe Subscription réelle
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
-      payment_method_types: ['card', 'link'] as any,
+      payment_method_types: ['card', 'link'],
       customer_email: email,
       line_items: [
         {
@@ -135,6 +149,10 @@ export async function POST(request: Request) {
         price: stockAccount.price.toString(),
         youtubeEmail: youtubeEmail || '',
         acceptedAt: acceptedAt.toISOString(),
+        acceptedTermsAt: acceptedAt.toISOString(),
+        acceptedWithdrawalWaiverAt: acceptedAt.toISOString(),
+        acceptedEligibilityAt: acceptedAt.toISOString(),
+        termsVersion,
         acceptanceUserAgent,
         acceptanceIp,
       },
@@ -149,8 +167,9 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({ success: true, url: session.url });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Erreur Stripe Checkout Route:', error);
-    return NextResponse.json({ error: error.message || 'Erreur serveur Stripe' }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'Erreur serveur Stripe';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

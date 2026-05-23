@@ -67,7 +67,7 @@ export const SERVICE_NATURE =
   "L'accès fourni ne constitue pas une vente définitive d'un abonnement, d'un compte ou d'un droit de propriété. Le client bénéficie uniquement d'un droit d'accès temporaire et personnel pendant la durée de l'offre souscrite.";
 
 /** Date de dernière mise à jour des documents légaux. */
-export const LEGAL_LAST_UPDATED = '22 mai 2026';
+export const LEGAL_LAST_UPDATED = '23 mai 2026';
 
 /** Libellé de facture pour une offre donnée. */
 export function invoiceLineLabel(offerName: string, durationLabel = '1 mois'): string {
