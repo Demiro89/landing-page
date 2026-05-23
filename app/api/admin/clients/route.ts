@@ -5,6 +5,7 @@ import { isAdminAuthenticated } from '@/lib/adminAuth';
 export const dynamic = 'force-dynamic';
 
 const checkAuth = isAdminAuthenticated;
+const errorMessage = (error: unknown) => error instanceof Error ? error.message : 'Erreur serveur';
 
 /**
  * GET /api/admin/clients : Liste des clients uniques dérivés des commandes.
@@ -57,7 +58,7 @@ export async function GET() {
     );
 
     return NextResponse.json({ success: true, clients });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json({ error: errorMessage(error) }, { status: 500 });
   }
 }

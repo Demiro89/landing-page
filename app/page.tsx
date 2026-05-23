@@ -97,11 +97,10 @@ export default function Home() {
   const [authLoading, setAuthLoading] = useState(false);
   const [resetToken, setResetToken] = useState('');
 
-  const [clientEmail, setClientEmail] = useState('');
   const [searchedEmail, setSearchedEmail] = useState('');
   const [orders, setOrders] = useState<Order[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
-  const [ordersError, setOrdersError] = useState('');
+  const [, setOrdersError] = useState('');
   const [activeChatOrderId, setActiveChatOrderId] = useState<string | null>(null);
   const [chatMessages, setChatMessages] = useState<Message[]>([]);
   const [chatInput, setChatInput] = useState('');
@@ -377,6 +376,7 @@ export default function Home() {
       setLoadingOrders(false);
     }
   };
+  void fetchOrders;
 
   const fetchChat = async (orderId: string) => {
     try {

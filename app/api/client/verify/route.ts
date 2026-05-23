@@ -26,7 +26,7 @@ export async function GET(request: Request) {
     await setSession(customer.id);
 
     return NextResponse.redirect(new URL('/?verify=success', request.url));
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[verify]', error);
     return NextResponse.redirect(new URL('/?verify=error', request.url));
   }

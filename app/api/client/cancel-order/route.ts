@@ -58,7 +58,7 @@ export async function POST(request: Request) {
     await sendCancellationEmail(customer.email, order.service.name, orderId, cancellationEffectiveAt);
 
     return NextResponse.json({ success: true, effectiveAt: cancellationEffectiveAt });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Erreur POST cancel-order:', error);
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
   }

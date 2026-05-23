@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
+const errorMessage = (error: unknown) => error instanceof Error ? error.message : 'Erreur serveur';
 
 /**
  * GET /api/stocks/public : Retourne les comptes de stock disponibles SANS les identifiants sensibles.
@@ -34,8 +35,8 @@ export async function GET() {
     });
 
     return NextResponse.json({ success: true, stocks });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Erreur GET stocks/public:', error);
-    return NextResponse.json({ error: error.message || 'Erreur serveur' }, { status: 500 });
+    return NextResponse.json({ error: errorMessage(error) }, { status: 500 });
   }
 }

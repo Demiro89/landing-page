@@ -4,6 +4,7 @@ import { verifyPassword, setSession } from '@/lib/clientAuth';
 import { enforceRateLimit } from '@/lib/rateLimit';
 
 export const dynamic = 'force-dynamic';
+const errorMessage = (error: unknown) => error instanceof Error ? error.message : 'Erreur serveur';
 
 export async function POST(request: Request) {
   try {
@@ -33,8 +34,8 @@ export async function POST(request: Request) {
       success: true,
       customer: { id: customer.id, email: customer.email },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[login]', error);
-    return NextResponse.json({ error: error.message || 'Erreur serveur' }, { status: 500 });
+    return NextResponse.json({ error: errorMessage(error) }, { status: 500 });
   }
 }
