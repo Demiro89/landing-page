@@ -71,10 +71,15 @@ export async function POST(request: Request) {
     if (!process.env.STRIPE_SECRET_KEY || process.env.STRIPE_SECRET_KEY === 'sk_test_mock') {
       console.log('--- MODE SIMULATION STRIPE (subscription) ---');
       const order = await prisma.$transaction(async (tx) => {
-        const updatedStock = await tx.stockAccount.update({
-          where: { id: stockAccountId },
+        const stockIncrement = await tx.stockAccount.updateMany({
+          where: { id: stockAccountId, filledSlots: { lt: stockAccount.maxSlots } },
           data: { filledSlots: { increment: 1 } },
         });
+        if (stockIncrement.count === 0) {
+          throw new Error('Plus de places disponibles dans ce compte');
+        }
+        const updatedStock = await tx.stockAccount.findUnique({ where: { id: stockAccountId } });
+        if (!updatedStock) throw new Error('Stock introuvable');
         const createdOrder = await tx.order.create({
           data: {
             serviceId,
