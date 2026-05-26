@@ -98,7 +98,10 @@ export async function POST(request: Request) {
         if (!serviceId || !stockAccountId || !clientEmail || !price) {
           throw new Error(`Stripe checkout sans métadonnées complètes: ${session.id}`);
         }
-        const parsedPrice = parseFloat(price);
+        const parsedPrice = Number(price);
+        if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) {
+          throw new Error(`Stripe checkout avec prix invalide: ${session.id}`);
+        }
         const service = await prisma.service.findUnique({ where: { id: serviceId } });
         const stockAccount = await prisma.stockAccount.findUnique({ where: { id: stockAccountId } });
         if (!service || !stockAccount) {
@@ -122,17 +125,20 @@ export async function POST(request: Request) {
           if (!currentStock || currentStock.serviceId !== serviceId || currentStock.filledSlots >= currentStock.maxSlots) {
             throw new Error('Stock indisponible pour cette commande Stripe');
           }
-          const updatedStock = await tx.stockAccount.update({
-            where: { id: stockAccountId },
+          const stockIncrement = await tx.stockAccount.updateMany({
+            where: { id: stockAccountId, serviceId, filledSlots: { lt: currentStock.maxSlots } },
             data: { filledSlots: { increment: 1 } },
           });
+          if (stockIncrement.count === 0) {
+            throw new Error('Stock indisponible pour cette commande Stripe');
+          }
           const createdOrder = await tx.order.create({
             data: {
               serviceId,
               stockAccountId,
               price: parsedPrice,
               total: parsedPrice,
-              details: updatedStock.details,
+              details: currentStock.details,
               clientEmail,
               youtubeEmail: youtubeEmail || null,
               paymentMethod: 'Carte bancaire (Stripe)',
@@ -271,10 +277,16 @@ export async function POST(request: Request) {
         const order = await prisma.order.findFirst({ where: { stripeSubscriptionId: sub.id } });
         if (!order || order.status === 'cancelled') break;
         await prisma.$transaction(async (tx) => {
-          await tx.order.update({ where: { id: order.id }, data: { status: 'cancelled', cancellationEffectiveAt: new Date() } });
-          const stock = await tx.stockAccount.findUnique({ where: { id: order.stockAccountId } });
-          if (stock && stock.filledSlots > 0) {
-            await tx.stockAccount.update({ where: { id: order.stockAccountId }, data: { filledSlots: { decrement: 1 } } });
+          const cancelled = await tx.order.updateMany({
+            where: { id: order.id, status: { not: 'cancelled' } },
+            data: { status: 'cancelled', cancellationEffectiveAt: new Date() },
+          });
+          const consumedStock = ['active', 'unpaid', 'cancelled_pending'].includes(order.status);
+          if (cancelled.count === 1 && consumedStock) {
+            await tx.stockAccount.updateMany({
+              where: { id: order.stockAccountId, filledSlots: { gt: 0 } },
+              data: { filledSlots: { decrement: 1 } },
+            });
           }
         });
         sendTelegramNotification(`🔴 <b>Abonnement Stripe annulé</b>\n👤 ${order.clientEmail}\n📺 ${order.serviceId}`).catch(() => {});
