@@ -814,7 +814,7 @@ export default function Home() {
                 <h2 className="section-title">
                   Questions <span className="gradient-text">fréquentes</span>
                 </h2>
-                <p className="section-subtitle">Toutes les réponses à vos interrogations.</p>
+                <p className="section-subtitle">Des réponses aux questions fréquentes.</p>
               </div>
               <div className="faq-list">
                 {faqItems.map((item, i) => (

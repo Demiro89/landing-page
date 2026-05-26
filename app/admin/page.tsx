@@ -1531,12 +1531,12 @@ export default function AdminPage() {
                   Mode de facturation B2C
                 </div>
                 <p className="admin-card-sub">
-                  Vente directe d&apos;accès premium. Prix nets, sans commissions cachées.
+                  Vente directe d&apos;accès premium. Prix nets affichés dans l&apos;interface.
                 </p>
                 <div className="info-box" style={{ background: 'rgba(16,185,129,0.06)', borderColor: 'rgba(16,185,129,0.2)' }}>
-                  <div className="info-box-title" style={{ color: 'var(--accent-green)' }}>🛡️ Prix plat garanti</div>
+                  <div className="info-box-title" style={{ color: 'var(--accent-green)' }}>🛡️ Prix plat configuré</div>
                   <div className="info-box-text">
-                    Frais de plateforme / Commissions : <strong style={{ color: 'var(--accent-green)' }}>0,00€</strong>. Tous les revenus restent pour StreamMalin.
+                    Frais de plateforme / Commissions : <strong style={{ color: 'var(--accent-green)' }}>0,00€</strong>. Les revenus affichés sont attribués à StreamMalin.
                   </div>
                 </div>
               </div>

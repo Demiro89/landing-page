@@ -129,7 +129,7 @@ export default function CGVPage() {
         Le fonctionnement effectif de certains accès dépend de plateformes tierces indépendantes de
         StreamMalin. Ces plateformes peuvent modifier leurs règles techniques, familiales, tarifaires
         ou géographiques. StreamMalin assure un suivi des accès et une assistance en cas de
-        dysfonctionnement, sans pouvoir garantir l&apos;absence totale d&apos;interruption liée à un tiers.
+        dysfonctionnement, mais des interruptions liées à un tiers peuvent survenir.
       </p>
 
       <h2 id="eligibilite">7. Éligibilité du client et restrictions des plateformes tierces</h2>

@@ -38,7 +38,7 @@ const DEFAULT_SERVICES = [
     active: true,
     icon: '🎵',
     gradient: 'linear-gradient(135deg, #1db954 0%, #117a35 100%)',
-    features: ['Musique sans publicité', 'Écoute hors-ligne illimitée', 'Qualité audio maximum'],
+    features: ['Musique sans publicité', 'Écoute hors-ligne selon offre', 'Qualité audio selon l’offre'],
   },
   {
     id: 'disney',
@@ -55,14 +55,14 @@ const DEFAULT_SERVICES = [
   {
     id: 'surfshark',
     name: 'Surfshark VPN',
-    tagline: 'Navigation ultra-sécurisée et écrans illimités',
+    tagline: 'Navigation protégée et appareils selon offre',
     price: 1.49,
     original: 12.99,
     maxSlots: 5,
     active: true,
     icon: '🦈',
     gradient: 'linear-gradient(135deg, hsl(175, 100%, 45%), hsl(182, 100%, 25%))',
-    features: ['Connexions simultanées selon offre', 'Bloqueur de pubs et trackers', 'Serveurs dans plusieurs pays', 'Politique No-Logs annoncée par le fournisseur', 'Accès transmis après validation'],
+    features: ['Connexions simultanées selon offre', 'Bloqueur de pubs et trackers selon offre', 'Serveurs dans plusieurs pays', 'Politique de confidentialité du fournisseur applicable', 'Accès transmis après validation'],
   },
 ];
 
