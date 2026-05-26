@@ -11,17 +11,34 @@ export const dynamic = 'force-dynamic';
 const checkAuth = isAdminAuthenticated;
 const errorMessage = (error: unknown) => error instanceof Error ? error.message : 'Erreur serveur';
 
-function validPositiveNumber(v: unknown): boolean {
-  const n = parseFloat(String(v));
-  return !isNaN(n) && n > 0;
+function parseFiniteNumber(v: unknown): number | null {
+  const n = typeof v === 'number' ? v : Number(String(v).trim());
+  return Number.isFinite(n) ? n : null;
 }
-function validNonNegativeInt(v: unknown): boolean {
-  const n = parseInt(String(v), 10);
-  return !isNaN(n) && n >= 0 && Number.isInteger(n);
+
+function parsePositiveNumber(v: unknown): number | null {
+  const n = parseFiniteNumber(v);
+  return n !== null && n > 0 ? n : null;
 }
-function validPositiveInt(v: unknown): boolean {
-  const n = parseInt(String(v), 10);
-  return !isNaN(n) && n >= 1 && Number.isInteger(n);
+
+function parseNonNegativeNumber(v: unknown): number | null {
+  const n = parseFiniteNumber(v);
+  return n !== null && n >= 0 ? n : null;
+}
+
+function parseInteger(v: unknown): number | null {
+  const n = parseFiniteNumber(v);
+  return n !== null && Number.isInteger(n) ? n : null;
+}
+
+function parseNonNegativeInt(v: unknown): number | null {
+  const n = parseInteger(v);
+  return n !== null && n >= 0 ? n : null;
+}
+
+function parsePositiveInt(v: unknown): number | null {
+  const n = parseInteger(v);
+  return n !== null && n >= 1 ? n : null;
 }
 
 /**
@@ -119,9 +136,12 @@ export async function POST(request: Request) {
 
       if (!id || !String(id).trim()) return NextResponse.json({ error: 'id est requis' }, { status: 400 });
       if (!name || !String(name).trim()) return NextResponse.json({ error: 'name est requis' }, { status: 400 });
-      if (!validPositiveNumber(price)) return NextResponse.json({ error: 'price doit être un nombre positif' }, { status: 400 });
-      if (!validPositiveNumber(original)) return NextResponse.json({ error: 'original doit être un nombre positif' }, { status: 400 });
-      if (!validPositiveInt(maxSlots)) return NextResponse.json({ error: 'maxSlots doit être un entier >= 1' }, { status: 400 });
+      const parsedPrice = parsePositiveNumber(price);
+      const parsedOriginal = parsePositiveNumber(original);
+      const parsedMaxSlots = parsePositiveInt(maxSlots);
+      if (parsedPrice === null) return NextResponse.json({ error: 'price doit être un nombre positif' }, { status: 400 });
+      if (parsedOriginal === null) return NextResponse.json({ error: 'original doit être un nombre positif' }, { status: 400 });
+      if (parsedMaxSlots === null) return NextResponse.json({ error: 'maxSlots doit être un entier >= 1' }, { status: 400 });
       if (!Array.isArray(features) || features.length === 0) return NextResponse.json({ error: 'features doit être un tableau non vide' }, { status: 400 });
 
       const service = await prisma.service.upsert({
@@ -129,9 +149,9 @@ export async function POST(request: Request) {
         update: {
           name,
           tagline,
-          price: parseFloat(price),
-          original: parseFloat(original),
-          maxSlots: parseInt(maxSlots),
+          price: parsedPrice,
+          original: parsedOriginal,
+          maxSlots: parsedMaxSlots,
           icon,
           gradient,
           features,
@@ -140,9 +160,9 @@ export async function POST(request: Request) {
           id,
           name,
           tagline,
-          price: parseFloat(price),
-          original: parseFloat(original),
-          maxSlots: parseInt(maxSlots),
+          price: parsedPrice,
+          original: parsedOriginal,
+          maxSlots: parsedMaxSlots,
           icon,
           gradient,
           features,
@@ -157,10 +177,14 @@ export async function POST(request: Request) {
       const { serviceId, accountsBoughtPrice, price, maxSlots, filledSlots, details } = body;
 
       if (!serviceId || !String(serviceId).trim()) return NextResponse.json({ error: 'serviceId est requis' }, { status: 400 });
-      if (!validPositiveNumber(price)) return NextResponse.json({ error: 'price doit être un nombre positif' }, { status: 400 });
-      if (!validPositiveInt(maxSlots)) return NextResponse.json({ error: 'maxSlots doit être un entier >= 1' }, { status: 400 });
-      const parsedFilled = parseInt(filledSlots || '0', 10);
-      if (!validNonNegativeInt(filledSlots ?? 0) || parsedFilled > parseInt(maxSlots, 10)) {
+      const parsedPrice = parsePositiveNumber(price);
+      const parsedAccountsBoughtPrice = parseNonNegativeNumber(accountsBoughtPrice || 0);
+      const parsedMaxSlots = parsePositiveInt(maxSlots);
+      const parsedFilled = parseNonNegativeInt(filledSlots ?? 0);
+      if (parsedPrice === null) return NextResponse.json({ error: 'price doit être un nombre positif' }, { status: 400 });
+      if (parsedAccountsBoughtPrice === null) return NextResponse.json({ error: 'accountsBoughtPrice doit être un nombre >= 0' }, { status: 400 });
+      if (parsedMaxSlots === null) return NextResponse.json({ error: 'maxSlots doit être un entier >= 1' }, { status: 400 });
+      if (parsedFilled === null || parsedFilled > parsedMaxSlots) {
         return NextResponse.json({ error: 'filledSlots invalide ou supérieur à maxSlots' }, { status: 400 });
       }
       if (!details || !String(details).trim()) return NextResponse.json({ error: 'details sont obligatoires' }, { status: 400 });
@@ -170,10 +194,10 @@ export async function POST(request: Request) {
       const stock = await prisma.stockAccount.create({
         data: {
           serviceId,
-          accountsBoughtPrice: parseFloat(accountsBoughtPrice || 0),
-          price: parseFloat(price),
-          maxSlots: parseInt(maxSlots),
-          filledSlots: parseInt(filledSlots || 0),
+          accountsBoughtPrice: parsedAccountsBoughtPrice,
+          price: parsedPrice,
+          maxSlots: parsedMaxSlots,
+          filledSlots: parsedFilled,
           details: encrypt(details),
         },
       });
@@ -203,10 +227,15 @@ export async function PUT(request: Request) {
     if (action === 'update_stock') {
       const { accountsBoughtPrice, price, maxSlots, filledSlots, details } = body;
 
-      if (!validPositiveNumber(price)) return NextResponse.json({ error: 'price doit être un nombre positif' }, { status: 400 });
-      if (!validPositiveInt(maxSlots)) return NextResponse.json({ error: 'maxSlots doit être un entier >= 1' }, { status: 400 });
-      if (!validNonNegativeInt(filledSlots)) return NextResponse.json({ error: 'filledSlots doit être un entier >= 0' }, { status: 400 });
-      if (parseInt(filledSlots, 10) > parseInt(maxSlots, 10)) return NextResponse.json({ error: 'filledSlots ne peut pas dépasser maxSlots' }, { status: 400 });
+      const parsedPrice = parsePositiveNumber(price);
+      const parsedAccountsBoughtPrice = parseNonNegativeNumber(accountsBoughtPrice);
+      const parsedMaxSlots = parsePositiveInt(maxSlots);
+      const parsedFilled = parseNonNegativeInt(filledSlots);
+      if (parsedPrice === null) return NextResponse.json({ error: 'price doit être un nombre positif' }, { status: 400 });
+      if (parsedAccountsBoughtPrice === null) return NextResponse.json({ error: 'accountsBoughtPrice doit être un nombre >= 0' }, { status: 400 });
+      if (parsedMaxSlots === null) return NextResponse.json({ error: 'maxSlots doit être un entier >= 1' }, { status: 400 });
+      if (parsedFilled === null) return NextResponse.json({ error: 'filledSlots doit être un entier >= 0' }, { status: 400 });
+      if (parsedFilled > parsedMaxSlots) return NextResponse.json({ error: 'filledSlots ne peut pas dépasser maxSlots' }, { status: 400 });
       if (!details || !String(details).trim()) return NextResponse.json({ error: 'details sont obligatoires' }, { status: 400 });
 
       // Récupérer l'ancien état pour détecter un changement d'identifiants
@@ -215,10 +244,10 @@ export async function PUT(request: Request) {
       const updatedStock = await prisma.stockAccount.update({
         where: { id },
         data: {
-          accountsBoughtPrice: parseFloat(accountsBoughtPrice),
-          price: parseFloat(price),
-          maxSlots: parseInt(maxSlots),
-          filledSlots: parseInt(filledSlots),
+          accountsBoughtPrice: parsedAccountsBoughtPrice,
+          price: parsedPrice,
+          maxSlots: parsedMaxSlots,
+          filledSlots: parsedFilled,
           details: encrypt(details),
         },
       });
@@ -258,14 +287,14 @@ export async function PUT(request: Request) {
         return NextResponse.json({ success: true });
       }
       await prisma.$transaction(async (tx) => {
-        await tx.order.update({
-          where: { id: orderId },
+        const cancelled = await tx.order.updateMany({
+          where: { id: orderId, status: { not: 'cancelled' } },
           data: { status: 'cancelled', cancellationEffectiveAt: order.cancellationEffectiveAt || new Date() },
         });
-        const stock = await tx.stockAccount.findUnique({ where: { id: order.stockAccountId } });
-        if (stock && stock.filledSlots > 0) {
-          await tx.stockAccount.update({
-            where: { id: order.stockAccountId },
+        const consumedStock = ['active', 'unpaid', 'cancelled_pending'].includes(order.status);
+        if (cancelled.count === 1 && consumedStock) {
+          await tx.stockAccount.updateMany({
+            where: { id: order.stockAccountId, filledSlots: { gt: 0 } },
             data: { filledSlots: { decrement: 1 } },
           });
         }
