@@ -187,6 +187,10 @@ export async function POST(request: Request) {
           sendTelegramNotification(
             `▶️ <b>Nouvelle commande YouTube Premium</b>\n👤 ${clientEmail}\n📧 <b>Email YouTube à inviter :</b> <code>${youtubeEmail}</code>\n💶 ${parsedPrice.toFixed(2)}€`
           ).catch(() => {});
+        } else {
+          sendTelegramNotification(
+            `✅ <b>Nouvelle commande Stripe</b>\n👤 ${clientEmail}\n📺 ${service.name}\n💶 ${parsedPrice.toFixed(2)}€/mois`
+          ).catch(() => {});
         }
         // Lier le customer Stripe au compte client si existant
         if (stripeCustomerId && clientEmail) {

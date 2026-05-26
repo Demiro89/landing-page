@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentCustomer } from '@/lib/clientAuth';
 import { sendCancellationEmail } from '@/lib/nodemailer';
+import { sendTelegramNotification } from '@/lib/telegram';
 
 export const dynamic = 'force-dynamic';
 
@@ -56,6 +57,10 @@ export async function POST(request: Request) {
 
     // Envoyer l'email de confirmation de résiliation
     await sendCancellationEmail(customer.email, order.service.name, orderId, cancellationEffectiveAt);
+
+    sendTelegramNotification(
+      `🔴 <b>Résiliation client (manuel)</b>\n👤 ${customer.email}\n📺 ${order.service.name}\n📅 Effective le ${cancellationEffectiveAt.toLocaleDateString('fr-FR')}`
+    ).catch(() => {});
 
     return NextResponse.json({ success: true, effectiveAt: cancellationEffectiveAt });
   } catch (error: unknown) {
