@@ -278,7 +278,9 @@ function CheckoutContent() {
           {/* ── Formulaire ── */}
           <div className="glass-panel checkout-card fade-in-up">
             <div className="checkout-card-head">
-              <div className="icon-bubble">💳</div>
+              <div className="icon-bubble">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+              </div>
               Choisir un moyen de paiement
             </div>
 
@@ -588,7 +590,9 @@ function CheckoutContent() {
           {/* ── Récapitulatif ── */}
           <div className="glass-panel checkout-card fade-in-up" style={{ animationDelay: '0.1s' }}>
             <div className="checkout-card-head">
-              <div className="icon-bubble">📦</div>
+              <div className="icon-bubble">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+              </div>
               Récapitulatif
             </div>
 
@@ -598,7 +602,7 @@ function CheckoutContent() {
               </div>
               <div className="recap-service-info">
                 <div className="name">{service.name}</div>
-                <div className="sub">⭐ 5.0 · Accès vérifié · Stable</div>
+                <div className="sub">Accès numérique · Mensuel · Sans engagement</div>
               </div>
               <div className="recap-service-price">{service.price.toFixed(2)}€</div>
             </div>
