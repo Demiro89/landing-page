@@ -638,8 +638,24 @@ export default function Home() {
 
               <div className="shares-list fade-in-up-stagger">
                 {filteredStocks.length === 0 ? (
-                  <div className="glass-panel p-12 text-center" style={{ borderRadius: 'var(--radius)', color: 'var(--text-gray)', fontWeight: 400 }}>
-                    Aucune place disponible actuellement. Contactez-nous pour connaître les prochaines disponibilités.
+                  <div className="glass-panel" style={{ borderRadius: 'var(--radius)', padding: '52px 32px', textAlign: 'center', maxWidth: 520, margin: '0 auto' }}>
+                    <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(138,92,247,0.12)', border: '1px solid rgba(138,92,247,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+                      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+                      </svg>
+                    </div>
+                    <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-white)', marginBottom: 8 }}>Aucune place disponible</h3>
+                    <p style={{ fontSize: '0.88rem', color: 'var(--text-gray)', lineHeight: 1.65, marginBottom: 20 }}>
+                      Toutes les places de ce service sont momentanément occupées.<br />
+                      Revenez bientôt ou contactez-nous pour être prévenu des prochaines disponibilités.
+                    </p>
+                    <button
+                      onClick={() => setView('dashboard')}
+                      className="btn btn-outline btn-sm"
+                      style={{ fontSize: '0.82rem' }}
+                    >
+                      💬 Contacter le support
+                    </button>
                   </div>
                 ) : (
                   filteredStocks.map((stock) => {
@@ -807,13 +823,25 @@ export default function Home() {
               </div>
               <div className="guarantees-grid fade-in-up-stagger">
                 {[
-                  { icon: '🛡️', title: 'Suivi des accès', text: 'Assistance en cas de dysfonctionnement et traitement des demandes selon les CGV.' },
-                  { icon: '🔐', title: 'Identifiants Chiffrés', text: 'Vos mots de passe et liens de connexion sont cryptés avec la norme AES-256.' },
-                  { icon: '⚡', title: 'Livraison rapide', text: 'Votre accès est transmis après validation de la commande et selon disponibilité.' },
-                  { icon: '💬', title: 'Support client', text: 'Une équipe dédiée en français répond aux demandes liées aux commandes et aux accès.' },
+                  {
+                    svg: <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
+                    title: 'Suivi des accès', text: 'Assistance en cas de dysfonctionnement et traitement des demandes selon les CGV.',
+                  },
+                  {
+                    svg: <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>,
+                    title: 'Identifiants Chiffrés', text: 'Vos mots de passe et liens de connexion sont chiffrés avec la norme AES-256.',
+                  },
+                  {
+                    svg: <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>,
+                    title: 'Livraison rapide', text: 'Votre accès est transmis après validation de la commande et selon disponibilité.',
+                  },
+                  {
+                    svg: <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
+                    title: 'Support client', text: 'Une équipe dédiée en français répond aux demandes liées aux commandes et aux accès.',
+                  },
                 ].map((g, i) => (
                   <div key={i} className="guarantee-card glass-panel">
-                    <div className="guarantee-icon">{g.icon}</div>
+                    <div className="guarantee-icon" style={{ color: 'var(--primary)' }}>{g.svg}</div>
                     <div className="guarantee-title">{g.title}</div>
                     <p className="guarantee-text">{g.text}</p>
                   </div>
