@@ -76,6 +76,7 @@ export default function Home() {
   const [view, setView] = useState<View>('storefront');
   const [dashTab, setDashTab] = useState<DashTab>('orders');
   const [services, setServices] = useState<Service[]>([]);
+  const [servicesLoaded, setServicesLoaded] = useState(false);
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [filter, setFilter] = useState<FilterType>('all');
   const [faqOpen, setFaqOpen] = useState<number | null>(0);
@@ -116,7 +117,7 @@ export default function Home() {
 
   useEffect(() => {
     const fetchServices = () => {
-      fetch('/api/services', { cache: 'no-store' }).then(r => r.json()).then(d => { if (d.success) setServices(d.services); });
+      fetch('/api/services', { cache: 'no-store' }).then(r => r.json()).then(d => { if (d.success) setServices(d.services); }).catch(() => {}).finally(() => setServicesLoaded(true));
     };
     fetchServices();
     const servicesInterval = setInterval(fetchServices, 60000);
@@ -602,8 +603,23 @@ export default function Home() {
                     </div>
                   );
                 })}
-                {filteredServices.length === 0 && (
-                  <div className="col-span-4 text-center py-12 text-[#9ca3af] font-light">Chargement des services...</div>
+                {!servicesLoaded && (
+                  <>
+                    {Array.from({ length: 6 }).map((_, i) => (
+                      <div key={i} className="product-card glass-panel" style={{ opacity: 0.5, pointerEvents: 'none' }}>
+                        <div className="product-banner" style={{ background: 'rgba(255,255,255,0.04)' }} />
+                        <div className="product-body">
+                          <div style={{ height: 18, width: '60%', borderRadius: 6, background: 'rgba(255,255,255,0.07)', marginBottom: 10 }} />
+                          <div style={{ height: 12, width: '80%', borderRadius: 6, background: 'rgba(255,255,255,0.04)', marginBottom: 6 }} />
+                          <div style={{ height: 12, width: '50%', borderRadius: 6, background: 'rgba(255,255,255,0.04)', marginBottom: 20 }} />
+                          <div style={{ height: 36, borderRadius: 8, background: 'rgba(255,255,255,0.06)' }} />
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                )}
+                {servicesLoaded && filteredServices.length === 0 && (
+                  <div className="col-span-4 text-center py-12 text-[#9ca3af] font-light">Aucun service disponible dans cette catégorie.</div>
                 )}
               </div>
             </div>
@@ -744,8 +760,8 @@ export default function Home() {
                       </div>
                     </>
                   ) : (
-                    <div className="glass-panel p-12 text-center" style={{ marginTop: 18, borderRadius: 'var(--radius)', color: 'var(--text-gray)', fontWeight: 400 }}>
-                      Sélectionnez une offre pour calculer vos économies.
+                    <div style={{ marginTop: 18, padding: '18px 24px', borderRadius: 'var(--radius)', color: 'var(--text-muted)', textAlign: 'center', background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.08)', fontSize: '0.88rem' }}>
+                      👆 Sélectionnez une ou plusieurs offres ci-dessus pour voir vos économies en temps réel.
                     </div>
                   )}
                 </div>
@@ -840,7 +856,7 @@ export default function Home() {
             <div className="section-inner" style={{ maxWidth: 900 }}>
               <div className="cta-block glass-panel">
                 <div className="section-eyebrow">— Dernier appel —</div>
-                <h2>Prêt à réduire vos factures dès <span className="gradient-text">aujourd&apos;hui</span> ?</h2>
+                <h2>Prêt à réduire vos factures <span className="gradient-text" style={{ whiteSpace: 'nowrap' }}>dès aujourd&apos;hui&nbsp;?</span></h2>
                 <p>Rejoignez nos clients économes. Accès transmis après validation, résiliable à tout moment, sans engagement.</p>
                 <div className="cta-buttons">
                   <a href="#offres" onClick={() => setFilter('streaming')} className="btn btn-primary">▶ YouTube — dès 3,49€</a>
