@@ -521,14 +521,17 @@ export default function AdminPage() {
   /* ─── ADMIN UI ─────────────────────────────────────────────────────────── */
   const allStocks: StockWithService[] = services.flatMap(s => s.stocks.map(st => ({ ...st, serviceName: s.name, serviceIcon: s.icon, serviceGradient: s.gradient })));
 
-  const navItems: [AdminPage, string, string][] = [
+  const pendingCount = orders.filter(o => o.status === 'pending').length;
+  const unpaidCount = orders.filter(o => o.status === 'unpaid').length;
+
+  const navItems: [AdminPage, string, string, number?][] = [
     ['dashboard', '📊', 'Tableau de bord'],
-    ['pending', '🕓', 'Commandes à valider'],
+    ['pending', '🕓', 'Commandes à valider', pendingCount],
     ['stocks', '📦', 'Gestion des Stocks'],
     ['services', '🎬', 'Gestion des Services'],
     ['subscribers', '🎫', 'Abonnés par service'],
     ['clients', '👥', 'Utilisateurs & Clients'],
-    ['unpaid', '⚠️', 'Impayés'],
+    ['unpaid', '⚠️', 'Impayés', unpaidCount],
     ['cancellations', '🔴', 'Résiliations'],
     ['support', '💬', 'Support Client'],
     ['settings', '⚙️', 'Paramètres globaux'],
@@ -561,13 +564,18 @@ export default function AdminPage() {
         {/* Sidebar */}
         <aside className="admin-sidebar">
           <div className="admin-sidebar-title">Navigation</div>
-          {navItems.map(([page, icon, label]) => (
+          {navItems.map(([page, icon, label, count]) => (
             <button
               key={page}
               onClick={() => setActivePage(page)}
               className={`dash-sidebar-btn ${activePage === page ? 'active' : ''}`}
             >
               <span style={{ fontSize: '1.05rem' }}>{icon}</span> {label}
+              {!!count && (
+                <span style={{ marginLeft: 'auto', fontSize: '0.7rem', fontWeight: 800, padding: '2px 7px', borderRadius: 50, background: activePage === page ? 'rgba(255,255,255,0.25)' : 'rgba(239,68,68,0.25)', color: activePage === page ? '#fff' : '#f87171', border: `1px solid ${activePage === page ? 'rgba(255,255,255,0.2)' : 'rgba(239,68,68,0.35)'}` }}>
+                  {count}
+                </span>
+              )}
             </button>
           ))}
 
@@ -593,10 +601,15 @@ export default function AdminPage() {
           {/* ── DASHBOARD ── */}
           {activePage === 'dashboard' && (
             <div style={{ position: 'relative', zIndex: 1 }}>
-              <div className="admin-section-head fade-in-up">
-                <div className="eyebrow">📊 Vue d&apos;ensemble</div>
-                <h1>Tableau de bord <span className="gradient-text">temps réel</span></h1>
-                <p>Pilotez la santé financière et l&apos;activité de la plateforme.</p>
+              <div className="admin-section-head fade-in-up" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+                <div>
+                  <div className="eyebrow">📊 Vue d&apos;ensemble</div>
+                  <h1>Tableau de bord <span className="gradient-text">temps réel</span></h1>
+                  <p>Pilotez la santé financière et l&apos;activité de la plateforme.</p>
+                </div>
+                <button onClick={loadAll} className="btn btn-ghost btn-sm" style={{ marginTop: 8, flexShrink: 0 }}>
+                  ↻ Actualiser
+                </button>
               </div>
 
               {/* KPI */}
@@ -1576,7 +1589,16 @@ export default function AdminPage() {
                         {on ? '● Actif' : '○ Inactif'}
                       </span>
                       <button
-                        onClick={() => setSettings(s => ({ ...s, [g.key]: on ? 'false' : 'true' }))}
+                        onClick={async () => {
+                          const newVal = on ? 'false' : 'true';
+                          setSettings(s => ({ ...s, [g.key]: newVal }));
+                          await fetch('/api/admin/settings', {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ settings: [{ key: g.key, value: newVal }] }),
+                          });
+                          toast(`${g.label} ${newVal === 'true' ? 'activé' : 'désactivé'}`);
+                        }}
                         className={`toggle ${on ? 'on' : ''}`}
                         aria-label={`Toggle ${g.label}`}
                       />
