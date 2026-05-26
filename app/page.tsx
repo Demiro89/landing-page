@@ -477,9 +477,9 @@ export default function Home() {
 
           <nav className="nav-links">
             <a href="#offres" onClick={() => setView('storefront')} className="nav-link">Offres</a>
-            <a href="#marketplace" className="nav-link">Marketplace</a>
-            <a href="#calculateur" className="nav-link">Calculateur</a>
-            <a href="#faq" className="nav-link">FAQ</a>
+            <a href="#marketplace" onClick={() => setView('storefront')} className="nav-link">Marketplace</a>
+            <a href="#calculateur" onClick={() => setView('storefront')} className="nav-link">Calculateur</a>
+            <a href="#faq" onClick={() => setView('storefront')} className="nav-link">FAQ</a>
             <button onClick={() => setView('dashboard')} className="btn btn-outline btn-sm" style={{ marginLeft: 8 }}>
               👤 Espace Client
             </button>
@@ -490,9 +490,9 @@ export default function Home() {
         {menuOpen && (
           <div className="md:hidden border-t border-white/5 px-6 py-4 flex flex-col gap-3" style={{ background: 'hsla(222,44%,7%,0.95)' }}>
             <a href="#offres" onClick={() => { setView('storefront'); setMenuOpen(false); }} className="nav-link">Offres</a>
-            <a href="#marketplace" onClick={() => setMenuOpen(false)} className="nav-link">Marketplace</a>
-            <a href="#calculateur" onClick={() => setMenuOpen(false)} className="nav-link">Calculateur</a>
-            <a href="#faq" onClick={() => setMenuOpen(false)} className="nav-link">FAQ</a>
+            <a href="#marketplace" onClick={() => { setView('storefront'); setMenuOpen(false); }} className="nav-link">Marketplace</a>
+            <a href="#calculateur" onClick={() => { setView('storefront'); setMenuOpen(false); }} className="nav-link">Calculateur</a>
+            <a href="#faq" onClick={() => { setView('storefront'); setMenuOpen(false); }} className="nav-link">FAQ</a>
             <button onClick={() => { setView('dashboard'); setMenuOpen(false); }} className="btn btn-outline btn-sm">👤 Espace Client</button>
           </div>
         )}
