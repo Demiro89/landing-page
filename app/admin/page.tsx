@@ -1556,22 +1556,6 @@ export default function AdminPage() {
 
               <div className="glass-panel admin-card fade-in-up">
                 <div className="admin-card-head">
-                  <div className="icon-bubble">💰</div>
-                  Mode de facturation B2C
-                </div>
-                <p className="admin-card-sub">
-                  Vente directe d&apos;accès premium. Prix nets affichés dans l&apos;interface.
-                </p>
-                <div className="info-box" style={{ background: 'rgba(16,185,129,0.06)', borderColor: 'rgba(16,185,129,0.2)' }}>
-                  <div className="info-box-title" style={{ color: 'var(--accent-green)' }}>🛡️ Prix plat configuré</div>
-                  <div className="info-box-text">
-                    Frais de plateforme / Commissions : <strong style={{ color: 'var(--accent-green)' }}>0,00€</strong>. Les revenus affichés sont attribués à StreamMalin.
-                  </div>
-                </div>
-              </div>
-
-              <div className="glass-panel admin-card fade-in-up">
-                <div className="admin-card-head">
                   <div className="icon-bubble">💳</div>
                   Moyens de paiement actifs
                 </div>
@@ -1659,30 +1643,35 @@ export default function AdminPage() {
                 )}
               </div>
 
-              <div className="glass-panel admin-card fade-in-up">
-                <div className="admin-card-head">
-                  <div className="icon-bubble">🔒</div>
-                  Chiffrement des données
-                </div>
-                <p className="admin-card-sub">
-                  Chiffre les identifiants des comptes encore stockés en clair (anciennes données).
-                  Les nouveaux ajouts sont déjà chiffrés automatiquement. Action sûre et relançable.
-                </p>
-                {encryptResult && (
-                  <div className="info-box" style={{ background: 'rgba(16,185,129,0.06)', borderColor: 'rgba(16,185,129,0.2)' }}>
-                    <div className="info-box-title" style={{ color: 'var(--accent-green)' }}>✅ Chiffrement terminé</div>
-                    <div className="info-box-text">{encryptResult}</div>
+              <details style={{ marginBottom: 0 }}>
+                <summary style={{ cursor: 'pointer', fontSize: '0.82rem', color: 'var(--text-muted)', fontWeight: 600, padding: '8px 4px', userSelect: 'none' }}>
+                  ▸ Zone de maintenance (avancé)
+                </summary>
+                <div className="glass-panel admin-card fade-in-up" style={{ marginTop: 10 }}>
+                  <div className="admin-card-head">
+                    <div className="icon-bubble">🔒</div>
+                    Chiffrement des données
                   </div>
-                )}
-                <button
-                  onClick={runLegacyEncryption}
-                  disabled={encryptBusy}
-                  className="btn btn-primary btn-sm"
-                  style={{ marginTop: encryptResult ? 12 : 0 }}
-                >
-                  {encryptBusy ? '⏳ Chiffrement en cours…' : '🔒 Chiffrer les anciens identifiants'}
-                </button>
-              </div>
+                  <p className="admin-card-sub">
+                    Chiffre les identifiants des comptes encore stockés en clair (anciennes données).
+                    Les nouveaux ajouts sont déjà chiffrés automatiquement. Action sûre et relançable.
+                  </p>
+                  {encryptResult && (
+                    <div className="info-box" style={{ background: 'rgba(16,185,129,0.06)', borderColor: 'rgba(16,185,129,0.2)' }}>
+                      <div className="info-box-title" style={{ color: 'var(--accent-green)' }}>✅ Chiffrement terminé</div>
+                      <div className="info-box-text">{encryptResult}</div>
+                    </div>
+                  )}
+                  <button
+                    onClick={runLegacyEncryption}
+                    disabled={encryptBusy}
+                    className="btn btn-primary btn-sm"
+                    style={{ marginTop: encryptResult ? 12 : 0 }}
+                  >
+                    {encryptBusy ? '⏳ Chiffrement en cours…' : '🔒 Chiffrer les anciens identifiants'}
+                  </button>
+                </div>
+              </details>
 
               <div className="glass-panel admin-card fade-in-up">
                 <div className="admin-card-head">
