@@ -747,6 +747,7 @@ body::after {
   display: flex; align-items: center; justify-content: center;
   background: linear-gradient(135deg, rgba(139,92,246,0.18), rgba(99,102,241,0.1));
   border: 1px solid rgba(139,92,246,0.25); font-size: 0.95rem;
+  color: var(--primary);
 }
 .dash-input {
   width: 100%; padding: 13px 16px; border-radius: 12px;
@@ -991,7 +992,7 @@ select.dash-input option, select option { background: #1E293B; color: var(--text
   display: flex; align-items: center; justify-content: center;
   background: linear-gradient(135deg, rgba(139,92,246,0.2), rgba(99,102,241,0.12));
   border: 1px solid rgba(139,92,246,0.3);
-  font-size: 1rem;
+  font-size: 1rem; color: var(--primary);
 }
 
 /* Pay method tabs */
