@@ -270,10 +270,13 @@ export async function POST(request: Request) {
         const sub = event.data.object as Stripe.Subscription;
         const order = await prisma.order.findFirst({ where: { stripeSubscriptionId: sub.id } });
         if (!order || order.status === 'cancelled') break;
-        await prisma.$transaction([
-          prisma.order.update({ where: { id: order.id }, data: { status: 'cancelled', cancellationEffectiveAt: new Date() } }),
-          prisma.stockAccount.update({ where: { id: order.stockAccountId }, data: { filledSlots: { decrement: 1 } } }),
-        ]);
+        await prisma.$transaction(async (tx) => {
+          await tx.order.update({ where: { id: order.id }, data: { status: 'cancelled', cancellationEffectiveAt: new Date() } });
+          const stock = await tx.stockAccount.findUnique({ where: { id: order.stockAccountId } });
+          if (stock && stock.filledSlots > 0) {
+            await tx.stockAccount.update({ where: { id: order.stockAccountId }, data: { filledSlots: { decrement: 1 } } });
+          }
+        });
         sendTelegramNotification(`🔴 <b>Abonnement Stripe annulé</b>\n👤 ${order.clientEmail}\n📺 ${order.serviceId}`).catch(() => {});
         break;
       }
