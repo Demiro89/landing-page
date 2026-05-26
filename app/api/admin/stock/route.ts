@@ -8,9 +8,21 @@ import { createInvoiceForOrder } from '@/lib/invoice';
 
 export const dynamic = 'force-dynamic';
 
-// Vérification d'authentification admin (centralisée dans lib/adminAuth).
 const checkAuth = isAdminAuthenticated;
 const errorMessage = (error: unknown) => error instanceof Error ? error.message : 'Erreur serveur';
+
+function validPositiveNumber(v: unknown): boolean {
+  const n = parseFloat(String(v));
+  return !isNaN(n) && n > 0;
+}
+function validNonNegativeInt(v: unknown): boolean {
+  const n = parseInt(String(v), 10);
+  return !isNaN(n) && n >= 0 && Number.isInteger(n);
+}
+function validPositiveInt(v: unknown): boolean {
+  const n = parseInt(String(v), 10);
+  return !isNaN(n) && n >= 1 && Number.isInteger(n);
+}
 
 /**
  * Récupère l'intégralité du stock, des commandes et calcule les KPIs financiers pour l'admin.
@@ -105,6 +117,13 @@ export async function POST(request: Request) {
     if (action === 'create_service') {
       const { id, name, tagline, price, original, maxSlots, icon, gradient, features } = body;
 
+      if (!id || !String(id).trim()) return NextResponse.json({ error: 'id est requis' }, { status: 400 });
+      if (!name || !String(name).trim()) return NextResponse.json({ error: 'name est requis' }, { status: 400 });
+      if (!validPositiveNumber(price)) return NextResponse.json({ error: 'price doit être un nombre positif' }, { status: 400 });
+      if (!validPositiveNumber(original)) return NextResponse.json({ error: 'original doit être un nombre positif' }, { status: 400 });
+      if (!validPositiveInt(maxSlots)) return NextResponse.json({ error: 'maxSlots doit être un entier >= 1' }, { status: 400 });
+      if (!Array.isArray(features) || features.length === 0) return NextResponse.json({ error: 'features doit être un tableau non vide' }, { status: 400 });
+
       const service = await prisma.service.upsert({
         where: { id },
         update: {
@@ -136,6 +155,17 @@ export async function POST(request: Request) {
     // B. Ajout de stock pour un service existant
     if (action === 'add_stock') {
       const { serviceId, accountsBoughtPrice, price, maxSlots, filledSlots, details } = body;
+
+      if (!serviceId || !String(serviceId).trim()) return NextResponse.json({ error: 'serviceId est requis' }, { status: 400 });
+      if (!validPositiveNumber(price)) return NextResponse.json({ error: 'price doit être un nombre positif' }, { status: 400 });
+      if (!validPositiveInt(maxSlots)) return NextResponse.json({ error: 'maxSlots doit être un entier >= 1' }, { status: 400 });
+      const parsedFilled = parseInt(filledSlots || '0', 10);
+      if (!validNonNegativeInt(filledSlots ?? 0) || parsedFilled > parseInt(maxSlots, 10)) {
+        return NextResponse.json({ error: 'filledSlots invalide ou supérieur à maxSlots' }, { status: 400 });
+      }
+      if (!details || !String(details).trim()) return NextResponse.json({ error: 'details sont obligatoires' }, { status: 400 });
+      const existingService = await prisma.service.findUnique({ where: { id: serviceId } });
+      if (!existingService) return NextResponse.json({ error: 'Service introuvable' }, { status: 400 });
 
       const stock = await prisma.stockAccount.create({
         data: {
@@ -172,6 +202,12 @@ export async function PUT(request: Request) {
 
     if (action === 'update_stock') {
       const { accountsBoughtPrice, price, maxSlots, filledSlots, details } = body;
+
+      if (!validPositiveNumber(price)) return NextResponse.json({ error: 'price doit être un nombre positif' }, { status: 400 });
+      if (!validPositiveInt(maxSlots)) return NextResponse.json({ error: 'maxSlots doit être un entier >= 1' }, { status: 400 });
+      if (!validNonNegativeInt(filledSlots)) return NextResponse.json({ error: 'filledSlots doit être un entier >= 0' }, { status: 400 });
+      if (parseInt(filledSlots, 10) > parseInt(maxSlots, 10)) return NextResponse.json({ error: 'filledSlots ne peut pas dépasser maxSlots' }, { status: 400 });
+      if (!details || !String(details).trim()) return NextResponse.json({ error: 'details sont obligatoires' }, { status: 400 });
 
       // Récupérer l'ancien état pour détecter un changement d'identifiants
       const previous = await prisma.stockAccount.findUnique({ where: { id } });
@@ -221,16 +257,19 @@ export async function PUT(request: Request) {
       if (order.status === 'cancelled') {
         return NextResponse.json({ success: true });
       }
-      await prisma.$transaction([
-        prisma.order.update({
+      await prisma.$transaction(async (tx) => {
+        await tx.order.update({
           where: { id: orderId },
           data: { status: 'cancelled', cancellationEffectiveAt: order.cancellationEffectiveAt || new Date() },
-        }),
-        prisma.stockAccount.update({
-          where: { id: order.stockAccountId },
-          data: { filledSlots: { decrement: 1 } },
-        }),
-      ]);
+        });
+        const stock = await tx.stockAccount.findUnique({ where: { id: order.stockAccountId } });
+        if (stock && stock.filledSlots > 0) {
+          await tx.stockAccount.update({
+            where: { id: order.stockAccountId },
+            data: { filledSlots: { decrement: 1 } },
+          });
+        }
+      });
       return NextResponse.json({ success: true });
     }
 
@@ -314,10 +353,14 @@ export async function PUT(request: Request) {
 
       const stockDetails = order.stockAccount.details; // déjà chiffré
       await prisma.$transaction(async (tx) => {
-        await tx.stockAccount.update({
-          where: { id: order.stockAccountId },
+        // Incrément atomique : n'incrémente que si filledSlots < maxSlots
+        const result = await tx.stockAccount.updateMany({
+          where: { id: order.stockAccountId, filledSlots: { lt: order.stockAccount.maxSlots } },
           data: { filledSlots: { increment: 1 } },
         });
+        if (result.count === 0) {
+          throw new Error('Stock indisponible (race condition détectée)');
+        }
         await tx.order.update({
           where: { id: orderId },
           data: {

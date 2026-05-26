@@ -21,6 +21,11 @@ interface Order {
   stockAccountId: string;
   paymentMethod?: string | null;
   acceptanceIp?: string | null;
+  acceptanceUserAgent?: string | null;
+  acceptedTermsAt?: string | null;
+  acceptedWithdrawalWaiverAt?: string | null;
+  acceptedEligibilityAt?: string | null;
+  termsVersion?: string | null;
   cancellationRequestedAt?: string | null;
   cancellationEffectiveAt?: string | null;
   unpaidSince?: string | null;
@@ -741,9 +746,24 @@ export default function AdminPage() {
                         </div>
                         <div style={{ fontSize: '0.73rem', color: 'var(--text-muted)', marginTop: 10, fontFamily: "'SF Mono',Menlo,monospace", lineHeight: 1.7 }}>
                           Réf. {o.id.slice(0, 8).toUpperCase()} · {new Date(o.date).toLocaleString('fr-FR')}
-                          {o.acceptanceIp ? ` · CGV acceptées depuis ${o.acceptanceIp}` : ''}
                           {o.youtubeEmail ? ` · YouTube : ${o.youtubeEmail}` : ''}
                         </div>
+                        {/* Preuves contractuelles */}
+                        <details style={{ marginTop: 10 }}>
+                          <summary style={{ fontSize: '0.72rem', color: 'var(--primary)', cursor: 'pointer', userSelect: 'none', fontWeight: 700 }}>🔏 Preuves contractuelles</summary>
+                          <div style={{ marginTop: 8, fontSize: '0.71rem', fontFamily: "'SF Mono',Menlo,monospace", lineHeight: 2, color: 'var(--text-muted)', background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: '8px 12px' }}>
+                            <div><strong>Réf. commande :</strong> {o.id}</div>
+                            <div><strong>Email client :</strong> {o.clientEmail}</div>
+                            <div><strong>Montant :</strong> {o.total.toFixed(2)}€</div>
+                            <div><strong>Moyen de paiement :</strong> {o.paymentMethod || '—'}</div>
+                            {o.termsVersion && <div><strong>Version CGV :</strong> {o.termsVersion}</div>}
+                            {o.acceptedTermsAt && <div><strong>CGV acceptées le :</strong> {new Date(o.acceptedTermsAt).toLocaleString('fr-FR')}</div>}
+                            {o.acceptedWithdrawalWaiverAt && <div><strong>Renonciation rétractation :</strong> {new Date(o.acceptedWithdrawalWaiverAt).toLocaleString('fr-FR')}</div>}
+                            {o.acceptedEligibilityAt && <div><strong>Éligibilité confirmée le :</strong> {new Date(o.acceptedEligibilityAt).toLocaleString('fr-FR')}</div>}
+                            {o.acceptanceIp && <div><strong>IP :</strong> {o.acceptanceIp}</div>}
+                            {o.acceptanceUserAgent && <div><strong>User-Agent :</strong> {o.acceptanceUserAgent.slice(0, 80)}{o.acceptanceUserAgent.length > 80 ? '…' : ''}</div>}
+                          </div>
+                        </details>
                         <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
                           <button onClick={() => validateOrder(o.id)} className="btn btn-primary btn-sm">
                             ✅ Valider &amp; livrer
@@ -1143,24 +1163,31 @@ export default function AdminPage() {
           {activePage === 'unpaid' && (() => {
             const unpaidOrders = orders.filter(o => o.status === 'unpaid');
             const markUnpaid = async (orderId: string) => {
-              await fetch('/api/admin/stock', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'mark_unpaid', orderId }) });
+              const r = await fetch('/api/admin/stock', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'mark_unpaid', orderId }) });
+              const d = await r.json();
+              if (!d.success) { toast('Erreur : ' + (d.error || 'action échouée')); return; }
               await loadAll();
               toast('Commande marquée impayée — rappel envoyé');
             };
             const sendReminder = async (orderId: string) => {
-              const r = await fetch('/api/admin/stock', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'send_reminder', orderId }) });
+              const r = await fetch('/api/admin/stock', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'send_reminder', orderId }) });
               const d = await r.json();
+              if (!d.success) { toast('Erreur : ' + (d.error || 'action échouée')); return; }
               await loadAll();
               toast(`Rappel ${d.reminderLevel}/3 envoyé`);
             };
             const markPaid = async (orderId: string) => {
-              await fetch('/api/admin/stock', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'mark_paid', orderId }) });
+              const r = await fetch('/api/admin/stock', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'mark_paid', orderId }) });
+              const d = await r.json();
+              if (!d.success) { toast('Erreur : ' + (d.error || 'action échouée')); return; }
               await loadAll();
               toast('Commande marquée comme payée ✅');
             };
             const cancelAfterUnpaid = async (orderId: string) => {
               if (!confirm('Résilier définitivement cet abonnement pour impayé ?')) return;
-              await fetch('/api/admin/stock', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'cancel_order', orderId }) });
+              const r = await fetch('/api/admin/stock', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'cancel_order', orderId }) });
+              const d = await r.json();
+              if (!d.success) { toast('Erreur : ' + (d.error || 'action échouée')); return; }
               await loadAll();
               toast('Abonnement résilié pour impayé');
             };
@@ -1286,11 +1313,13 @@ export default function AdminPage() {
             const cancelled = orders.filter(o => o.status === 'cancelled');
             const confirmCancel = async (orderId: string) => {
               if (!confirm('Confirmer la résiliation définitive de cette commande ? Le slot sera libéré.')) return;
-              await fetch('/api/admin/stock', {
-                method: 'POST',
+              const r = await fetch('/api/admin/stock', {
+                method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'cancel_order', orderId }),
               });
+              const d = await r.json();
+              if (!d.success) { toast('Erreur : ' + (d.error || 'action échouée')); return; }
               await loadAll();
             };
             return (
