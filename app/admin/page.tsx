@@ -88,11 +88,6 @@ function toast(msg: string) {
 
 /* ─── Main Component ─────────────────────────────────────────────────────── */
 export default function AdminPage() {
-  const [authed, setAuthed] = useState(false);
-  const [password, setPassword] = useState('');
-  const [loginError, setLoginError] = useState('');
-  const [totpCode, setTotpCode] = useState('');
-  const [needsTotp, setNeedsTotp] = useState(false);
   const [activePage, setActivePage] = useState<AdminPage>('dashboard');
 
   // Double authentification (2FA / TOTP)
@@ -132,27 +127,9 @@ export default function AdminPage() {
   const supportPollRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
 
   /* ─── Auth ───────────────────────────────────────────────────────────── */
-  const doLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoginError('');
-    const r = await fetch('/api/admin/auth', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password, totp: totpCode || undefined }),
-    });
-    const d = await r.json();
-    if (d.success) { setAuthed(true); setNeedsTotp(false); setTotpCode(''); loadAll(); return; }
-    if (d.needsTotp) {
-      setNeedsTotp(true);
-      setLoginError(totpCode ? 'Code de vérification incorrect.' : '');
-      return;
-    }
-    setLoginError('Mot de passe incorrect. Veuillez réessayer.');
-  };
-
   const doLogout = async () => {
     await fetch('/api/admin/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'logout' }) });
-    setAuthed(false);
+    window.location.href = '/admin/login';
   };
 
   /* ─── Data ────────────────────────────────────────────────────────────── */
@@ -169,9 +146,7 @@ export default function AdminPage() {
     if (twoFaRes.success) setTwoFaEnabled(twoFaRes.enabled);
   };
 
-  useEffect(() => {
-    fetch('/api/admin/auth').then(r => r.json()).then(d => { if (d.authenticated) { setAuthed(true); loadAll(); } });
-  }, []);
+  useEffect(() => { loadAll(); }, []);
 
   /* ─── 2FA (TOTP) ──────────────────────────────────────────────────────── */
   const start2faSetup = async () => {
@@ -458,66 +433,6 @@ export default function AdminPage() {
     else toast('Erreur lors de la sauvegarde.');
   };
 
-  /* ─── LOGIN SCREEN ────────────────────────────────────────────────────── */
-  if (!authed) {
-    return (
-      <div className="admin-login-wrap">
-        <div style={{ position: 'absolute', top: '20%', left: '15%', width: 360, height: 360, borderRadius: '50%', background: 'radial-gradient(circle, hsla(258,90%,66%,0.25), transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', bottom: '15%', right: '12%', width: 320, height: 320, borderRadius: '50%', background: 'radial-gradient(circle, hsla(239,84%,67%,0.18), transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none' }} />
-
-        <div className="glass-panel admin-login-card">
-          <div className="admin-login-icon">SM</div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: 6 }}>
-            Panel <span className="gradient-text">Administrateur</span>
-          </h2>
-          <p style={{ color: 'var(--text-gray)', fontSize: '0.88rem', marginBottom: 28 }}>
-            Connectez-vous pour superviser la plateforme StreamMalin.
-          </p>
-
-          <form onSubmit={doLogin} style={{ textAlign: 'left' }}>
-            <div className="form-field">
-              <label className="form-label">Mot de passe administrateur</label>
-              <input
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                className="dash-input"
-                required
-                autoFocus
-              />
-            </div>
-            {needsTotp && (
-              <div className="form-field">
-                <label className="form-label">Code de vérification (2FA)</label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  placeholder="123456"
-                  value={totpCode}
-                  onChange={e => setTotpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  className="dash-input"
-                  required
-                  autoFocus
-                />
-                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 6 }}>
-                  Saisissez le code à 6 chiffres de votre application d&apos;authentification.
-                </div>
-              </div>
-            )}
-            {loginError && <div className="error-box">⚠️ {loginError}</div>}
-            <button type="submit" className="btn-pay">🔐 Connexion sécurisée</button>
-          </form>
-
-          <div style={{ marginTop: 22, fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-            🛡️ Cette zone est réservée aux administrateurs. Toutes les actions sont journalisées.
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   /* ─── ADMIN UI ─────────────────────────────────────────────────────────── */
   const allStocks: StockWithService[] = services.flatMap(s => s.stocks.map(st => ({ ...st, serviceName: s.name, serviceIcon: s.icon, serviceGradient: s.gradient })));
 
@@ -564,13 +479,13 @@ export default function AdminPage() {
         {/* Sidebar */}
         <aside className="admin-sidebar">
           <div className="admin-sidebar-title">Navigation</div>
-          {navItems.map(([page, icon, label, count]) => (
+          {navItems.map(([page, , label, count]) => (
             <button
               key={page}
               onClick={() => setActivePage(page)}
               className={`dash-sidebar-btn ${activePage === page ? 'active' : ''}`}
             >
-              <span style={{ fontSize: '1.05rem' }}>{icon}</span> {label}
+              {label}
               {!!count && (
                 <span style={{ marginLeft: 'auto', fontSize: '0.7rem', fontWeight: 800, padding: '2px 7px', borderRadius: 50, background: activePage === page ? 'rgba(255,255,255,0.25)' : 'rgba(239,68,68,0.25)', color: activePage === page ? '#fff' : '#f87171', border: `1px solid ${activePage === page ? 'rgba(255,255,255,0.2)' : 'rgba(239,68,68,0.35)'}` }}>
                   {count}
@@ -582,30 +497,24 @@ export default function AdminPage() {
           <div className="dash-sidebar-divider" />
 
           <Link href="/" className="dash-sidebar-btn">
-            <span style={{ fontSize: '1.05rem' }}>🏠</span> Retour au site
+            ← Retour au site
           </Link>
 
           <div className="dash-sidebar-foot" style={{ marginTop: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, color: 'var(--text-soft)', fontWeight: 600 }}>
-              🛡️ Sécurité
-            </div>
-            Session admin chiffrée httpOnly. Toutes les actions sont journalisées.
+            Session sécurisée · httpOnly
           </div>
         </aside>
 
         {/* Main */}
         <main className="admin-main">
-          {/* Ambient */}
-          <div style={{ position: 'absolute', top: 0, right: 0, width: 400, height: 400, borderRadius: '50%', background: 'radial-gradient(circle, hsla(258,90%,66%,0.1), transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none', zIndex: 0 }} />
 
           {/* ── DASHBOARD ── */}
           {activePage === 'dashboard' && (
             <div style={{ position: 'relative', zIndex: 1 }}>
               <div className="admin-section-head fade-in-up" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
                 <div>
-                  <div className="eyebrow">📊 Vue d&apos;ensemble</div>
-                  <h1>Tableau de bord <span className="gradient-text">temps réel</span></h1>
-                  <p>Pilotez la santé financière et l&apos;activité de la plateforme.</p>
+                  <h2>Tableau de bord</h2>
+                  <p>Vue d&apos;ensemble de la santé financière et de l&apos;activité.</p>
                 </div>
                 <button onClick={loadAll} className="btn btn-ghost btn-sm" style={{ marginTop: 8, flexShrink: 0 }}>
                   ↻ Actualiser
@@ -730,9 +639,8 @@ export default function AdminPage() {
             return (
               <div style={{ position: 'relative', zIndex: 1 }}>
                 <div className="admin-section-head fade-in-up">
-                  <div className="eyebrow">🕓 Validation</div>
-                  <h1>Commandes <span className="gradient-text">à valider</span></h1>
-                  <p>Paiements PayPal et crypto enregistrés, en attente de votre vérification.</p>
+                  <h2>Commandes à valider</h2>
+                  <p>Paiements PayPal et crypto enregistrés, en attente de vérification.</p>
                 </div>
 
                 {pending.length === 0 ? (
@@ -797,8 +705,7 @@ export default function AdminPage() {
           {activePage === 'stocks' && (
             <div style={{ position: 'relative', zIndex: 1 }}>
               <div className="admin-section-head fade-in-up">
-                <div className="eyebrow">📦 Inventaire</div>
-                <h1>Gestion des <span className="gradient-text">stocks B2C</span></h1>
+                <h2>Gestion des stocks</h2>
                 <p>Comptes premium achetés à l&apos;étranger, mis en location auprès des clients.</p>
               </div>
 
@@ -905,8 +812,7 @@ export default function AdminPage() {
           {activePage === 'services' && (
             <div style={{ position: 'relative', zIndex: 1 }}>
               <div className="admin-section-head fade-in-up">
-                <div className="eyebrow">🎬 Catalogue</div>
-                <h1>Configuration des <span className="gradient-text">services & tarifs</span></h1>
+                <h2>Services & tarifs</h2>
                 <p>Créez, modifiez ou désactivez les services proposés sur la marketplace.</p>
               </div>
 
@@ -995,9 +901,8 @@ export default function AdminPage() {
             return (
               <div style={{ position: 'relative', zIndex: 1 }}>
                 <div className="admin-section-head fade-in-up">
-                  <div className="eyebrow">🎫 Abonnés actifs</div>
-                  <h1>Abonnés par <span className="gradient-text">compte</span></h1>
-                  <p>Vue regroupée par service puis par compte de stock — qui est sur quel compte précis.</p>
+                  <h2>Abonnés par compte</h2>
+                  <p>Vue regroupée par service puis par compte — qui est sur quel compte précis.</p>
                 </div>
 
                 {services.map(service => {
@@ -1111,8 +1016,7 @@ export default function AdminPage() {
           {activePage === 'clients' && (
             <div style={{ position: 'relative', zIndex: 1 }}>
               <div className="admin-section-head fade-in-up">
-                <div className="eyebrow">👥 Base clients</div>
-                <h1>Utilisateurs & <span className="gradient-text">clients</span></h1>
+                <h2>Clients</h2>
                 <p>Profils dérivés des commandes — historique et CA par client.</p>
               </div>
 
@@ -1208,9 +1112,8 @@ export default function AdminPage() {
             return (
               <div style={{ position: 'relative', zIndex: 1 }}>
                 <div className="admin-section-head fade-in-up">
-                  <div className="eyebrow">⚠️ Paiements</div>
-                  <h1>Gestion des <span className="gradient-text">Impayés</span></h1>
-                  <p>Signalez un impayé, envoyez des rappels automatiques et résilier si nécessaire.</p>
+                  <h2>Impayés</h2>
+                  <p>Signalez un impayé, envoyez des rappels automatiques et résiliez si nécessaire.</p>
                 </div>
 
                 {/* Marquer une commande impayée */}
@@ -1338,8 +1241,7 @@ export default function AdminPage() {
             return (
               <div style={{ position: 'relative', zIndex: 1 }}>
                 <div className="admin-section-head fade-in-up">
-                  <div className="eyebrow">🔴 Sans engagement</div>
-                  <h1>Résiliations <span className="gradient-text">en attente</span></h1>
+                  <h2>Résiliations en attente</h2>
                   <p>Clients ayant demandé la résiliation. L&apos;accès reste actif jusqu&apos;à la date effective.</p>
                 </div>
 
@@ -1433,8 +1335,7 @@ export default function AdminPage() {
           {activePage === 'support' && (
             <div style={{ position: 'relative', zIndex: 1 }}>
               <div className="admin-section-head fade-in-up">
-                <div className="eyebrow">💬 Messagerie</div>
-                <h1>Support <span className="gradient-text">Client</span></h1>
+                <h2>Support client</h2>
                 <p>Répondez aux messages de vos clients en temps réel.</p>
               </div>
 
@@ -1562,8 +1463,7 @@ export default function AdminPage() {
           {activePage === 'settings' && (
             <div style={{ position: 'relative', zIndex: 1 }}>
               <div className="admin-section-head fade-in-up">
-                <div className="eyebrow">⚙️ Configuration</div>
-                <h1>Paramètres <span className="gradient-text">globaux</span></h1>
+                <h2>Paramètres globaux</h2>
                 <p>Passerelles de paiement, portefeuilles crypto et options de plateforme.</p>
               </div>
 
