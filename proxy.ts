@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 /**
- * Protection CSRF : sur toute requête mutante vers l'API, on vérifie que
- * l'en-tête Origin (ou Referer) correspond bien à l'hôte du site.
- * Un site tiers ne peut donc pas déclencher d'action authentifiée à l'insu
- * de l'utilisateur.
+ * Proxy (equivalent to middleware in this Next.js version).
+ *
+ * 1. Admin route protection — unauthenticated requests to /admin/* are
+ *    redirected to /admin/login before any JS is served.
+ *
+ * 2. CSRF protection — mutating requests to /api/* must originate from
+ *    the same host. Stripe webhooks are exempt (signed separately).
  */
 
+const ADMIN_COOKIE = 'ADMIN_SECRET_TOKEN';
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
-
-// Routes appelées par des services externes (pas un navigateur) : exemptées.
-// Le webhook Stripe est déjà protégé par la vérification de signature.
 const CSRF_EXEMPT = ['/api/stripe/webhook'];
 
 function forbidden() {
@@ -23,6 +24,20 @@ function forbidden() {
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  /* ── Admin route protection ── */
+  if (pathname.startsWith('/admin')) {
+    // The login page itself must be reachable without a cookie
+    if (!pathname.startsWith('/admin/login')) {
+      const token = request.cookies.get(ADMIN_COOKIE)?.value;
+      const expected = process.env.ADMIN_SECRET_TOKEN;
+      if (!expected || !token || token !== expected) {
+        return NextResponse.redirect(new URL('/admin/login', request.url));
+      }
+    }
+    return NextResponse.next();
+  }
+
+  /* ── CSRF protection for API routes ── */
   if (SAFE_METHODS.has(request.method)) return NextResponse.next();
   if (CSRF_EXEMPT.some((p) => pathname.startsWith(p))) return NextResponse.next();
 
@@ -38,12 +53,10 @@ export function proxy(request: NextRequest) {
     }
     if (sourceHost !== host) return forbidden();
   }
-  // Ni Origin ni Referer (client non navigateur) : on laisse passer —
-  // l'authentification propre à chaque route reste de toute façon exigée.
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ['/api/:path*'],
+  matcher: ['/admin/:path*', '/api/:path*'],
 };

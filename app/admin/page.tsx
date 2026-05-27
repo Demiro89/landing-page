@@ -88,11 +88,6 @@ function toast(msg: string) {
 
 /* ─── Main Component ─────────────────────────────────────────────────────── */
 export default function AdminPage() {
-  const [authed, setAuthed] = useState(false);
-  const [password, setPassword] = useState('');
-  const [loginError, setLoginError] = useState('');
-  const [totpCode, setTotpCode] = useState('');
-  const [needsTotp, setNeedsTotp] = useState(false);
   const [activePage, setActivePage] = useState<AdminPage>('dashboard');
 
   // Double authentification (2FA / TOTP)
@@ -132,27 +127,9 @@ export default function AdminPage() {
   const supportPollRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
 
   /* ─── Auth ───────────────────────────────────────────────────────────── */
-  const doLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoginError('');
-    const r = await fetch('/api/admin/auth', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password, totp: totpCode || undefined }),
-    });
-    const d = await r.json();
-    if (d.success) { setAuthed(true); setNeedsTotp(false); setTotpCode(''); loadAll(); return; }
-    if (d.needsTotp) {
-      setNeedsTotp(true);
-      setLoginError(totpCode ? 'Code de vérification incorrect.' : '');
-      return;
-    }
-    setLoginError('Mot de passe incorrect. Veuillez réessayer.');
-  };
-
   const doLogout = async () => {
     await fetch('/api/admin/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'logout' }) });
-    setAuthed(false);
+    window.location.href = '/admin/login';
   };
 
   /* ─── Data ────────────────────────────────────────────────────────────── */
@@ -169,9 +146,7 @@ export default function AdminPage() {
     if (twoFaRes.success) setTwoFaEnabled(twoFaRes.enabled);
   };
 
-  useEffect(() => {
-    fetch('/api/admin/auth').then(r => r.json()).then(d => { if (d.authenticated) { setAuthed(true); loadAll(); } });
-  }, []);
+  useEffect(() => { loadAll(); }, []);
 
   /* ─── 2FA (TOTP) ──────────────────────────────────────────────────────── */
   const start2faSetup = async () => {
@@ -458,66 +433,6 @@ export default function AdminPage() {
     else toast('Erreur lors de la sauvegarde.');
   };
 
-  /* ─── LOGIN SCREEN ────────────────────────────────────────────────────── */
-  if (!authed) {
-    return (
-      <div className="admin-login-wrap">
-        <div style={{ position: 'absolute', top: '20%', left: '15%', width: 360, height: 360, borderRadius: '50%', background: 'radial-gradient(circle, hsla(258,90%,66%,0.25), transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', bottom: '15%', right: '12%', width: 320, height: 320, borderRadius: '50%', background: 'radial-gradient(circle, hsla(239,84%,67%,0.18), transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none' }} />
-
-        <div className="glass-panel admin-login-card">
-          <div className="admin-login-icon">SM</div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: 6 }}>
-            Panel <span className="gradient-text">Administrateur</span>
-          </h2>
-          <p style={{ color: 'var(--text-gray)', fontSize: '0.88rem', marginBottom: 28 }}>
-            Connectez-vous pour superviser la plateforme StreamMalin.
-          </p>
-
-          <form onSubmit={doLogin} style={{ textAlign: 'left' }}>
-            <div className="form-field">
-              <label className="form-label">Mot de passe administrateur</label>
-              <input
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                className="dash-input"
-                required
-                autoFocus
-              />
-            </div>
-            {needsTotp && (
-              <div className="form-field">
-                <label className="form-label">Code de vérification (2FA)</label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  placeholder="123456"
-                  value={totpCode}
-                  onChange={e => setTotpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  className="dash-input"
-                  required
-                  autoFocus
-                />
-                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 6 }}>
-                  Saisissez le code à 6 chiffres de votre application d&apos;authentification.
-                </div>
-              </div>
-            )}
-            {loginError && <div className="error-box">⚠️ {loginError}</div>}
-            <button type="submit" className="btn-pay">🔐 Connexion sécurisée</button>
-          </form>
-
-          <div style={{ marginTop: 22, fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-            🛡️ Cette zone est réservée aux administrateurs. Toutes les actions sont journalisées.
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   /* ─── ADMIN UI ─────────────────────────────────────────────────────────── */
   const allStocks: StockWithService[] = services.flatMap(s => s.stocks.map(st => ({ ...st, serviceName: s.name, serviceIcon: s.icon, serviceGradient: s.gradient })));
 
@@ -564,13 +479,13 @@ export default function AdminPage() {
         {/* Sidebar */}
         <aside className="admin-sidebar">
           <div className="admin-sidebar-title">Navigation</div>
-          {navItems.map(([page, icon, label, count]) => (
+          {navItems.map(([page, , label, count]) => (
             <button
               key={page}
               onClick={() => setActivePage(page)}
               className={`dash-sidebar-btn ${activePage === page ? 'active' : ''}`}
             >
-              <span style={{ fontSize: '1.05rem' }}>{icon}</span> {label}
+              {label}
               {!!count && (
                 <span style={{ marginLeft: 'auto', fontSize: '0.7rem', fontWeight: 800, padding: '2px 7px', borderRadius: 50, background: activePage === page ? 'rgba(255,255,255,0.25)' : 'rgba(239,68,68,0.25)', color: activePage === page ? '#fff' : '#f87171', border: `1px solid ${activePage === page ? 'rgba(255,255,255,0.2)' : 'rgba(239,68,68,0.35)'}` }}>
                   {count}
@@ -582,30 +497,24 @@ export default function AdminPage() {
           <div className="dash-sidebar-divider" />
 
           <Link href="/" className="dash-sidebar-btn">
-            <span style={{ fontSize: '1.05rem' }}>🏠</span> Retour au site
+            ← Retour au site
           </Link>
 
           <div className="dash-sidebar-foot" style={{ marginTop: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, color: 'var(--text-soft)', fontWeight: 600 }}>
-              🛡️ Sécurité
-            </div>
-            Session admin chiffrée httpOnly. Toutes les actions sont journalisées.
+            Session sécurisée · httpOnly
           </div>
         </aside>
 
         {/* Main */}
         <main className="admin-main">
-          {/* Ambient */}
-          <div style={{ position: 'absolute', top: 0, right: 0, width: 400, height: 400, borderRadius: '50%', background: 'radial-gradient(circle, hsla(258,90%,66%,0.1), transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none', zIndex: 0 }} />
 
           {/* ── DASHBOARD ── */}
           {activePage === 'dashboard' && (
             <div style={{ position: 'relative', zIndex: 1 }}>
               <div className="admin-section-head fade-in-up" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
                 <div>
-                  <div className="eyebrow">📊 Vue d&apos;ensemble</div>
-                  <h1>Tableau de bord <span className="gradient-text">temps réel</span></h1>
-                  <p>Pilotez la santé financière et l&apos;activité de la plateforme.</p>
+                  <h2>Tableau de bord</h2>
+                  <p>Vue d&apos;ensemble de la santé financière et de l&apos;activité.</p>
                 </div>
                 <button onClick={loadAll} className="btn btn-ghost btn-sm" style={{ marginTop: 8, flexShrink: 0 }}>
                   ↻ Actualiser
@@ -730,9 +639,8 @@ export default function AdminPage() {
             return (
               <div style={{ position: 'relative', zIndex: 1 }}>
                 <div className="admin-section-head fade-in-up">
-                  <div className="eyebrow">🕓 Validation</div>
-                  <h1>Commandes <span className="gradient-text">à valider</span></h1>
-                  <p>Paiements PayPal et crypto enregistrés, en attente de votre vérification.</p>
+                  <h2>Commandes à valider</h2>
+                  <p>Paiements PayPal et crypto enregistrés, en attente de vérification.</p>
                 </div>
 
                 {pending.length === 0 ? (
@@ -797,8 +705,7 @@ export default function AdminPage() {
           {activePage === 'stocks' && (
             <div style={{ position: 'relative', zIndex: 1 }}>
               <div className="admin-section-head fade-in-up">
-                <div className="eyebrow">📦 Inventaire</div>
-                <h1>Gestion des <span className="gradient-text">stocks B2C</span></h1>
+                <h2>Gestion des stocks</h2>
                 <p>Comptes premium achetés à l&apos;étranger, mis en location auprès des clients.</p>
               </div>
 
@@ -905,8 +812,7 @@ export default function AdminPage() {
           {activePage === 'services' && (
             <div style={{ position: 'relative', zIndex: 1 }}>
               <div className="admin-section-head fade-in-up">
-                <div className="eyebrow">🎬 Catalogue</div>
-                <h1>Configuration des <span className="gradient-text">services & tarifs</span></h1>
+                <h2>Services & tarifs</h2>
                 <p>Créez, modifiez ou désactivez les services proposés sur la marketplace.</p>
               </div>
 
@@ -972,7 +878,7 @@ export default function AdminPage() {
                 </div>
                 <p className="admin-card-sub">Ajustez les prix, descriptions et le statut d&apos;activation.</p>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {services.map(svc => (
                     <ServiceEditCard key={svc.id} svc={svc} onSave={saveService} onToggle={toggleService} onDelete={deleteService} onEditStock={setEditStock} onAddStock={addStockInline} />
                   ))}
@@ -995,9 +901,8 @@ export default function AdminPage() {
             return (
               <div style={{ position: 'relative', zIndex: 1 }}>
                 <div className="admin-section-head fade-in-up">
-                  <div className="eyebrow">🎫 Abonnés actifs</div>
-                  <h1>Abonnés par <span className="gradient-text">compte</span></h1>
-                  <p>Vue regroupée par service puis par compte de stock — qui est sur quel compte précis.</p>
+                  <h2>Abonnés par compte</h2>
+                  <p>Vue regroupée par service puis par compte — qui est sur quel compte précis.</p>
                 </div>
 
                 {services.map(service => {
@@ -1111,8 +1016,7 @@ export default function AdminPage() {
           {activePage === 'clients' && (
             <div style={{ position: 'relative', zIndex: 1 }}>
               <div className="admin-section-head fade-in-up">
-                <div className="eyebrow">👥 Base clients</div>
-                <h1>Utilisateurs & <span className="gradient-text">clients</span></h1>
+                <h2>Clients</h2>
                 <p>Profils dérivés des commandes — historique et CA par client.</p>
               </div>
 
@@ -1208,9 +1112,8 @@ export default function AdminPage() {
             return (
               <div style={{ position: 'relative', zIndex: 1 }}>
                 <div className="admin-section-head fade-in-up">
-                  <div className="eyebrow">⚠️ Paiements</div>
-                  <h1>Gestion des <span className="gradient-text">Impayés</span></h1>
-                  <p>Signalez un impayé, envoyez des rappels automatiques et résilier si nécessaire.</p>
+                  <h2>Impayés</h2>
+                  <p>Signalez un impayé, envoyez des rappels automatiques et résiliez si nécessaire.</p>
                 </div>
 
                 {/* Marquer une commande impayée */}
@@ -1338,8 +1241,7 @@ export default function AdminPage() {
             return (
               <div style={{ position: 'relative', zIndex: 1 }}>
                 <div className="admin-section-head fade-in-up">
-                  <div className="eyebrow">🔴 Sans engagement</div>
-                  <h1>Résiliations <span className="gradient-text">en attente</span></h1>
+                  <h2>Résiliations en attente</h2>
                   <p>Clients ayant demandé la résiliation. L&apos;accès reste actif jusqu&apos;à la date effective.</p>
                 </div>
 
@@ -1433,8 +1335,7 @@ export default function AdminPage() {
           {activePage === 'support' && (
             <div style={{ position: 'relative', zIndex: 1 }}>
               <div className="admin-section-head fade-in-up">
-                <div className="eyebrow">💬 Messagerie</div>
-                <h1>Support <span className="gradient-text">Client</span></h1>
+                <h2>Support client</h2>
                 <p>Répondez aux messages de vos clients en temps réel.</p>
               </div>
 
@@ -1562,8 +1463,7 @@ export default function AdminPage() {
           {activePage === 'settings' && (
             <div style={{ position: 'relative', zIndex: 1 }}>
               <div className="admin-section-head fade-in-up">
-                <div className="eyebrow">⚙️ Configuration</div>
-                <h1>Paramètres <span className="gradient-text">globaux</span></h1>
+                <h2>Paramètres globaux</h2>
                 <p>Passerelles de paiement, portefeuilles crypto et options de plateforme.</p>
               </div>
 
@@ -1927,7 +1827,7 @@ export default function AdminPage() {
   );
 }
 
-/* ─── ServiceEditCard (inline editable) ─────────────────────────────────── */
+/* ─── ServiceEditCard (accordion) ───────────────────────────────────────── */
 function ServiceEditCard({ svc, onSave, onToggle, onDelete, onEditStock, onAddStock }: {
   svc: Service;
   onSave: (svc: Service) => void;
@@ -1936,6 +1836,7 @@ function ServiceEditCard({ svc, onSave, onToggle, onDelete, onEditStock, onAddSt
   onEditStock: (st: StockAccount) => void;
   onAddStock: (serviceId: string, price: string, maxSlots: string, details: string) => Promise<boolean>;
 }) {
+  const [expanded, setExpanded] = useState(false);
   const [local, setLocal] = useState(svc);
   const [addPrice, setAddPrice] = useState('');
   const [addSlots, setAddSlots] = useState('');
@@ -1956,144 +1857,137 @@ function ServiceEditCard({ svc, onSave, onToggle, onDelete, onEditStock, onAddSt
   };
 
   return (
-    <div className="glass-panel svc-edit-card">
-      <h4>
-        <span style={{ width: 32, height: 32, borderRadius: 9, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', background: svc.gradient, boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.25)' }}>
+    <div className="glass-panel svc-edit-card" style={{ padding: 0, overflow: 'hidden' }}>
+      {/* ── Collapsed header (always visible) ── */}
+      <div
+        style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', cursor: 'pointer', userSelect: 'none' }}
+        onClick={() => setExpanded(x => !x)}
+      >
+        <span style={{ width: 32, height: 32, borderRadius: 9, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', background: svc.gradient, boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.25)', flexShrink: 0 }}>
           {svc.icon}
         </span>
-        {svc.name}
-        <span className="badge-pill" style={{ marginLeft: 'auto', background: local.active ? 'rgba(16,185,129,0.13)' : 'rgba(255,255,255,0.06)', color: local.active ? 'var(--accent-green)' : 'var(--text-muted)', border: `1px solid ${local.active ? 'rgba(16,185,129,0.25)' : 'rgba(255,255,255,0.08)'}` }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-white)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{svc.name}</div>
+          <div style={{ fontSize: '0.73rem', color: 'var(--text-muted)', marginTop: 1 }}>
+            {fmt(svc.price)}/mois · {svc.stocks?.length || 0} compte{(svc.stocks?.length || 0) > 1 ? 's' : ''} · {svc.stocks?.reduce((a, s) => a + s.filledSlots, 0) || 0}/{svc.stocks?.reduce((a, s) => a + s.maxSlots, 0) || 0} slots
+          </div>
+        </div>
+        <span className="badge-pill" style={{ flexShrink: 0, background: local.active ? 'rgba(16,185,129,0.13)' : 'rgba(255,255,255,0.06)', color: local.active ? 'var(--accent-green)' : 'var(--text-muted)', border: `1px solid ${local.active ? 'rgba(16,185,129,0.25)' : 'rgba(255,255,255,0.08)'}` }}>
           {local.active ? '● Actif' : '○ Inactif'}
         </span>
-      </h4>
-
-      <div className="form-field" style={{ background: 'rgba(168,85,247,0.06)', border: '1px solid rgba(168,85,247,0.2)', borderRadius: 10, padding: '10px 12px' }}>
-        <label className="form-label" style={{ marginBottom: 6 }}>🎯 Normaliser selon le catalogue</label>
-        <select
-          value=""
-          onChange={e => {
-            const preset = SERVICE_CATALOG.find(p => p.id === e.target.value);
-            if (!preset) return;
-            setLocal(l => ({ ...l, name: preset.name, tagline: preset.tagline, icon: preset.icon, gradient: preset.gradient, features: [...preset.features] }));
-          }}
-          className="dash-input"
-        >
-          <option value="">— Choisir un modèle de référence —</option>
-          {CATALOG_CATEGORIES.map(cat => (
-            <optgroup key={cat.id} label={`${cat.icon} ${cat.label}`}>
-              {SERVICE_CATALOG.filter(p => p.category === cat.id).map(p => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
-        <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: 6, fontStyle: 'italic' }}>
-          Aligne le nom, l&apos;accroche, l&apos;icône et les caractéristiques sur le modèle officiel — pour que tous les services similaires soient écrits exactement pareil. Le prix et les places restent inchangés. Cliquez ensuite sur « Sauvegarder ».
-        </div>
+        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', flexShrink: 0, transition: 'transform 0.2s', transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
       </div>
 
-      <div className="form-field">
-        <label className="form-label">Nom affiché</label>
-        <input type="text" value={local.name} onChange={e => setLocal(l => ({ ...l, name: e.target.value }))}
-          className="dash-input" />
-      </div>
-      <div className="form-field">
-        <label className="form-label">Phrase d&apos;accroche</label>
-        <input type="text" value={local.tagline} onChange={e => setLocal(l => ({ ...l, tagline: e.target.value }))}
-          className="dash-input" />
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-        <div className="form-field">
-          <label className="form-label">Prix (€)</label>
-          <input type="number" step="0.01" value={local.price} onChange={e => setLocal(l => ({ ...l, price: +e.target.value }))}
-            className="dash-input" />
-        </div>
-        <div className="form-field">
-          <label className="form-label">Public (€)</label>
-          <input type="number" step="0.01" value={local.original} onChange={e => setLocal(l => ({ ...l, original: +e.target.value }))}
-            className="dash-input" />
-        </div>
-      </div>
-      <div className="form-field">
-        <label className="form-label">Places max</label>
-        <input type="number" value={local.maxSlots} onChange={e => setLocal(l => ({ ...l, maxSlots: +e.target.value }))}
-          className="dash-input" />
-      </div>
+      {/* ── Expanded form ── */}
+      {expanded && (
+        <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', padding: '14px 16px 16px' }}>
+          {/* Action buttons at top */}
+          <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+            <button onClick={handleSaveAll} disabled={adding} className="btn btn-primary btn-sm" style={{ flex: '1.6', minWidth: 0 }}>
+              {adding ? '⏳ Sauvegarde…' : '💾 Sauvegarder'}
+            </button>
+            <button onClick={() => { setLocal(l => ({ ...l, active: !l.active })); onToggle(svc.id, !local.active); }} className={`toggle ${local.active ? 'on' : ''}`} title={local.active ? 'Désactiver' : 'Activer'} style={{ flexShrink: 0 }} />
+            <button onClick={() => onDelete(svc.id, svc.name)} className="btn btn-danger btn-sm" style={{ flex: 1, minWidth: 0 }}>
+              🗑 Supprimer
+            </button>
+          </div>
 
-      <div className="toggle-row" style={{ marginBottom: 14 }}>
-        <div style={{ flex: 1 }}>
-          <div className="toggle-row-label">Actif au catalogue</div>
-          <div className="toggle-row-sub">Visible sur la boutique publique</div>
-        </div>
-        <button
-          onClick={() => { setLocal(l => ({ ...l, active: !l.active })); onToggle(svc.id, !local.active); }}
-          className={`toggle ${local.active ? 'on' : ''}`}
-        />
-      </div>
+          {/* Fields */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+            <div className="form-field" style={{ marginBottom: 0, gridColumn: '1 / -1' }}>
+              <label className="form-label">Nom affiché</label>
+              <input type="text" value={local.name} onChange={e => setLocal(l => ({ ...l, name: e.target.value }))} className="dash-input" />
+            </div>
+            <div className="form-field" style={{ marginBottom: 0, gridColumn: '1 / -1' }}>
+              <label className="form-label">Phrase d&apos;accroche</label>
+              <input type="text" value={local.tagline} onChange={e => setLocal(l => ({ ...l, tagline: e.target.value }))} className="dash-input" />
+            </div>
+            <div className="form-field" style={{ marginBottom: 0 }}>
+              <label className="form-label">Prix (€)</label>
+              <input type="number" step="0.01" value={local.price} onChange={e => setLocal(l => ({ ...l, price: +e.target.value }))} className="dash-input" />
+            </div>
+            <div className="form-field" style={{ marginBottom: 0 }}>
+              <label className="form-label">Public (€)</label>
+              <input type="number" step="0.01" value={local.original} onChange={e => setLocal(l => ({ ...l, original: +e.target.value }))} className="dash-input" />
+            </div>
+            <div className="form-field" style={{ marginBottom: 0 }}>
+              <label className="form-label">Places max</label>
+              <input type="number" value={local.maxSlots} onChange={e => setLocal(l => ({ ...l, maxSlots: +e.target.value }))} className="dash-input" />
+            </div>
+          </div>
 
-      <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 14, marginBottom: 14 }}>
-        <div style={{ fontSize: '0.78rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 10 }}>
-          🔑 Comptes en stock ({svc.stocks?.length || 0})
-        </div>
-
-        {svc.stocks && svc.stocks.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
-            {svc.stocks.map(st => (
-              <div key={st.id} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 10, padding: 10 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
-                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: "'SF Mono',Menlo,monospace" }}>
-                    #{st.id.slice(0, 6)} · {st.filledSlots}/{st.maxSlots} slots
-                  </span>
-                  <button onClick={() => onEditStock(st)} className="btn btn-primary btn-sm" style={{ padding: '5px 10px', fontSize: '0.74rem' }}>
-                    📝 Modifier identifiants
-                  </button>
-                </div>
-                <div style={{ fontFamily: "'SF Mono',Menlo,monospace", fontSize: '0.74rem', color: 'var(--text-gray)', wordBreak: 'break-all', lineHeight: 1.5 }}>
-                  {st.details.length > 60 ? st.details.slice(0, 60) + '…' : st.details}
-                </div>
+          {/* Normaliser — collapsed by default */}
+          <details style={{ marginBottom: 14 }}>
+            <summary style={{ cursor: 'pointer', fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600, padding: '6px 0', userSelect: 'none', listStyle: 'none' }}>
+              🎯 Normaliser selon le catalogue…
+            </summary>
+            <div style={{ background: 'rgba(168,85,247,0.06)', border: '1px solid rgba(168,85,247,0.2)', borderRadius: 10, padding: '10px 12px', marginTop: 8 }}>
+              <select
+                value=""
+                onChange={e => {
+                  const preset = SERVICE_CATALOG.find(p => p.id === e.target.value);
+                  if (!preset) return;
+                  setLocal(l => ({ ...l, name: preset.name, tagline: preset.tagline, icon: preset.icon, gradient: preset.gradient, features: [...preset.features] }));
+                }}
+                className="dash-input"
+              >
+                <option value="">— Choisir un modèle de référence —</option>
+                {CATALOG_CATEGORIES.map(cat => (
+                  <optgroup key={cat.id} label={`${cat.icon} ${cat.label}`}>
+                    {SERVICE_CATALOG.filter(p => p.category === cat.id).map(p => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+              <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: 6, fontStyle: 'italic' }}>
+                Aligne le nom, l&apos;accroche, l&apos;icône et les caractéristiques sur le modèle officiel. Prix et places restent inchangés.
               </div>
-            ))}
-          </div>
-        )}
+            </div>
+          </details>
 
-        <div style={{ background: 'rgba(168,85,247,0.06)', border: '1px dashed rgba(168,85,247,0.25)', borderRadius: 10, padding: 12 }}>
-          <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-soft)', marginBottom: 8 }}>
-            ➕ Ajouter un compte de stock
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
-            <input type="number" step="0.01" placeholder="Prix (€)" value={addPrice}
-              onChange={e => setAddPrice(e.target.value)} className="dash-input"
-              style={{ fontSize: '0.78rem', padding: '7px 9px' }} />
-            <input type="number" min="1" placeholder="Places max" value={addSlots}
-              onChange={e => setAddSlots(e.target.value)} className="dash-input"
-              style={{ fontSize: '0.78rem', padding: '7px 9px' }} />
-          </div>
-          <textarea rows={2} placeholder="Identifiants : email@example.com / motdepasse" value={addDetails}
-            onChange={e => setAddDetails(e.target.value)} className="dash-input"
-            style={{ resize: 'vertical', minHeight: 50, fontSize: '0.78rem', padding: '7px 9px', fontFamily: "'SF Mono',Menlo,monospace" }} />
-          <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: 6, fontStyle: 'italic' }}>
-            Remplissez ces 3 champs pour ajouter un compte lors du clic sur « Sauvegarder ».
+          {/* Stock accounts */}
+          <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 12 }}>
+            <div style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 8 }}>
+              🔑 Comptes en stock ({svc.stocks?.length || 0})
+            </div>
+            {svc.stocks && svc.stocks.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
+                {svc.stocks.map(st => (
+                  <div key={st.id} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 10, padding: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: "'SF Mono',Menlo,monospace" }}>
+                        #{st.id.slice(0, 6)} · {st.filledSlots}/{st.maxSlots} slots · {fmt(st.price)}/mois
+                      </span>
+                      <button onClick={() => onEditStock(st)} className="btn btn-primary btn-sm" style={{ padding: '4px 10px', fontSize: '0.74rem' }}>
+                        📝 Modifier
+                      </button>
+                    </div>
+                    <div style={{ fontFamily: "'SF Mono',Menlo,monospace", fontSize: '0.74rem', color: 'var(--text-gray)', wordBreak: 'break-all', lineHeight: 1.5 }}>
+                      {st.details.length > 80 ? st.details.slice(0, 80) + '…' : st.details}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div style={{ background: 'rgba(168,85,247,0.06)', border: '1px dashed rgba(168,85,247,0.25)', borderRadius: 10, padding: 12 }}>
+              <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-soft)', marginBottom: 8 }}>➕ Ajouter un compte de stock</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                <input type="number" step="0.01" placeholder="Prix (€)" value={addPrice}
+                  onChange={e => setAddPrice(e.target.value)} className="dash-input" style={{ fontSize: '0.78rem', padding: '7px 9px' }} />
+                <input type="number" min="1" placeholder="Places max" value={addSlots}
+                  onChange={e => setAddSlots(e.target.value)} className="dash-input" style={{ fontSize: '0.78rem', padding: '7px 9px' }} />
+              </div>
+              <textarea rows={2} placeholder="Identifiants : email@example.com / motdepasse" value={addDetails}
+                onChange={e => setAddDetails(e.target.value)} className="dash-input"
+                style={{ resize: 'vertical', minHeight: 50, fontSize: '0.78rem', padding: '7px 9px', fontFamily: "'SF Mono',Menlo,monospace" }} />
+              <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: 6, fontStyle: 'italic' }}>
+                Remplissez ces 3 champs pour ajouter un compte lors du clic sur « Sauvegarder ».
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.6fr) minmax(0, 1fr)', gap: 8 }}>
-        <button
-          onClick={handleSaveAll}
-          disabled={adding}
-          className="btn btn-primary btn-sm"
-          style={{ padding: '10px 12px', fontSize: '0.82rem', width: '100%', minWidth: 0 }}
-        >
-          {adding ? '⏳ Sauvegarde…' : '💾 Sauvegarder'}
-        </button>
-        <button
-          onClick={() => onDelete(svc.id, svc.name)}
-          className="btn btn-danger btn-sm"
-          style={{ padding: '10px 12px', fontSize: '0.82rem', width: '100%', minWidth: 0 }}
-        >
-          🗑 Supprimer
-        </button>
-      </div>
+      )}
     </div>
   );
 }
