@@ -12,6 +12,7 @@ const ALLOWED_KEYS = new Set([
   'gateway_cb',
   'gateway_paypal',
   'gateway_crypto',
+  'paypal_email',
 ]);
 
 const DEFAULT_SETTINGS: Record<string, string> = {
@@ -22,6 +23,7 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   gateway_cb: 'true',
   gateway_paypal: 'true',
   gateway_crypto: 'true',
+  paypal_email: '',
 };
 
 const checkAuth = isAdminAuthenticated;
