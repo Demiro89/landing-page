@@ -41,6 +41,7 @@ function CheckoutContent() {
 
   const [service, setService] = useState<ServiceDetails | null>(null);
   const [cryptoAddr, setCryptoAddr] = useState<Record<string, string>>({ btc: '', eth: '', usdt: '', ltc: '' });
+  const [paypalEmail, setPaypalEmail] = useState('');
   const [loadingService, setLoadingService] = useState(true);
   const [email, setEmail] = useState(searchParams.get('email') || '');
   const [youtubeEmail, setYoutubeEmail] = useState('');
@@ -105,6 +106,7 @@ function CheckoutContent() {
             usdt: d.settings.crypto_usdt || '',
             ltc: d.settings.crypto_ltc || '',
           });
+          setPaypalEmail(d.settings.paypal_email || '');
         }
       })
       .catch(() => {});
@@ -242,7 +244,9 @@ function CheckoutContent() {
     coin === 'btc' ? 6 : coin === 'eth' ? 5 : coin === 'usdt' ? 2 : 4;
 
   const orderRef = manualOrderId ? manualOrderId.slice(0, 8).toUpperCase() : '';
-  const paypalUrl = `https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=novateurlabeille%40gmail.com&amount=${service.price.toFixed(2)}&currency_code=EUR&item_name=StreamMalin+-+${encodeURIComponent(service.name)}&no_shipping=1`;
+  const paypalUrl = paypalEmail
+    ? `https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=${encodeURIComponent(paypalEmail)}&amount=${service.price.toFixed(2)}&currency_code=EUR&item_name=StreamMalin+-+${encodeURIComponent(service.name)}&no_shipping=1`
+    : '';
 
   return (
     <div style={{ minHeight: '100vh', position: 'relative' }}>
@@ -445,14 +449,16 @@ function CheckoutContent() {
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
                     <span style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-white)', fontFamily: "'SF Mono', Menlo, monospace" }}>
-                      novateurlabeille@gmail.com
+                      {paypalEmail || '⚠️ Adresse non configurée — contactez hello@streammalin.fr'}
                     </span>
-                    <button
-                      onClick={() => { navigator.clipboard.writeText('novateurlabeille@gmail.com'); setCopied('paypal'); setTimeout(() => setCopied(''), 2000); }}
-                      className={`copy-btn ${copied === 'paypal' ? 'copied' : ''}`}
-                    >
-                      {copied === 'paypal' ? '✅ Copié' : '📋 Copier'}
-                    </button>
+                    {paypalEmail && (
+                      <button
+                        onClick={() => { navigator.clipboard.writeText(paypalEmail); setCopied('paypal'); setTimeout(() => setCopied(''), 2000); }}
+                        className={`copy-btn ${copied === 'paypal' ? 'copied' : ''}`}
+                      >
+                        {copied === 'paypal' ? '✅ Copié' : '📋 Copier'}
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -479,15 +485,15 @@ function CheckoutContent() {
                 ) : (
                   <button
                     type="button"
-                    disabled={!consentOk || manualBusy || !email || !stockAvailable}
+                    disabled={!consentOk || manualBusy || !email || !stockAvailable || !paypalEmail}
                     onClick={async () => {
                       const id = await createManualOrder('paypal');
                       if (id) window.open(paypalUrl, '_blank', 'noopener,noreferrer');
                     }}
                     className="btn btn-primary"
-                    style={{ display: 'block', width: '100%', textAlign: 'center', marginTop: 12, background: consentOk && stockAvailable ? '#0070ba' : undefined, opacity: consentOk && stockAvailable ? 1 : 0.5, cursor: consentOk && stockAvailable ? 'pointer' : 'not-allowed' }}
+                    style={{ display: 'block', width: '100%', textAlign: 'center', marginTop: 12, background: consentOk && stockAvailable && paypalEmail ? '#0070ba' : undefined, opacity: consentOk && stockAvailable && paypalEmail ? 1 : 0.5, cursor: consentOk && stockAvailable && paypalEmail ? 'pointer' : 'not-allowed' }}
                   >
-                    {manualBusy ? 'Enregistrement…' : !consentOk ? 'Cochez les 3 confirmations pour continuer' : !stockAvailable ? 'Offre indisponible' : `🅿️ Payer ${service.price.toFixed(2)}€ via PayPal →`}
+                    {manualBusy ? 'Enregistrement…' : !consentOk ? 'Cochez les 3 confirmations pour continuer' : !stockAvailable ? 'Offre indisponible' : !paypalEmail ? 'PayPal non configuré' : `🅿️ Payer ${service.price.toFixed(2)}€ via PayPal →`}
                   </button>
                 )}
 

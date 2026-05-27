@@ -8,11 +8,13 @@ export const dynamic = 'force-dynamic';
 const PUBLIC_KEYS = [
   'crypto_btc', 'crypto_eth', 'crypto_usdt', 'crypto_ltc',
   'gateway_cb', 'gateway_paypal', 'gateway_crypto',
+  'paypal_email',
 ];
 
 const DEFAULTS: Record<string, string> = {
   crypto_btc: '', crypto_eth: '', crypto_usdt: '', crypto_ltc: '',
   gateway_cb: 'true', gateway_paypal: 'true', gateway_crypto: 'true',
+  paypal_email: '',
 };
 
 /**

@@ -107,6 +107,7 @@ export default function AdminPage() {
   const [settings, setSettings] = useState<Settings>({
     crypto_btc: '', crypto_eth: '', crypto_usdt: '', crypto_ltc: '',
     gateway_cb: 'true', gateway_paypal: 'true', gateway_crypto: 'true',
+    paypal_email: '',
   });
 
   const [stockForm, setStockForm] = useState({ serviceId: '', accountsBoughtPrice: '', price: '', maxSlots: '', details: '' });
@@ -1594,6 +1595,24 @@ export default function AdminPage() {
                   </button>
                 </div>
               </details>
+
+              <div className="glass-panel admin-card fade-in-up">
+                <div className="admin-card-head">
+                  <div className="icon-bubble">🅿️</div>
+                  Adresse PayPal de réception
+                </div>
+                <p className="admin-card-sub">Email PayPal affiché aux clients lors du paiement PayPal.</p>
+                <div className="form-field" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Email PayPal</label>
+                  <input
+                    type="email"
+                    placeholder="votre@paypal.com"
+                    value={settings.paypal_email || ''}
+                    onChange={e => setSettings(s => ({ ...s, paypal_email: e.target.value }))}
+                    className="dash-input"
+                  />
+                </div>
+              </div>
 
               <div className="glass-panel admin-card fade-in-up">
                 <div className="admin-card-head">
