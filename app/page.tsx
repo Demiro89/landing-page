@@ -93,6 +93,9 @@ export default function Home() {
   const [authMode, setAuthMode] = useState<AuthMode>('login');
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
+  const [authPasswordConfirm, setAuthPasswordConfirm] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [resendingVerif, setResendingVerif] = useState(false);
   const [authError, setAuthError] = useState('');
   const [authMsg, setAuthMsg] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
@@ -218,7 +221,12 @@ export default function Home() {
 
   const doRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    setAuthError(''); setAuthMsg(''); setAuthLoading(true);
+    setAuthError(''); setAuthMsg('');
+    if (authPassword !== authPasswordConfirm) {
+      setAuthError('Les mots de passe ne correspondent pas.');
+      return;
+    }
+    setAuthLoading(true);
     try {
       const r = await fetch('/api/client/register', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -227,7 +235,7 @@ export default function Home() {
       const d = await r.json();
       if (d.success) {
         setAuthMsg('✅ Compte créé ! Consultez votre email pour activer votre compte.');
-        setAuthPassword('');
+        setAuthPassword(''); setAuthPasswordConfirm('');
       } else {
         setAuthError(d.error || 'Erreur');
       }
@@ -245,7 +253,7 @@ export default function Home() {
       const d = await r.json();
       if (d.success) {
         await reloadMe();
-        setAuthEmail(''); setAuthPassword('');
+        setAuthEmail(''); setAuthPassword(''); setAuthPasswordConfirm('');
       } else {
         setAuthError(d.error || 'Identifiants incorrects');
       }
@@ -258,6 +266,16 @@ export default function Home() {
     setOrders([]);
     setSearchedEmail('');
     setActiveChatOrderId(null);
+  };
+
+  const resendVerification = async () => {
+    setResendingVerif(true);
+    try {
+      const r = await fetch('/api/client/resend-verification', { method: 'POST' });
+      const d = await r.json();
+      if (d.success) setAuthMsg('✅ Email de confirmation renvoyé. Consultez votre boîte mail.');
+      else setAuthError(d.error || 'Erreur lors de l\'envoi.');
+    } finally { setResendingVerif(false); }
   };
 
   const [deleteConfirm, setDeleteConfirm] = useState('');
@@ -649,13 +667,13 @@ export default function Home() {
                       Toutes les places de ce service sont momentanément occupées.<br />
                       Revenez bientôt ou contactez-nous pour être prévenu des prochaines disponibilités.
                     </p>
-                    <button
-                      onClick={() => setView('dashboard')}
+                    <a
+                      href="mailto:hello@streammalin.fr"
                       className="btn btn-outline btn-sm"
                       style={{ fontSize: '0.82rem' }}
                     >
                       💬 Contacter le support
-                    </button>
+                    </a>
                   </div>
                 ) : (
                   filteredStocks.map((stock) => {
@@ -887,9 +905,11 @@ export default function Home() {
                 <h2>Prêt à réduire vos factures <span className="gradient-text" style={{ whiteSpace: 'nowrap' }}>dès aujourd&apos;hui&nbsp;?</span></h2>
                 <p>Rejoignez nos clients économes. Accès transmis après validation, résiliable à tout moment, sans engagement.</p>
                 <div className="cta-buttons">
-                  <a href="#offres" onClick={() => setFilter('streaming')} className="btn btn-primary">▶ YouTube — dès 3,49€</a>
-                  <a href="#offres" onClick={() => setFilter('streaming')} className="btn btn-outline">✦ Disney+ — dès 2,99€</a>
-                  <a href="#offres" onClick={() => setFilter('securite')} className="btn btn-outline">🦈 Surfshark — dès 1,49€</a>
+                  {services.slice(0, 3).map((s, i) => (
+                    <a key={s.id} href="#offres" className={`btn ${i === 0 ? 'btn-primary' : 'btn-outline'}`}>
+                      {s.icon} {s.name} — dès {s.price.toFixed(2)}€
+                    </a>
+                  ))}
                 </div>
               </div>
             </div>
@@ -922,9 +942,18 @@ export default function Home() {
                   <div className="dash-subtitle">
                     Connecté en tant que <strong style={{ color: 'var(--text-white)' }}>{customer.email}</strong>
                     {!customer.emailVerified && (
-                      <span style={{ marginLeft: 10, padding: '2px 8px', borderRadius: 50, background: 'rgba(255,180,0,0.15)', color: 'var(--accent-yellow)', fontSize: '0.7rem', fontWeight: 700 }}>
-                        ⚠️ Email non vérifié
-                      </span>
+                      <>
+                        <span style={{ marginLeft: 10, padding: '2px 8px', borderRadius: 50, background: 'rgba(255,180,0,0.15)', color: 'var(--accent-yellow)', fontSize: '0.7rem', fontWeight: 700 }}>
+                          ⚠️ Email non vérifié
+                        </span>
+                        <button
+                          onClick={resendVerification}
+                          disabled={resendingVerif}
+                          style={{ marginLeft: 8, background: 'none', border: 'none', color: 'var(--secondary)', fontSize: '0.75rem', textDecoration: 'underline', cursor: 'pointer' }}
+                        >
+                          {resendingVerif ? '⏳ Envoi…' : 'Renvoyer l\'email'}
+                        </button>
+                      </>
                     )}
                     <button onClick={doLogout} style={{ marginLeft: 10, color: 'var(--secondary)', fontSize: '0.78rem', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
                       Déconnexion
@@ -1035,25 +1064,60 @@ export default function Home() {
                     </p>
 
                     {(authMode === 'login' || authMode === 'register') && (
-                      <form onSubmit={authMode === 'login' ? doLogin : doRegister} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                        <input
-                          type="email"
-                          placeholder="vous@exemple.com"
-                          value={authEmail}
-                          onChange={(e) => setAuthEmail(e.target.value)}
-                          className="dash-input"
-                          required
-                        />
-                        <input
-                          type="password"
-                          placeholder="Mot de passe (6 caractères min.)"
-                          value={authPassword}
-                          onChange={(e) => setAuthPassword(e.target.value)}
-                          className="dash-input"
-                          minLength={6}
-                          required
-                        />
-                        <button type="submit" disabled={authLoading} className="btn btn-primary">
+                      <form onSubmit={authMode === 'login' ? doLogin : doRegister} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        <div className="form-field" style={{ marginBottom: 0 }}>
+                          <label className="form-label">Adresse email</label>
+                          <input
+                            type="email"
+                            placeholder="vous@exemple.com"
+                            value={authEmail}
+                            onChange={(e) => setAuthEmail(e.target.value)}
+                            className="dash-input"
+                            autoComplete="email"
+                            required
+                          />
+                        </div>
+                        <div className="form-field" style={{ marginBottom: 0 }}>
+                          <label className="form-label">Mot de passe</label>
+                          <div style={{ position: 'relative' }}>
+                            <input
+                              type={showPassword ? 'text' : 'password'}
+                              placeholder="6 caractères minimum"
+                              value={authPassword}
+                              onChange={(e) => setAuthPassword(e.target.value)}
+                              className="dash-input"
+                              autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
+                              minLength={6}
+                              required
+                              style={{ paddingRight: 44 }}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowPassword(v => !v)}
+                              style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: '1rem' }}
+                              tabIndex={-1}
+                              aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                            >
+                              {showPassword ? '🙈' : '👁️'}
+                            </button>
+                          </div>
+                        </div>
+                        {authMode === 'register' && (
+                          <div className="form-field" style={{ marginBottom: 0 }}>
+                            <label className="form-label">Confirmer le mot de passe</label>
+                            <input
+                              type={showPassword ? 'text' : 'password'}
+                              placeholder="Répétez votre mot de passe"
+                              value={authPasswordConfirm}
+                              onChange={(e) => setAuthPasswordConfirm(e.target.value)}
+                              className="dash-input"
+                              autoComplete="new-password"
+                              minLength={6}
+                              required
+                            />
+                          </div>
+                        )}
+                        <button type="submit" disabled={authLoading} className="btn btn-primary" style={{ marginTop: 4 }}>
                           {authLoading ? '⏳ Veuillez patienter…' : (authMode === 'login' ? 'Se connecter →' : 'Créer mon compte →')}
                         </button>
                         {authMode === 'login' && (

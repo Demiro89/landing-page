@@ -78,12 +78,12 @@ const serviceFields: Array<{ label: string; key: ServiceFormKey; placeholder: st
   { label: 'Places max', key: 'maxSlots', placeholder: '4', type: 'number' },
 ];
 
-function toast(msg: string) {
+function toast(msg: string, duration = 5000) {
   const el = document.getElementById('sm-toast');
   if (!el) return;
   el.textContent = '✅ ' + msg;
   el.style.display = 'block';
-  setTimeout(() => { el.style.display = 'none'; }, 3500);
+  setTimeout(() => { el.style.display = 'none'; }, duration);
 }
 
 /* ─── Main Component ─────────────────────────────────────────────────────── */
@@ -99,6 +99,10 @@ export default function AdminPage() {
   // Chiffrement des données héritées
   const [encryptBusy, setEncryptBusy] = useState(false);
   const [encryptResult, setEncryptResult] = useState('');
+  const [ordersSearch, setOrdersSearch] = useState('');
+  const [clientsSearch, setClientsSearch] = useState('');
+  const [ordersPage, setOrdersPage] = useState(0);
+  const [showCredIds, setShowCredIds] = useState<Set<string>>(new Set());
 
   const [services, setServices] = useState<Service[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -129,6 +133,7 @@ export default function AdminPage() {
 
   /* ─── Auth ───────────────────────────────────────────────────────────── */
   const doLogout = async () => {
+    if (!confirm('Confirmer la déconnexion ?')) return;
     await fetch('/api/admin/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'logout' }) });
     window.location.href = '/admin/login';
   };
@@ -275,7 +280,7 @@ export default function AdminPage() {
       const d = new Date(); d.setDate(d.getDate() - i);
       const label = d.toLocaleDateString('fr-FR', { weekday: 'short' });
       const dayOrders = orders.filter(o => new Date(o.date).toDateString() === d.toDateString());
-      const profit = dayOrders.reduce((acc, o) => acc + o.total - (o.total * 0.25), 0);
+      const profit = dayOrders.reduce((acc, o) => acc + o.total - (o.stockAccount?.accountsBoughtPrice || 0), 0);
       days.push({ label: label.charAt(0).toUpperCase() + label.slice(1), profit });
     }
     return days;
@@ -497,9 +502,9 @@ export default function AdminPage() {
 
           <div className="dash-sidebar-divider" />
 
-          <Link href="/" className="dash-sidebar-btn">
+          <a href="/" target="_blank" rel="noopener noreferrer" className="dash-sidebar-btn">
             ← Retour au site
-          </Link>
+          </a>
 
           <div className="dash-sidebar-foot" style={{ marginTop: 16 }}>
             Session sécurisée · httpOnly
@@ -585,6 +590,16 @@ export default function AdminPage() {
                   <div className="icon-bubble">🕐</div>
                   Historique récent des commandes
                 </div>
+                <div style={{ marginBottom: 12 }}>
+                  <input
+                    type="text"
+                    placeholder="🔍 Rechercher par email, service ou ID…"
+                    value={ordersSearch}
+                    onChange={e => { setOrdersSearch(e.target.value); setOrdersPage(0); }}
+                    className="dash-input"
+                    style={{ maxWidth: 420 }}
+                  />
+                </div>
                 <div style={{ overflowX: 'auto' }}>
                   <table className="admin-table">
                     <thead>
@@ -599,37 +614,63 @@ export default function AdminPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {orders.length === 0 ? (
-                        <tr><td colSpan={7} style={{ textAlign: 'center', padding: '40px 16px', color: 'var(--text-muted)' }}>Aucune transaction pour le moment.</td></tr>
-                      ) : orders.slice(0, 15).map(o => (
-                        <tr key={o.id}>
-                          <td style={{ fontFamily: "'SF Mono',Menlo,monospace", fontSize: '0.78rem', color: 'var(--secondary)' }}>{o.id.slice(0, 8)}</td>
-                          <td style={{ color: 'var(--text-gray)' }}>{new Date(o.date).toLocaleDateString('fr-FR')}</td>
-                          <td><span style={{ marginRight: 6 }}>{o.service.icon}</span>{o.service.name}</td>
-                          <td style={{ color: 'var(--text-gray)', fontSize: '0.78rem' }}>
-                            {o.clientEmail}
-                            {o.youtubeEmail && (
-                              <div style={{ fontSize: '0.72rem', color: '#ff4444', marginTop: 2 }}>
-                                ▶ YT: <strong style={{ color: 'var(--text-white)' }}>{o.youtubeEmail}</strong>
-                              </div>
-                            )}
-                          </td>
-                          <td style={{ textAlign: 'right' }}>{fmt(o.price)}</td>
-                          <td style={{ textAlign: 'right', color: 'var(--secondary)', fontWeight: 800 }}>{fmt(o.total)}</td>
-                          <td>
-                            {o.status === 'unpaid'
-                              ? <span className="badge-pill" style={{ background: 'rgba(245,158,11,0.15)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.3)' }}>⚠️ Impayé</span>
-                              : o.status === 'cancelled_pending'
-                              ? <span className="badge-pill" style={{ background: 'rgba(239,68,68,0.12)', color: '#f87171', border: '1px solid rgba(239,68,68,0.25)' }}>🔴 Résiliation</span>
-                              : o.status === 'cancelled'
-                              ? <span className="badge-pill neutral">✕ Résilié</span>
-                              : <span className="badge-pill success">● Actif</span>}
-                          </td>
-                        </tr>
-                      ))}
+                      {(() => {
+                        const filtered = orders.filter(o =>
+                          !ordersSearch ||
+                          o.clientEmail.toLowerCase().includes(ordersSearch.toLowerCase()) ||
+                          o.service.name.toLowerCase().includes(ordersSearch.toLowerCase()) ||
+                          o.id.toLowerCase().includes(ordersSearch.toLowerCase())
+                        );
+                        if (filtered.length === 0) return (
+                          <tr><td colSpan={7} style={{ textAlign: 'center', padding: '40px 16px', color: 'var(--text-muted)' }}>Aucune transaction pour le moment.</td></tr>
+                        );
+                        return filtered.slice(ordersPage * 20, ordersPage * 20 + 20).map(o => (
+                          <tr key={o.id}>
+                            <td style={{ fontFamily: "'SF Mono',Menlo,monospace", fontSize: '0.78rem', color: 'var(--secondary)' }}>{o.id.slice(0, 8)}</td>
+                            <td style={{ color: 'var(--text-gray)' }}>{new Date(o.date).toLocaleDateString('fr-FR')}</td>
+                            <td><span style={{ marginRight: 6 }}>{o.service.icon}</span>{o.service.name}</td>
+                            <td style={{ color: 'var(--text-gray)', fontSize: '0.78rem' }}>
+                              {o.clientEmail}
+                              {o.youtubeEmail && (
+                                <div style={{ fontSize: '0.72rem', color: '#ff4444', marginTop: 2 }}>
+                                  ▶ YT: <strong style={{ color: 'var(--text-white)' }}>{o.youtubeEmail}</strong>
+                                </div>
+                              )}
+                            </td>
+                            <td style={{ textAlign: 'right' }}>{fmt(o.price)}</td>
+                            <td style={{ textAlign: 'right', color: 'var(--secondary)', fontWeight: 800 }}>{fmt(o.total)}</td>
+                            <td>
+                              {o.status === 'unpaid'
+                                ? <span className="badge-pill" style={{ background: 'rgba(245,158,11,0.15)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.3)' }}>⚠️ Impayé</span>
+                                : o.status === 'cancelled_pending'
+                                ? <span className="badge-pill" style={{ background: 'rgba(239,68,68,0.12)', color: '#f87171', border: '1px solid rgba(239,68,68,0.25)' }}>🔴 Résiliation</span>
+                                : o.status === 'cancelled'
+                                ? <span className="badge-pill neutral">✕ Résilié</span>
+                                : <span className="badge-pill success">● Actif</span>}
+                            </td>
+                          </tr>
+                        ));
+                      })()}
                     </tbody>
                   </table>
                 </div>
+                {(() => {
+                  const filtered = orders.filter(o =>
+                    !ordersSearch ||
+                    o.clientEmail.toLowerCase().includes(ordersSearch.toLowerCase()) ||
+                    o.service.name.toLowerCase().includes(ordersSearch.toLowerCase()) ||
+                    o.id.toLowerCase().includes(ordersSearch.toLowerCase())
+                  );
+                  const totalPages = Math.ceil(filtered.length / 20);
+                  if (totalPages <= 1) return null;
+                  return (
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16 }}>
+                      <button onClick={() => setOrdersPage(p => Math.max(0, p - 1))} disabled={ordersPage === 0} className="btn btn-ghost btn-sm">← Préc.</button>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', alignSelf: 'center' }}>Page {ordersPage + 1} / {totalPages}</span>
+                      <button onClick={() => setOrdersPage(p => Math.min(totalPages - 1, p + 1))} disabled={ordersPage >= totalPages - 1} className="btn btn-ghost btn-sm">Suiv. →</button>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           )}
@@ -939,8 +980,18 @@ export default function AdminPage() {
                               </div>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                 <code style={{ fontSize: '0.72rem', background: 'rgba(0,0,0,0.4)', padding: '6px 10px', borderRadius: 6, color: '#3b82f6', fontFamily: "'SF Mono',Menlo,monospace", maxWidth: 340, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                  🔑 {stock.details.length > 50 ? stock.details.slice(0, 50) + '…' : stock.details}
+                                  {showCredIds.has(stock.id)
+                                    ? (stock.details.length > 50 ? stock.details.slice(0, 50) + '…' : stock.details)
+                                    : '🔑 ••••••••••••••••'}
                                 </code>
+                                <button
+                                  onClick={() => setShowCredIds(prev => { const next = new Set(prev); if (next.has(stock.id)) next.delete(stock.id); else next.add(stock.id); return next; })}
+                                  className="btn btn-ghost btn-sm"
+                                  style={{ fontSize: '0.7rem', padding: '4px 8px' }}
+                                  title={showCredIds.has(stock.id) ? 'Masquer' : 'Afficher les identifiants'}
+                                >
+                                  {showCredIds.has(stock.id) ? '🙈' : '👁️'}
+                                </button>
                                 <button
                                   onClick={() => copyCreds(stock.details)}
                                   className="btn btn-ghost btn-sm"
@@ -1038,6 +1089,16 @@ export default function AdminPage() {
                   </div>
                 ) : (
                   <div style={{ overflowX: 'auto' }}>
+                    <div style={{ marginBottom: 12 }}>
+                      <input
+                        type="text"
+                        placeholder="🔍 Rechercher par email…"
+                        value={clientsSearch}
+                        onChange={e => setClientsSearch(e.target.value)}
+                        className="dash-input"
+                        style={{ maxWidth: 360 }}
+                      />
+                    </div>
                     <table className="admin-table">
                       <thead>
                         <tr>
@@ -1050,7 +1111,9 @@ export default function AdminPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {clients.map((c, i) => (
+                        {clients
+                          .filter(c => !clientsSearch || c.email.toLowerCase().includes(clientsSearch.toLowerCase()))
+                          .map((c, i) => (
                           <tr key={i}>
                             <td>
                               <div style={{ width: 34, height: 34, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', fontWeight: 800, color: '#fff', background: 'var(--gradient-aurora)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.25)' }}>
