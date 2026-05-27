@@ -972,7 +972,7 @@ export default function AdminPage() {
                 </div>
                 <p className="admin-card-sub">Ajustez les prix, descriptions et le statut d&apos;activation.</p>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {services.map(svc => (
                     <ServiceEditCard key={svc.id} svc={svc} onSave={saveService} onToggle={toggleService} onDelete={deleteService} onEditStock={setEditStock} onAddStock={addStockInline} />
                   ))}
@@ -1927,7 +1927,7 @@ export default function AdminPage() {
   );
 }
 
-/* ─── ServiceEditCard (inline editable) ─────────────────────────────────── */
+/* ─── ServiceEditCard (accordion) ───────────────────────────────────────── */
 function ServiceEditCard({ svc, onSave, onToggle, onDelete, onEditStock, onAddStock }: {
   svc: Service;
   onSave: (svc: Service) => void;
@@ -1936,6 +1936,7 @@ function ServiceEditCard({ svc, onSave, onToggle, onDelete, onEditStock, onAddSt
   onEditStock: (st: StockAccount) => void;
   onAddStock: (serviceId: string, price: string, maxSlots: string, details: string) => Promise<boolean>;
 }) {
+  const [expanded, setExpanded] = useState(false);
   const [local, setLocal] = useState(svc);
   const [addPrice, setAddPrice] = useState('');
   const [addSlots, setAddSlots] = useState('');
@@ -1956,144 +1957,137 @@ function ServiceEditCard({ svc, onSave, onToggle, onDelete, onEditStock, onAddSt
   };
 
   return (
-    <div className="glass-panel svc-edit-card">
-      <h4>
-        <span style={{ width: 32, height: 32, borderRadius: 9, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', background: svc.gradient, boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.25)' }}>
+    <div className="glass-panel svc-edit-card" style={{ padding: 0, overflow: 'hidden' }}>
+      {/* ── Collapsed header (always visible) ── */}
+      <div
+        style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', cursor: 'pointer', userSelect: 'none' }}
+        onClick={() => setExpanded(x => !x)}
+      >
+        <span style={{ width: 32, height: 32, borderRadius: 9, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', background: svc.gradient, boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.25)', flexShrink: 0 }}>
           {svc.icon}
         </span>
-        {svc.name}
-        <span className="badge-pill" style={{ marginLeft: 'auto', background: local.active ? 'rgba(16,185,129,0.13)' : 'rgba(255,255,255,0.06)', color: local.active ? 'var(--accent-green)' : 'var(--text-muted)', border: `1px solid ${local.active ? 'rgba(16,185,129,0.25)' : 'rgba(255,255,255,0.08)'}` }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-white)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{svc.name}</div>
+          <div style={{ fontSize: '0.73rem', color: 'var(--text-muted)', marginTop: 1 }}>
+            {fmt(svc.price)}/mois · {svc.stocks?.length || 0} compte{(svc.stocks?.length || 0) > 1 ? 's' : ''} · {svc.stocks?.reduce((a, s) => a + s.filledSlots, 0) || 0}/{svc.stocks?.reduce((a, s) => a + s.maxSlots, 0) || 0} slots
+          </div>
+        </div>
+        <span className="badge-pill" style={{ flexShrink: 0, background: local.active ? 'rgba(16,185,129,0.13)' : 'rgba(255,255,255,0.06)', color: local.active ? 'var(--accent-green)' : 'var(--text-muted)', border: `1px solid ${local.active ? 'rgba(16,185,129,0.25)' : 'rgba(255,255,255,0.08)'}` }}>
           {local.active ? '● Actif' : '○ Inactif'}
         </span>
-      </h4>
-
-      <div className="form-field" style={{ background: 'rgba(168,85,247,0.06)', border: '1px solid rgba(168,85,247,0.2)', borderRadius: 10, padding: '10px 12px' }}>
-        <label className="form-label" style={{ marginBottom: 6 }}>🎯 Normaliser selon le catalogue</label>
-        <select
-          value=""
-          onChange={e => {
-            const preset = SERVICE_CATALOG.find(p => p.id === e.target.value);
-            if (!preset) return;
-            setLocal(l => ({ ...l, name: preset.name, tagline: preset.tagline, icon: preset.icon, gradient: preset.gradient, features: [...preset.features] }));
-          }}
-          className="dash-input"
-        >
-          <option value="">— Choisir un modèle de référence —</option>
-          {CATALOG_CATEGORIES.map(cat => (
-            <optgroup key={cat.id} label={`${cat.icon} ${cat.label}`}>
-              {SERVICE_CATALOG.filter(p => p.category === cat.id).map(p => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
-        <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: 6, fontStyle: 'italic' }}>
-          Aligne le nom, l&apos;accroche, l&apos;icône et les caractéristiques sur le modèle officiel — pour que tous les services similaires soient écrits exactement pareil. Le prix et les places restent inchangés. Cliquez ensuite sur « Sauvegarder ».
-        </div>
+        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', flexShrink: 0, transition: 'transform 0.2s', transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
       </div>
 
-      <div className="form-field">
-        <label className="form-label">Nom affiché</label>
-        <input type="text" value={local.name} onChange={e => setLocal(l => ({ ...l, name: e.target.value }))}
-          className="dash-input" />
-      </div>
-      <div className="form-field">
-        <label className="form-label">Phrase d&apos;accroche</label>
-        <input type="text" value={local.tagline} onChange={e => setLocal(l => ({ ...l, tagline: e.target.value }))}
-          className="dash-input" />
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-        <div className="form-field">
-          <label className="form-label">Prix (€)</label>
-          <input type="number" step="0.01" value={local.price} onChange={e => setLocal(l => ({ ...l, price: +e.target.value }))}
-            className="dash-input" />
-        </div>
-        <div className="form-field">
-          <label className="form-label">Public (€)</label>
-          <input type="number" step="0.01" value={local.original} onChange={e => setLocal(l => ({ ...l, original: +e.target.value }))}
-            className="dash-input" />
-        </div>
-      </div>
-      <div className="form-field">
-        <label className="form-label">Places max</label>
-        <input type="number" value={local.maxSlots} onChange={e => setLocal(l => ({ ...l, maxSlots: +e.target.value }))}
-          className="dash-input" />
-      </div>
+      {/* ── Expanded form ── */}
+      {expanded && (
+        <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', padding: '14px 16px 16px' }}>
+          {/* Action buttons at top */}
+          <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+            <button onClick={handleSaveAll} disabled={adding} className="btn btn-primary btn-sm" style={{ flex: '1.6', minWidth: 0 }}>
+              {adding ? '⏳ Sauvegarde…' : '💾 Sauvegarder'}
+            </button>
+            <button onClick={() => { setLocal(l => ({ ...l, active: !l.active })); onToggle(svc.id, !local.active); }} className={`toggle ${local.active ? 'on' : ''}`} title={local.active ? 'Désactiver' : 'Activer'} style={{ flexShrink: 0 }} />
+            <button onClick={() => onDelete(svc.id, svc.name)} className="btn btn-danger btn-sm" style={{ flex: 1, minWidth: 0 }}>
+              🗑 Supprimer
+            </button>
+          </div>
 
-      <div className="toggle-row" style={{ marginBottom: 14 }}>
-        <div style={{ flex: 1 }}>
-          <div className="toggle-row-label">Actif au catalogue</div>
-          <div className="toggle-row-sub">Visible sur la boutique publique</div>
-        </div>
-        <button
-          onClick={() => { setLocal(l => ({ ...l, active: !l.active })); onToggle(svc.id, !local.active); }}
-          className={`toggle ${local.active ? 'on' : ''}`}
-        />
-      </div>
+          {/* Fields */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+            <div className="form-field" style={{ marginBottom: 0, gridColumn: '1 / -1' }}>
+              <label className="form-label">Nom affiché</label>
+              <input type="text" value={local.name} onChange={e => setLocal(l => ({ ...l, name: e.target.value }))} className="dash-input" />
+            </div>
+            <div className="form-field" style={{ marginBottom: 0, gridColumn: '1 / -1' }}>
+              <label className="form-label">Phrase d&apos;accroche</label>
+              <input type="text" value={local.tagline} onChange={e => setLocal(l => ({ ...l, tagline: e.target.value }))} className="dash-input" />
+            </div>
+            <div className="form-field" style={{ marginBottom: 0 }}>
+              <label className="form-label">Prix (€)</label>
+              <input type="number" step="0.01" value={local.price} onChange={e => setLocal(l => ({ ...l, price: +e.target.value }))} className="dash-input" />
+            </div>
+            <div className="form-field" style={{ marginBottom: 0 }}>
+              <label className="form-label">Public (€)</label>
+              <input type="number" step="0.01" value={local.original} onChange={e => setLocal(l => ({ ...l, original: +e.target.value }))} className="dash-input" />
+            </div>
+            <div className="form-field" style={{ marginBottom: 0 }}>
+              <label className="form-label">Places max</label>
+              <input type="number" value={local.maxSlots} onChange={e => setLocal(l => ({ ...l, maxSlots: +e.target.value }))} className="dash-input" />
+            </div>
+          </div>
 
-      <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 14, marginBottom: 14 }}>
-        <div style={{ fontSize: '0.78rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 10 }}>
-          🔑 Comptes en stock ({svc.stocks?.length || 0})
-        </div>
-
-        {svc.stocks && svc.stocks.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
-            {svc.stocks.map(st => (
-              <div key={st.id} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 10, padding: 10 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
-                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: "'SF Mono',Menlo,monospace" }}>
-                    #{st.id.slice(0, 6)} · {st.filledSlots}/{st.maxSlots} slots
-                  </span>
-                  <button onClick={() => onEditStock(st)} className="btn btn-primary btn-sm" style={{ padding: '5px 10px', fontSize: '0.74rem' }}>
-                    📝 Modifier identifiants
-                  </button>
-                </div>
-                <div style={{ fontFamily: "'SF Mono',Menlo,monospace", fontSize: '0.74rem', color: 'var(--text-gray)', wordBreak: 'break-all', lineHeight: 1.5 }}>
-                  {st.details.length > 60 ? st.details.slice(0, 60) + '…' : st.details}
-                </div>
+          {/* Normaliser — collapsed by default */}
+          <details style={{ marginBottom: 14 }}>
+            <summary style={{ cursor: 'pointer', fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600, padding: '6px 0', userSelect: 'none', listStyle: 'none' }}>
+              🎯 Normaliser selon le catalogue…
+            </summary>
+            <div style={{ background: 'rgba(168,85,247,0.06)', border: '1px solid rgba(168,85,247,0.2)', borderRadius: 10, padding: '10px 12px', marginTop: 8 }}>
+              <select
+                value=""
+                onChange={e => {
+                  const preset = SERVICE_CATALOG.find(p => p.id === e.target.value);
+                  if (!preset) return;
+                  setLocal(l => ({ ...l, name: preset.name, tagline: preset.tagline, icon: preset.icon, gradient: preset.gradient, features: [...preset.features] }));
+                }}
+                className="dash-input"
+              >
+                <option value="">— Choisir un modèle de référence —</option>
+                {CATALOG_CATEGORIES.map(cat => (
+                  <optgroup key={cat.id} label={`${cat.icon} ${cat.label}`}>
+                    {SERVICE_CATALOG.filter(p => p.category === cat.id).map(p => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+              <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: 6, fontStyle: 'italic' }}>
+                Aligne le nom, l&apos;accroche, l&apos;icône et les caractéristiques sur le modèle officiel. Prix et places restent inchangés.
               </div>
-            ))}
-          </div>
-        )}
+            </div>
+          </details>
 
-        <div style={{ background: 'rgba(168,85,247,0.06)', border: '1px dashed rgba(168,85,247,0.25)', borderRadius: 10, padding: 12 }}>
-          <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-soft)', marginBottom: 8 }}>
-            ➕ Ajouter un compte de stock
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
-            <input type="number" step="0.01" placeholder="Prix (€)" value={addPrice}
-              onChange={e => setAddPrice(e.target.value)} className="dash-input"
-              style={{ fontSize: '0.78rem', padding: '7px 9px' }} />
-            <input type="number" min="1" placeholder="Places max" value={addSlots}
-              onChange={e => setAddSlots(e.target.value)} className="dash-input"
-              style={{ fontSize: '0.78rem', padding: '7px 9px' }} />
-          </div>
-          <textarea rows={2} placeholder="Identifiants : email@example.com / motdepasse" value={addDetails}
-            onChange={e => setAddDetails(e.target.value)} className="dash-input"
-            style={{ resize: 'vertical', minHeight: 50, fontSize: '0.78rem', padding: '7px 9px', fontFamily: "'SF Mono',Menlo,monospace" }} />
-          <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: 6, fontStyle: 'italic' }}>
-            Remplissez ces 3 champs pour ajouter un compte lors du clic sur « Sauvegarder ».
+          {/* Stock accounts */}
+          <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 12 }}>
+            <div style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 8 }}>
+              🔑 Comptes en stock ({svc.stocks?.length || 0})
+            </div>
+            {svc.stocks && svc.stocks.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
+                {svc.stocks.map(st => (
+                  <div key={st.id} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 10, padding: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: "'SF Mono',Menlo,monospace" }}>
+                        #{st.id.slice(0, 6)} · {st.filledSlots}/{st.maxSlots} slots · {fmt(st.price)}/mois
+                      </span>
+                      <button onClick={() => onEditStock(st)} className="btn btn-primary btn-sm" style={{ padding: '4px 10px', fontSize: '0.74rem' }}>
+                        📝 Modifier
+                      </button>
+                    </div>
+                    <div style={{ fontFamily: "'SF Mono',Menlo,monospace", fontSize: '0.74rem', color: 'var(--text-gray)', wordBreak: 'break-all', lineHeight: 1.5 }}>
+                      {st.details.length > 80 ? st.details.slice(0, 80) + '…' : st.details}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div style={{ background: 'rgba(168,85,247,0.06)', border: '1px dashed rgba(168,85,247,0.25)', borderRadius: 10, padding: 12 }}>
+              <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-soft)', marginBottom: 8 }}>➕ Ajouter un compte de stock</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                <input type="number" step="0.01" placeholder="Prix (€)" value={addPrice}
+                  onChange={e => setAddPrice(e.target.value)} className="dash-input" style={{ fontSize: '0.78rem', padding: '7px 9px' }} />
+                <input type="number" min="1" placeholder="Places max" value={addSlots}
+                  onChange={e => setAddSlots(e.target.value)} className="dash-input" style={{ fontSize: '0.78rem', padding: '7px 9px' }} />
+              </div>
+              <textarea rows={2} placeholder="Identifiants : email@example.com / motdepasse" value={addDetails}
+                onChange={e => setAddDetails(e.target.value)} className="dash-input"
+                style={{ resize: 'vertical', minHeight: 50, fontSize: '0.78rem', padding: '7px 9px', fontFamily: "'SF Mono',Menlo,monospace" }} />
+              <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: 6, fontStyle: 'italic' }}>
+                Remplissez ces 3 champs pour ajouter un compte lors du clic sur « Sauvegarder ».
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.6fr) minmax(0, 1fr)', gap: 8 }}>
-        <button
-          onClick={handleSaveAll}
-          disabled={adding}
-          className="btn btn-primary btn-sm"
-          style={{ padding: '10px 12px', fontSize: '0.82rem', width: '100%', minWidth: 0 }}
-        >
-          {adding ? '⏳ Sauvegarde…' : '💾 Sauvegarder'}
-        </button>
-        <button
-          onClick={() => onDelete(svc.id, svc.name)}
-          className="btn btn-danger btn-sm"
-          style={{ padding: '10px 12px', fontSize: '0.82rem', width: '100%', minWidth: 0 }}
-        >
-          🗑 Supprimer
-        </button>
-      </div>
+      )}
     </div>
   );
 }
