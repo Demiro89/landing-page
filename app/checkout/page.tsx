@@ -30,7 +30,7 @@ const CRYPTO_META: Record<CryptoCoin, { label: string; color: string; symbol: st
   ltc: { label: 'Litecoin (LTC)', color: '#345D9D', symbol: 'Ł' },
 };
 
-const CRYPTO_RATES: Record<CryptoCoin, number> = {
+const FALLBACK_RATES: Record<CryptoCoin, number> = {
   btc: 0.000017, eth: 0.00028, usdt: 1.0, ltc: 0.012,
 };
 
@@ -57,6 +57,9 @@ function CheckoutContent() {
   const [stockAvailable, setStockAvailable] = useState(false);
   const [manualOrderId, setManualOrderId] = useState<string | null>(null);
   const [manualBusy, setManualBusy] = useState(false);
+  const [cryptoRates, setCryptoRates] = useState<Record<CryptoCoin, number>>(FALLBACK_RATES);
+  const [ratesLive, setRatesLive] = useState(false);
+  const [ratesUpdatedAt, setRatesUpdatedAt] = useState<Date | null>(null);
 
   const consentOk = acceptedCgv && acceptedImmediate && acceptedEligibility;
 
@@ -110,6 +113,22 @@ function CheckoutContent() {
         }
       })
       .catch(() => {});
+
+    // Taux de change live via CoinGecko (sans clé API, fallback sur taux statiques).
+    fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,litecoin,tether&vs_currencies=eur')
+      .then(r => r.json())
+      .then((d: Record<string, { eur: number }>) => {
+        const btcEur = d.bitcoin?.eur;
+        const ethEur = d.ethereum?.eur;
+        const ltcEur = d.litecoin?.eur;
+        const usdtEur = d.tether?.eur;
+        if (btcEur && ethEur && ltcEur && usdtEur) {
+          setCryptoRates({ btc: 1 / btcEur, eth: 1 / ethEur, usdt: 1 / usdtEur, ltc: 1 / ltcEur });
+          setRatesLive(true);
+          setRatesUpdatedAt(new Date());
+        }
+      })
+      .catch(() => {}); // reste sur FALLBACK_RATES silencieusement
   }, [serviceId, stockId]);
 
   const isYoutube = serviceId === 'youtube';
@@ -533,7 +552,12 @@ function CheckoutContent() {
                         Montant à envoyer
                       </div>
                       <div style={{ fontSize: '1.3rem', fontWeight: 900, fontFamily: "'Outfit',sans-serif", color: CRYPTO_META[activeCoin].color, marginTop: 4 }}>
-                        {(service.price * CRYPTO_RATES[activeCoin]).toFixed(cryptoPrecision(activeCoin))} {activeCoin.toUpperCase()}
+                        {(service.price * cryptoRates[activeCoin]).toFixed(cryptoPrecision(activeCoin))} {activeCoin.toUpperCase()}
+                      </div>
+                      <div style={{ fontSize: '0.68rem', marginTop: 4, color: ratesLive ? '#10b981' : '#f59e0b', fontWeight: 600 }}>
+                        {ratesLive
+                          ? `✅ Taux live · ${ratesUpdatedAt?.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
+                          : '⚠️ Taux approximatifs — vérifiez avant d\'envoyer'}
                       </div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
