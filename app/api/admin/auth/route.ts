@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import crypto from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { ADMIN_COOKIE_NAME, readAdminSecret, isAdminAuthenticated } from '@/lib/adminAuth';
+import { createAdminSessionToken, ADMIN_SESSION_TTL_SEC } from '@/lib/adminSession';
 import { enforceRateLimit } from '@/lib/rateLimit';
 import { verifyTotp } from '@/lib/totp';
 import { decrypt } from '@/lib/crypto';
@@ -71,15 +72,22 @@ export async function POST(request: Request) {
         }
       }
 
+      const sessionToken = createAdminSessionToken();
+      if (!sessionToken) {
+        return NextResponse.json(
+          { success: false, error: 'Configuration serveur incomplète.' },
+          { status: 500 }
+        );
+      }
       const cookieStore = await cookies();
       cookieStore.set({
         name: ADMIN_COOKIE_NAME,
-        value: secretToken,
+        value: sessionToken, // jeton signé HMAC, ne contient PAS le secret
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         path: '/',
         sameSite: 'strict',
-        maxAge: 60 * 60 * 24, // Session de 24 heures
+        maxAge: ADMIN_SESSION_TTL_SEC,
       });
 
       return NextResponse.json({ success: true, message: 'Authentification réussie' });

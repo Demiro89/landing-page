@@ -1,11 +1,18 @@
 import { NextResponse } from 'next/server';
 import { prisma } from './prisma';
 
-/** Extrait l'IP cliente depuis les en-têtes du proxy. */
+/**
+ * Extrait l'IP cliente depuis les en-têtes du proxy.
+ * Sur Vercel, `x-real-ip` est défini par l'edge et NON modifiable par le client.
+ * On le privilégie car `x-forwarded-for` peut être préfixé de fausses entrées
+ * par un client malveillant (contournement du rate limit / brute-force).
+ */
 function clientIp(request: Request): string {
+  const realIp = request.headers.get('x-real-ip')?.trim();
+  if (realIp) return realIp;
   const xff = request.headers.get('x-forwarded-for') || '';
   const first = xff.split(',')[0].trim();
-  return first || request.headers.get('x-real-ip') || 'unknown';
+  return first || 'unknown';
 }
 
 /**
@@ -27,30 +34,33 @@ export async function enforceRateLimit(
   const key = `${name}:${clientIp(request)}`;
   const now = new Date();
 
-  try {
-    const existing = await prisma.rateLimit.findUnique({ where: { key } });
+  const windowEnd = new Date(now.getTime() + windowSec * 1000);
 
-    // Fenêtre absente ou expirée : on en démarre une nouvelle.
-    if (!existing || existing.windowEnd < now) {
-      const windowEnd = new Date(now.getTime() + windowSec * 1000);
-      await prisma.rateLimit.upsert({
-        where: { key },
-        create: { key, count: 1, windowEnd },
-        update: { count: 1, windowEnd },
-      });
+  try {
+    // Incrément atomique (anti-TOCTOU) : l'upsert + increment est exécuté en une
+    // seule opération côté base, donc deux requêtes concurrentes ne peuvent pas
+    // lire le même compteur puis l'écraser.
+    const rec = await prisma.rateLimit.upsert({
+      where: { key },
+      create: { key, count: 1, windowEnd },
+      update: { count: { increment: 1 } },
+    });
+
+    // Fenêtre expirée : on la réinitialise (l'incrément précédent est ignoré).
+    if (rec.windowEnd <= now) {
+      await prisma.rateLimit.update({ where: { key }, data: { count: 1, windowEnd } });
       return null;
     }
 
-    // Limite atteinte dans la fenêtre courante.
-    if (existing.count >= max) {
-      const retryAfter = Math.max(1, Math.ceil((existing.windowEnd.getTime() - now.getTime()) / 1000));
+    // Limite dépassée dans la fenêtre courante.
+    if (rec.count > max) {
+      const retryAfter = Math.max(1, Math.ceil((rec.windowEnd.getTime() - now.getTime()) / 1000));
       return NextResponse.json(
         { error: 'Trop de tentatives. Veuillez réessayer plus tard.' },
         { status: 429, headers: { 'Retry-After': String(retryAfter) } }
       );
     }
 
-    await prisma.rateLimit.update({ where: { key }, data: { count: { increment: 1 } } });
     return null;
   } catch (err) {
     // En cas d'erreur DB, on n'empêche pas la requête (fail-open) pour ne pas

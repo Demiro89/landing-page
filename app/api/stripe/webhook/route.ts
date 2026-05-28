@@ -14,13 +14,22 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_mock', {
 
 export async function POST(request: Request) {
   let processedEventId: string | null = null;
+
+  // Fail-closed : sans clé Stripe ET secret webhook, on rejette l'évènement
+  // au lieu de le traiter avec une signature non vérifiée.
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!webhookSecret || !process.env.STRIPE_SECRET_KEY || process.env.STRIPE_SECRET_KEY === 'sk_test_mock') {
+    console.error('[stripe webhook] Stripe non configuré — évènement rejeté');
+    return NextResponse.json({ error: 'Webhook non configuré' }, { status: 500 });
+  }
+
   try {
     const body = await request.text();
     const sig = request.headers.get('stripe-signature') || '';
 
     let event: Stripe.Event;
     try {
-      event = stripe.webhooks.constructEvent(body, sig, process.env.STRIPE_WEBHOOK_SECRET || '');
+      event = stripe.webhooks.constructEvent(body, sig, webhookSecret);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Signature invalide';
       console.error('❌ Erreur signature Webhook:', message);

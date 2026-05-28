@@ -17,6 +17,10 @@ const securityHeaders = [
       "img-src 'self' data: https:",
       "connect-src 'self' https://api.stripe.com",
       "frame-src https://js.stripe.com https://hooks.stripe.com",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "frame-ancestors 'none'",
     ].join('; '),
   },
 ];

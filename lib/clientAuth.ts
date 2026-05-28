@@ -3,7 +3,7 @@ import { cookies } from 'next/headers';
 import { prisma } from './prisma';
 
 const SESSION_COOKIE = 'sm_client_session';
-const SESSION_MAX_AGE = 60 * 60 * 24 * 30; // 30 jours
+const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 jours
 
 // Le secret de session est obligatoire : aucune valeur par défaut.
 // Sans lui, n'importe qui pourrait forger un cookie de session valide.
@@ -50,7 +50,10 @@ function verifyToken(token: string): { customerId: string; version: number } | n
   if (parts.length !== 4) return null;
   const [customerId, versionStr, expStr, sig] = parts;
   const payload = `${customerId}.${versionStr}.${expStr}`;
-  if (sign(payload) !== sig) return null;
+  // Comparaison à temps constant pour empêcher toute attaque temporelle sur la signature.
+  const sigBuf = Buffer.from(sig, 'hex');
+  const expBuf = Buffer.from(sign(payload), 'hex');
+  if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) return null;
   if (Date.now() > parseInt(expStr, 10)) return null;
   const version = parseInt(versionStr, 10);
   if (!Number.isFinite(version)) return null;

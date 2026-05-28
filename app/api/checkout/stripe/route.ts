@@ -25,6 +25,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Paramètres manquants' }, { status: 400 });
     }
 
+    // Validation de format : identifiants alphanumériques bornés (defense-in-depth).
+    const isValidId = (v: unknown) =>
+      typeof v === 'string' && v.length > 0 && v.length <= 64 && /^[A-Za-z0-9_-]+$/.test(v);
+    if (!isValidId(serviceId) || !isValidId(stockAccountId)) {
+      return NextResponse.json({ error: 'Identifiant invalide' }, { status: 400 });
+    }
+
     const cleanedEmail = String(email).trim().toLowerCase();
     const cleanedYoutubeEmail = youtubeEmail ? String(youtubeEmail).trim().toLowerCase() : '';
     if (!cleanedEmail.includes('@')) {
@@ -45,11 +52,12 @@ export async function POST(request: Request) {
     // Preuve d'acceptation : horodatage serveur + métadonnées techniques
     const acceptedAt = new Date();
     const acceptanceUserAgent = (request.headers.get('user-agent') || '').slice(0, 450);
+    // x-real-ip est défini par l'edge Vercel (non falsifiable), contrairement à
+    // x-forwarded-for que le client peut préfixer. Preuve légale d'acceptation.
     const acceptanceIp = (
-      request.headers.get('x-forwarded-for') ||
-      request.headers.get('x-real-ip') ||
-      ''
-    ).split(',')[0].trim().slice(0, 90);
+      request.headers.get('x-real-ip')?.trim() ||
+      (request.headers.get('x-forwarded-for') || '').split(',')[0].trim()
+    ).slice(0, 90);
     const termsVersion = LEGAL_LAST_UPDATED;
 
     const service = await prisma.service.findUnique({ where: { id: serviceId } });
@@ -67,9 +75,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Plus de places disponibles dans ce compte' }, { status: 400 });
     }
 
-    // Mode simulation si Stripe pas configuré
-    if (!process.env.STRIPE_SECRET_KEY || process.env.STRIPE_SECRET_KEY === 'sk_test_mock') {
-      console.log('--- MODE SIMULATION STRIPE (subscription) ---');
+    const stripeConfigured = !!process.env.STRIPE_SECRET_KEY && process.env.STRIPE_SECRET_KEY !== 'sk_test_mock';
+
+    // Fail-closed : en production, Stripe DOIT être configuré.
+    // Sans clé réelle on ne crée JAMAIS de commande sans paiement.
+    if (!stripeConfigured && process.env.NODE_ENV === 'production') {
+      console.error('[checkout] STRIPE_SECRET_KEY absent en production — paiement refusé');
+      return NextResponse.json({ error: 'Le paiement est temporairement indisponible. Merci de réessayer plus tard.' }, { status: 503 });
+    }
+
+    // Mode simulation (développement uniquement) si Stripe pas configuré
+    if (!stripeConfigured) {
+      console.log('--- MODE SIMULATION STRIPE (subscription, dev) ---');
       const order = await prisma.$transaction(async (tx) => {
         const stockIncrement = await tx.stockAccount.updateMany({
           where: { id: stockAccountId, filledSlots: { lt: stockAccount.maxSlots } },

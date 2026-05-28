@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers';
-import crypto from 'crypto';
+import { verifyAdminSessionToken } from './adminSession';
 
 export const ADMIN_COOKIE_NAME = 'ADMIN_SECRET_TOKEN';
 
@@ -20,18 +20,11 @@ export function readAdminSecret(): string | null {
 }
 
 /**
- * Vérifie que la requête courante porte un cookie admin valide.
- * Comparaison à temps constant pour éviter toute fuite par timing.
+ * Vérifie que la requête courante porte un cookie de session admin valide
+ * (jeton signé par HMAC, à temps constant, avec contrôle d'expiration).
  */
 export async function isAdminAuthenticated(): Promise<boolean> {
-  const expected = readAdminSecret();
-  if (!expected) return false;
-
   const jar = await cookies();
   const token = jar.get(ADMIN_COOKIE_NAME)?.value;
-  if (!token) return false;
-
-  const a = Buffer.from(token);
-  const b = Buffer.from(expected);
-  return a.length === b.length && crypto.timingSafeEqual(a, b);
+  return verifyAdminSessionToken(token);
 }

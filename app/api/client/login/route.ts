@@ -43,8 +43,11 @@ export async function POST(request: Request) {
       await prisma.customer.update({
         where: { id: customer.id },
         data: {
-          loginAttempts: shouldLock ? 0 : newAttempts,
-          lockedUntil: shouldLock ? new Date(Date.now() + LOCK_DURATION_MS) : null,
+          // On NE réinitialise PAS le compteur au verrouillage : sinon l'attaquant
+          // récupérerait 5 essais neufs à chaque fenêtre de 15 min. Le compteur n'est
+          // remis à zéro qu'après une connexion réussie ou une réinitialisation du mot de passe.
+          loginAttempts: newAttempts,
+          lockedUntil: shouldLock ? new Date(Date.now() + LOCK_DURATION_MS) : customer.lockedUntil,
         },
       });
 

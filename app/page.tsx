@@ -579,7 +579,7 @@ export default function Home() {
             </button>
           </nav>
 
-          <button className="md:hidden text-white text-2xl" onClick={() => setMenuOpen(!menuOpen)}>☰</button>
+          <button className="md:hidden text-white text-2xl" onClick={() => setMenuOpen(!menuOpen)} aria-label={menuOpen ? 'Fermer le menu' : 'Ouvrir le menu'} aria-expanded={menuOpen} aria-haspopup="true">☰</button>
         </div>
         {menuOpen && (
           <div className="md:hidden border-t border-white/5 px-6 py-4 flex flex-col gap-3" style={{ background: 'hsla(222,44%,7%,0.95)' }}>
@@ -646,6 +646,7 @@ export default function Home() {
                     key={key}
                     onClick={() => setFilter(key)}
                     className={`filter-btn ${filter === key ? 'active' : ''}`}
+                    aria-pressed={filter === key}
                   >
                     {label}
                   </button>
@@ -960,12 +961,14 @@ export default function Home() {
                     <button
                       className="faq-trigger"
                       onClick={() => setFaqOpen(faqOpen === i ? null : i)}
+                      aria-expanded={faqOpen === i}
+                      aria-controls={`faq-answer-${i}`}
                     >
                       <span>{item.q}</span>
-                      <span className="faq-icon">+</span>
+                      <span className="faq-icon" aria-hidden="true">+</span>
                     </button>
                     {faqOpen === i && (
-                      <div className="faq-answer">{item.a}</div>
+                      <div className="faq-answer" id={`faq-answer-${i}`} role="region">{item.a}</div>
                     )}
                   </div>
                 ))}
@@ -1171,8 +1174,8 @@ export default function Home() {
                               type="button"
                               onClick={() => setShowPassword(v => !v)}
                               style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: '1rem' }}
-                              tabIndex={-1}
                               aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                              aria-pressed={showPassword}
                             >
                               {showPassword ? '🙈' : '👁️'}
                             </button>
@@ -1432,9 +1435,15 @@ export default function Home() {
                           const effectiveAt = new Date(order.date);
                           effectiveAt.setDate(effectiveAt.getDate() + 30);
                           return (
-                            <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)', padding: 20 }}>
-                              <div className="glass-panel" style={{ maxWidth: 460, width: '100%', padding: 30 }}>
-                                <h3 style={{ fontSize: '1.15rem', fontWeight: 800, marginBottom: 8 }}>🔴 Résilier mon abonnement</h3>
+                            <div
+                              role="dialog"
+                              aria-modal="true"
+                              aria-labelledby="cancel-modal-title"
+                              onClick={() => { setCancelOrderId(null); setCancelError(''); }}
+                              style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)', padding: 20 }}
+                            >
+                              <div className="glass-panel" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 460, width: '100%', padding: 30 }}>
+                                <h3 id="cancel-modal-title" style={{ fontSize: '1.15rem', fontWeight: 800, marginBottom: 8 }}>🔴 Résilier mon abonnement</h3>
                                 <p style={{ fontSize: '0.88rem', color: 'var(--text-soft)', lineHeight: 1.7, marginBottom: 12 }}>
                                   Vous êtes sur le point de résilier votre abonnement <strong style={{ color: 'var(--text-white)' }}>{order.service.name}</strong>.
                                 </p>
@@ -1724,6 +1733,7 @@ export default function Home() {
                                 <input
                                   type="text"
                                   placeholder="Tapez votre message pour le support…"
+                                  aria-label="Message pour le support"
                                   value={chatInput}
                                   onChange={(e) => setChatInput(e.target.value)}
                                   className="dash-input"

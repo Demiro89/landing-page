@@ -104,6 +104,7 @@ export default function AdminPage() {
   const [ordersPage, setOrdersPage] = useState(0);
   const [showCredIds, setShowCredIds] = useState<Set<string>>(new Set());
   const [kpiRange, setKpiRange] = useState<'all' | 'month' | 'quarter' | 'year'>('all');
+  const [busyOrderId, setBusyOrderId] = useState<string | null>(null);
 
   const [services, setServices] = useState<Service[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -220,25 +221,37 @@ export default function AdminPage() {
 
   /* ─── Validation des commandes manuelles (PayPal / crypto) ────────────── */
   const validateOrder = async (orderId: string) => {
+    if (busyOrderId) return;
     if (!confirm('Valider cette commande ? Les identifiants seront livrés au client par email.')) return;
-    const r = await fetch('/api/admin/stock', {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'validate_order', orderId }),
-    });
-    const d = await r.json();
-    if (d.success) { toast('Commande validée et livrée !'); loadAll(); }
-    else toast(d.error || 'Erreur');
+    setBusyOrderId(orderId);
+    try {
+      const r = await fetch('/api/admin/stock', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'validate_order', orderId }),
+      });
+      const d = await r.json();
+      if (d.success) { toast('Commande validée et livrée !'); loadAll(); }
+      else toast(d.error || 'Erreur');
+    } finally {
+      setBusyOrderId(null);
+    }
   };
 
   const rejectOrder = async (orderId: string) => {
+    if (busyOrderId) return;
     if (!confirm('Refuser cette commande en attente ?')) return;
-    const r = await fetch('/api/admin/stock', {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'reject_order', orderId }),
-    });
-    const d = await r.json();
-    if (d.success) { toast('Commande refusée'); loadAll(); }
-    else toast(d.error || 'Erreur');
+    setBusyOrderId(orderId);
+    try {
+      const r = await fetch('/api/admin/stock', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reject_order', orderId }),
+      });
+      const d = await r.json();
+      if (d.success) { toast('Commande refusée'); loadAll(); }
+      else toast(d.error || 'Erreur');
+    } finally {
+      setBusyOrderId(null);
+    }
   };
 
   const loadSupportThreads = async () => {
@@ -494,7 +507,7 @@ export default function AdminPage() {
 
   return (
     <div>
-      <div id="sm-toast" className="toast-box" style={{ display: 'none' }} />
+      <div id="sm-toast" className="toast-box" role="status" aria-live="polite" style={{ display: 'none' }} />
 
       {/* Topbar */}
       <header className="admin-topbar">
@@ -524,10 +537,11 @@ export default function AdminPage() {
               key={page}
               onClick={() => setActivePage(page)}
               className={`dash-sidebar-btn ${activePage === page ? 'active' : ''}`}
+              aria-current={activePage === page ? 'page' : undefined}
             >
               {label}
               {!!count && (
-                <span style={{ marginLeft: 'auto', fontSize: '0.7rem', fontWeight: 800, padding: '2px 7px', borderRadius: 50, background: activePage === page ? 'rgba(255,255,255,0.25)' : 'rgba(239,68,68,0.25)', color: activePage === page ? '#fff' : '#f87171', border: `1px solid ${activePage === page ? 'rgba(255,255,255,0.2)' : 'rgba(239,68,68,0.35)'}` }}>
+                <span aria-label={`${count} en attente`} style={{ marginLeft: 'auto', fontSize: '0.7rem', fontWeight: 800, padding: '2px 7px', borderRadius: 50, background: activePage === page ? 'rgba(255,255,255,0.25)' : 'rgba(239,68,68,0.25)', color: activePage === page ? '#fff' : '#f87171', border: `1px solid ${activePage === page ? 'rgba(255,255,255,0.2)' : 'rgba(239,68,68,0.35)'}` }}>
                   {count}
                 </span>
               )}
@@ -643,7 +657,8 @@ export default function AdminPage() {
                 </div>
                 <div style={{ marginBottom: 12 }}>
                   <input
-                    type="text"
+                    type="search"
+                    aria-label="Rechercher une commande par email, service ou ID"
                     placeholder="🔍 Rechercher par email, service ou ID…"
                     value={ordersSearch}
                     onChange={e => { setOrdersSearch(e.target.value); setOrdersPage(0); }}
@@ -655,13 +670,13 @@ export default function AdminPage() {
                   <table className="admin-table">
                     <thead>
                       <tr>
-                        <th>ID</th>
-                        <th>Date</th>
-                        <th>Service</th>
-                        <th>Client</th>
-                        <th style={{ textAlign: 'right' }}>Net</th>
-                        <th style={{ textAlign: 'right' }}>Total</th>
-                        <th>Statut</th>
+                        <th scope="col">ID</th>
+                        <th scope="col">Date</th>
+                        <th scope="col">Service</th>
+                        <th scope="col">Client</th>
+                        <th scope="col" style={{ textAlign: 'right' }}>Net</th>
+                        <th scope="col" style={{ textAlign: 'right' }}>Total</th>
+                        <th scope="col">Statut</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -779,10 +794,10 @@ export default function AdminPage() {
                           </div>
                         </details>
                         <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                          <button onClick={() => validateOrder(o.id)} className="btn btn-primary btn-sm">
-                            ✅ Valider &amp; livrer
+                          <button onClick={() => validateOrder(o.id)} disabled={busyOrderId === o.id} aria-busy={busyOrderId === o.id} className="btn btn-primary btn-sm">
+                            {busyOrderId === o.id ? 'Traitement…' : '✅ Valider & livrer'}
                           </button>
-                          <button onClick={() => rejectOrder(o.id)} className="btn btn-danger btn-sm">
+                          <button onClick={() => rejectOrder(o.id)} disabled={busyOrderId === o.id} aria-busy={busyOrderId === o.id} className="btn btn-danger btn-sm">
                             ✕ Refuser
                           </button>
                         </div>
