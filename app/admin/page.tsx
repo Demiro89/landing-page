@@ -1771,6 +1771,81 @@ export default function AdminPage() {
               </div>
             </div>
           )}
+
+          {/* ── AUDIT ── */}
+          {activePage === 'audit' && (
+            <div style={{ position: 'relative', zIndex: 1 }}>
+              <div className="admin-section-head fade-in-up">
+                <h2>Journal d&apos;audit</h2>
+                <p>Historique des actions effectuées dans le panel admin — 200 dernières entrées.</p>
+              </div>
+              <div className="glass-panel admin-card fade-in-up">
+                <div className="admin-card-head" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div className="icon-bubble">🔍</div>
+                    Activité administrative
+                    <span className="badge-pill neutral">{auditLogs.length} entrée{auditLogs.length > 1 ? 's' : ''}</span>
+                  </div>
+                  <button onClick={() => { setAuditLoaded(false); }} className="btn btn-ghost btn-sm" style={{ fontSize: '0.78rem' }}>
+                    ↻ Actualiser
+                  </button>
+                </div>
+                {auditLogs.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '40px 16px', color: 'var(--text-muted)' }}>
+                    <p>Aucune action enregistrée pour le moment.</p>
+                    <p style={{ fontSize: '0.8rem', marginTop: 8 }}>Les actions seront enregistrées dès la prochaine opération admin.</p>
+                  </div>
+                ) : (
+                  <div style={{ overflowX: 'auto' }}>
+                    <table className="admin-table">
+                      <thead>
+                        <tr>
+                          <th>Date</th>
+                          <th>Action</th>
+                          <th>Description</th>
+                          <th>IP</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {auditLogs.map(log => {
+                          const actionColors: Record<string, string> = {
+                            'order.validate': 'var(--accent-green)',
+                            'order.reject': 'var(--accent-red)',
+                            'order.cancel': 'var(--accent-red)',
+                            'order.mark_unpaid': 'var(--accent-yellow)',
+                            'order.mark_paid': 'var(--accent-green)',
+                            'order.send_reminder': 'var(--accent-yellow)',
+                            'service.upsert': 'var(--secondary)',
+                            'service.toggle': 'var(--text-gray)',
+                            'service.delete': 'var(--accent-red)',
+                            'stock.create': 'var(--secondary)',
+                            'stock.delete': 'var(--accent-red)',
+                            'settings.update': 'var(--text-gray)',
+                          };
+                          const color = actionColors[log.action] || 'var(--text-muted)';
+                          return (
+                            <tr key={log.id}>
+                              <td style={{ color: 'var(--text-gray)', fontSize: '0.78rem', whiteSpace: 'nowrap' }}>
+                                {new Date(log.createdAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                              </td>
+                              <td>
+                                <span style={{ fontFamily: "'SF Mono',Menlo,monospace", fontSize: '0.75rem', color, background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: 4 }}>
+                                  {log.action}
+                                </span>
+                              </td>
+                              <td style={{ fontSize: '0.85rem', color: 'var(--text-soft)' }}>{log.description}</td>
+                              <td style={{ fontFamily: "'SF Mono',Menlo,monospace", fontSize: '0.72rem', color: 'var(--text-muted)' }}>{log.ip || '—'}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
         {/* Modal global – accessible depuis tous les onglets */}
         {editStock && (
           <div className="modal-overlay" onClick={() => setEditStock(null)}>
@@ -2123,80 +2198,6 @@ function ServiceEditCard({ svc, onSave, onToggle, onDelete, onEditStock, onAddSt
                 Remplissez ces 3 champs pour ajouter un compte lors du clic sur « Sauvegarder ».
               </div>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── AUDIT ── */}
-      {activePage === 'audit' && (
-        <div style={{ position: 'relative', zIndex: 1 }}>
-          <div className="admin-section-head fade-in-up">
-            <h2>Journal d&apos;audit</h2>
-            <p>Historique des actions effectuées dans le panel admin — 200 dernières entrées.</p>
-          </div>
-          <div className="glass-panel admin-card fade-in-up">
-            <div className="admin-card-head" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div className="icon-bubble">🔍</div>
-                Activité administrative
-                <span className="badge-pill neutral">{auditLogs.length} entrée{auditLogs.length > 1 ? 's' : ''}</span>
-              </div>
-              <button onClick={() => { setAuditLoaded(false); }} className="btn btn-ghost btn-sm" style={{ fontSize: '0.78rem' }}>
-                ↻ Actualiser
-              </button>
-            </div>
-            {auditLogs.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '40px 16px', color: 'var(--text-muted)' }}>
-                <p>Aucune action enregistrée pour le moment.</p>
-                <p style={{ fontSize: '0.8rem', marginTop: 8 }}>Les actions seront enregistrées dès la prochaine opération admin.</p>
-              </div>
-            ) : (
-              <div style={{ overflowX: 'auto' }}>
-                <table className="admin-table">
-                  <thead>
-                    <tr>
-                      <th>Date</th>
-                      <th>Action</th>
-                      <th>Description</th>
-                      <th>IP</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {auditLogs.map(log => {
-                      const actionColors: Record<string, string> = {
-                        'order.validate': 'var(--accent-green)',
-                        'order.reject': 'var(--accent-red)',
-                        'order.cancel': 'var(--accent-red)',
-                        'order.mark_unpaid': 'var(--accent-yellow)',
-                        'order.mark_paid': 'var(--accent-green)',
-                        'order.send_reminder': 'var(--accent-yellow)',
-                        'service.upsert': 'var(--secondary)',
-                        'service.toggle': 'var(--text-gray)',
-                        'service.delete': 'var(--accent-red)',
-                        'stock.create': 'var(--secondary)',
-                        'stock.delete': 'var(--accent-red)',
-                        'settings.update': 'var(--text-gray)',
-                      };
-                      const color = actionColors[log.action] || 'var(--text-muted)';
-                      return (
-                        <tr key={log.id}>
-                          <td style={{ color: 'var(--text-gray)', fontSize: '0.78rem', whiteSpace: 'nowrap' }}>
-                            {new Date(log.createdAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                          </td>
-                          <td>
-                            <span style={{ fontFamily: "'SF Mono',Menlo,monospace", fontSize: '0.75rem', color, background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: 4 }}>
-                              {log.action}
-                            </span>
-                          </td>
-                          <td style={{ fontSize: '0.85rem', color: 'var(--text-soft)' }}>{log.description}</td>
-                          <td style={{ fontFamily: "'SF Mono',Menlo,monospace", fontSize: '0.72rem', color: 'var(--text-muted)' }}>{log.ip || '—'}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
           </div>
         </div>
       )}
