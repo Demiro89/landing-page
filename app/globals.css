@@ -47,7 +47,12 @@
 
 /* ─── RESET ─── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { scroll-behavior: smooth; }
+html {
+  scroll-behavior: smooth;
+  /* Empêche iOS/Android d'agrandir le texte en mode paysage. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
 body {
   font-family: 'Inter', sans-serif;
   background: var(--bg-dark);
@@ -58,6 +63,8 @@ body {
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Supprime le flash gris au tap sur mobile. */
+  -webkit-tap-highlight-color: transparent;
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -178,7 +185,9 @@ body::after {
   transition: var(--transition);
 }
 .nav-inner {
-  max-width: 1280px; margin: 0 auto; padding: 0 24px;
+  max-width: 1280px; margin: 0 auto;
+  /* Respecte les encoches (notch) sur iPhone en mode paysage. */
+  padding: 0 max(24px, env(safe-area-inset-right)) 0 max(24px, env(safe-area-inset-left));
   display: flex; align-items: center; justify-content: space-between;
   height: 70px;
 }
@@ -1509,4 +1518,57 @@ select.dash-input option, select option { background: #1E293B; color: var(--text
   .share-price { width: 100%; text-align: left; }
   .legal-wrap { padding: 100px 18px 56px; }
   .legal-info-table td:first-child { width: 130px; }
+}
+
+/* ─── FOCUS CLAVIER COHÉRENT ─── */
+/* Anneau de focus visible et uniforme sur tout élément interactif (les
+   règles spécifiques de .btn et .dash-input gardent la priorité). */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--secondary);
+  outline-offset: 2px;
+}
+
+/* ─── MOBILE-FIRST & ACCESSIBILITÉ ─── */
+
+/* iOS zoome automatiquement sur les champs < 16px au focus : on force 16px
+   sur mobile pour supprimer ce saut de zoom indésirable. */
+@media (max-width: 768px) {
+  .dash-input,
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+
+  /* Les flous lourds (backdrop/orbes) sont coûteux sur GPU mobile :
+     on les allège pour préserver la fluidité du scroll. */
+  .navbar { backdrop-filter: blur(14px) saturate(140%); -webkit-backdrop-filter: blur(14px) saturate(140%); }
+  .glass-panel { backdrop-filter: blur(12px) saturate(130%); -webkit-backdrop-filter: blur(12px) saturate(130%); }
+  .hero-orb { filter: blur(56px); }
+}
+
+/* Cibles tactiles : ≥ 44px sur écrans tactiles (recommandation WCAG 2.5.5). */
+@media (pointer: coarse) {
+  .filter-btn,
+  .nav-link,
+  .btn {
+    min-height: 44px;
+  }
+}
+
+/* Respecte le réglage système « réduire les animations » : on neutralise
+   les animations décoratives (orbes, shimmer, fade-up) pour le confort
+   et pour réduire la charge GPU. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }
