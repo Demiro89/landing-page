@@ -5,6 +5,7 @@ import { sendTelegramNotification } from '@/lib/telegram';
 import { isAdminAuthenticated } from '@/lib/adminAuth';
 import { encrypt, decrypt } from '@/lib/crypto';
 import { createInvoiceForOrder } from '@/lib/invoice';
+import { writeAuditLog, clientIpFromRequest } from '@/lib/auditLog';
 
 export const dynamic = 'force-dynamic';
 
@@ -169,6 +170,7 @@ export async function POST(request: Request) {
         },
       });
 
+      void writeAuditLog({ action: 'service.upsert', entityType: 'service', entityId: id, description: `Service "${name}" créé ou mis à jour`, ip: clientIpFromRequest(request) });
       return NextResponse.json({ success: true, service });
     }
 
@@ -202,6 +204,7 @@ export async function POST(request: Request) {
         },
       });
 
+      void writeAuditLog({ action: 'stock.create', entityType: 'stock', entityId: stock.id, description: `Stock ajouté pour "${existingService.name}" (${parsedMaxSlots} slots, ${parsedPrice}€)`, ip: clientIpFromRequest(request) });
       return NextResponse.json({ success: true, stock });
     }
 
@@ -274,6 +277,7 @@ export async function PUT(request: Request) {
         where: { id },
         data: { active },
       });
+      void writeAuditLog({ action: 'service.toggle', entityType: 'service', entityId: id, description: `Service "${updatedService.name}" ${active ? 'activé' : 'désactivé'}`, ip: clientIpFromRequest(request) });
       return NextResponse.json({ success: true, service: updatedService });
     }
 
@@ -299,6 +303,7 @@ export async function PUT(request: Request) {
           });
         }
       });
+      void writeAuditLog({ action: 'order.cancel', entityType: 'order', entityId: orderId, description: `Commande annulée (client : ${order.clientEmail})`, ip: clientIpFromRequest(request) });
       return NextResponse.json({ success: true });
     }
 
@@ -315,6 +320,7 @@ export async function PUT(request: Request) {
       sendTelegramNotification(
         `⚠️ <b>Impayé signalé</b>\n👤 ${order.clientEmail}\n📺 ${order.service.name}\n💶 ${order.price.toFixed(2)}€/mois\n\nPremier email de rappel envoyé.`
       ).catch(() => {});
+      void writeAuditLog({ action: 'order.mark_unpaid', entityType: 'order', entityId: orderId, description: `Commande marquée impayée — ${order.clientEmail} / ${order.service.name}`, ip: clientIpFromRequest(request) });
       return NextResponse.json({ success: true });
     }
 
@@ -332,6 +338,7 @@ export async function PUT(request: Request) {
       sendTelegramNotification(
         `🔔 <b>Rappel ${nextLevel}/3 envoyé</b>\n👤 ${order.clientEmail}\n📺 ${order.service.name}`
       ).catch(() => {});
+      void writeAuditLog({ action: 'order.send_reminder', entityType: 'order', entityId: orderId, description: `Relance ${nextLevel}/3 envoyée — ${order.clientEmail} / ${order.service.name}`, ip: clientIpFromRequest(request) });
       return NextResponse.json({ success: true, reminderLevel: nextLevel });
     }
 
@@ -362,6 +369,7 @@ export async function PUT(request: Request) {
         where: { id: orderId },
         data: { status: 'active', unpaidSince: null, reminderCount: 0, lastReminderAt: null },
       });
+      void writeAuditLog({ action: 'order.mark_paid', entityType: 'order', entityId: orderId, description: `Commande régularisée (marquée payée)`, ip: clientIpFromRequest(request) });
       return NextResponse.json({ success: true });
     }
 
@@ -425,6 +433,7 @@ export async function PUT(request: Request) {
         { amount: order.total, invoiceId: invoice?.id, invoiceNumber: invoice?.number }
       ).catch((err) => console.error('[validate_order] email error:', err));
 
+      void writeAuditLog({ action: 'order.validate', entityType: 'order', entityId: orderId, description: `Commande validée — ${order.clientEmail} / ${order.service.name} (${order.total.toFixed(2)}€)`, ip: clientIpFromRequest(request) });
       return NextResponse.json({ success: true });
     }
 
@@ -440,6 +449,7 @@ export async function PUT(request: Request) {
         where: { id: orderId },
         data: { status: 'cancelled', cancellationEffectiveAt: new Date() },
       });
+      void writeAuditLog({ action: 'order.reject', entityType: 'order', entityId: orderId, description: `Commande rejetée — ${order.clientEmail}`, ip: clientIpFromRequest(request) });
       return NextResponse.json({ success: true });
     }
 
@@ -468,16 +478,15 @@ export async function DELETE(request: Request) {
     }
 
     if (type === 'stock') {
-      await prisma.stockAccount.delete({
-        where: { id },
-      });
+      await prisma.stockAccount.delete({ where: { id } });
+      void writeAuditLog({ action: 'stock.delete', entityType: 'stock', entityId: id, description: `Stock supprimé (id: ${id})`, ip: clientIpFromRequest(request) });
       return NextResponse.json({ success: true, message: 'Stock supprimé avec succès' });
     }
 
     if (type === 'service') {
-      await prisma.service.delete({
-        where: { id },
-      });
+      const svc = await prisma.service.findUnique({ where: { id }, select: { name: true } });
+      await prisma.service.delete({ where: { id } });
+      void writeAuditLog({ action: 'service.delete', entityType: 'service', entityId: id, description: `Service "${svc?.name ?? id}" supprimé`, ip: clientIpFromRequest(request) });
       return NextResponse.json({ success: true, message: 'Service supprimé avec succès' });
     }
 

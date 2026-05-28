@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { isAdminAuthenticated } from '@/lib/adminAuth';
+import { writeAuditLog, clientIpFromRequest } from '@/lib/auditLog';
 
 export const dynamic = 'force-dynamic';
 
@@ -66,6 +67,8 @@ export async function PUT(request: Request) {
       });
     }
 
+    const keys = updates.map(u => u.key).join(', ');
+    void writeAuditLog({ action: 'settings.update', entityType: 'settings', description: `Paramètres modifiés : ${keys}`, ip: clientIpFromRequest(request) });
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
     return NextResponse.json({ error: errorMessage(error) }, { status: 500 });

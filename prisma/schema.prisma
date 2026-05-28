@@ -170,3 +170,14 @@ model RateLimit {
   count     Int      @default(0)
   windowEnd DateTime
 }
+
+// 9. Journal d'audit des actions administrateur.
+model AuditLog {
+  id          String   @id @default(cuid())
+  action      String   // ex: "order.validate", "service.delete"
+  entityType  String   // "order" | "service" | "stock" | "settings"
+  entityId    String?
+  description String
+  ip          String?
+  createdAt   DateTime @default(now())
+}
