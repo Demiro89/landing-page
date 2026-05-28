@@ -116,16 +116,19 @@ model Counter {
 
 // 3-bis. Comptes clients (auth email/mot de passe)
 model Customer {
-  id                 String    @id @default(cuid())
-  email              String    @unique
-  passwordHash       String
-  emailVerified      Boolean   @default(false)
-  verificationToken  String?
-  resetToken         String?
-  resetTokenExp      DateTime?
-  stripeCustomerId   String?   @unique
-  createdAt          DateTime  @default(now())
-  orders             Order[]
+  id                   String    @id @default(cuid())
+  email                String    @unique
+  passwordHash         String
+  emailVerified        Boolean   @default(false)
+  verificationToken    String?
+  resetToken           String?
+  resetTokenExp        DateTime?
+  pendingEmail         String?   // Nouvelle adresse en attente de confirmation
+  emailChangeToken     String?
+  emailChangeTokenExp  DateTime?
+  stripeCustomerId     String?   @unique
+  createdAt            DateTime  @default(now())
+  orders               Order[]
 }
 
 // 4. Fils de discussion Support
@@ -166,4 +169,15 @@ model RateLimit {
   key       String   @id // ex: "login:1.2.3.4"
   count     Int      @default(0)
   windowEnd DateTime
+}
+
+// 9. Journal d'audit des actions administrateur.
+model AuditLog {
+  id          String   @id @default(cuid())
+  action      String   // ex: "order.validate", "service.delete"
+  entityType  String   // "order" | "service" | "stock" | "settings"
+  entityId    String?
+  description String
+  ip          String?
+  createdAt   DateTime @default(now())
 }

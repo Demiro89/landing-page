@@ -55,7 +55,7 @@ interface Client {
 }
 interface Settings { [key: string]: string }
 
-type AdminPage = 'dashboard' | 'pending' | 'stocks' | 'services' | 'subscribers' | 'clients' | 'unpaid' | 'cancellations' | 'support' | 'settings';
+type AdminPage = 'dashboard' | 'pending' | 'stocks' | 'services' | 'subscribers' | 'clients' | 'unpaid' | 'cancellations' | 'support' | 'settings' | 'audit';
 type AccentStyle = React.CSSProperties & { '--accent-color': string };
 type StockWithService = StockAccount & { serviceName: string; serviceIcon: string; serviceGradient: string };
 interface ServiceForm {
@@ -103,11 +103,14 @@ export default function AdminPage() {
   const [clientsSearch, setClientsSearch] = useState('');
   const [ordersPage, setOrdersPage] = useState(0);
   const [showCredIds, setShowCredIds] = useState<Set<string>>(new Set());
+  const [kpiRange, setKpiRange] = useState<'all' | 'month' | 'quarter' | 'year'>('all');
 
   const [services, setServices] = useState<Service[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [kpis, setKpis] = useState<Kpis>({ totalRevenue: 0, totalCogs: 0, totalInvestment: 0, netProfit: 0, marginPercentage: 0 });
   const [clients, setClients] = useState<Client[]>([]);
+  const [auditLogs, setAuditLogs] = useState<{ id: string; action: string; entityType: string; entityId: string | null; description: string; ip: string | null; createdAt: string }[]>([]);
+  const [auditLoaded, setAuditLoaded] = useState(false);
   const [settings, setSettings] = useState<Settings>({
     crypto_btc: '', crypto_eth: '', crypto_usdt: '', crypto_ltc: '',
     gateway_cb: 'true', gateway_paypal: 'true', gateway_crypto: 'true',
@@ -258,6 +261,14 @@ export default function AdminPage() {
     supportBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [activeSupportThread, supportThreads]);
 
+  React.useEffect(() => {
+    if (activePage === 'audit' && !auditLoaded) {
+      fetch('/api/admin/audit?limit=200')
+        .then(r => r.json())
+        .then(d => { if (d.success) { setAuditLogs(d.logs); setAuditLoaded(true); } });
+    }
+  }, [activePage, auditLoaded]);
+
   const sendSupportMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!supportInput.trim() || !activeSupportThread || sendingSupport) return;
@@ -272,6 +283,28 @@ export default function AdminPage() {
     await loadSupportThreads();
     setSendingSupport(false);
   };
+
+  /* ─── KPIs filtrés par plage de dates ──────────────────────────────────── */
+  const filteredKpis = (() => {
+    const now = new Date();
+    const cutoff = new Date(now);
+    if (kpiRange === 'month') cutoff.setMonth(now.getMonth() - 1);
+    else if (kpiRange === 'quarter') cutoff.setMonth(now.getMonth() - 3);
+    else if (kpiRange === 'year') cutoff.setFullYear(now.getFullYear() - 1);
+
+    const subset = kpiRange === 'all' ? orders : orders.filter((o: Order) => new Date(o.date) >= cutoff);
+    const totalRevenue = subset.reduce((s: number, o: Order) => s + o.total, 0);
+    const totalCogs = subset.reduce((s: number, o: Order) => s + o.price * 0.25, 0);
+    const netProfit = totalRevenue - totalCogs;
+    const marginPercentage = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
+    return {
+      totalRevenue: parseFloat(totalRevenue.toFixed(2)),
+      totalCogs: parseFloat(totalCogs.toFixed(2)),
+      totalInvestment: kpis.totalInvestment,
+      netProfit: parseFloat(netProfit.toFixed(2)),
+      marginPercentage: parseFloat(marginPercentage.toFixed(2)),
+    };
+  })();
 
   /* ─── Chart ───────────────────────────────────────────────────────────── */
   const chartData = (() => {
@@ -456,6 +489,7 @@ export default function AdminPage() {
     ['cancellations', '🔴', 'Résiliations'],
     ['support', '💬', 'Support Client'],
     ['settings', '⚙️', 'Paramètres globaux'],
+    ['audit', '🔍', 'Journal d\'audit'],
   ];
 
   return (
@@ -527,26 +561,38 @@ export default function AdminPage() {
                 </button>
               </div>
 
-              {/* KPI */}
+              {/* KPI — filtre par période */}
+              <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+                {(['all', 'month', 'quarter', 'year'] as const).map((r) => (
+                  <button
+                    key={r}
+                    onClick={() => setKpiRange(r)}
+                    className={`btn btn-sm ${kpiRange === r ? 'btn-primary' : 'btn-ghost'}`}
+                    style={{ fontSize: '0.78rem' }}
+                  >
+                    {r === 'all' ? 'Tout' : r === 'month' ? '30 jours' : r === 'quarter' ? '3 mois' : '12 mois'}
+                  </button>
+                ))}
+              </div>
               <div className="kpi-grid fade-in-up-stagger">
                 <div className="glass-panel kpi-card" style={accentStyle('linear-gradient(90deg, hsl(145,80%,48%), hsl(170,80%,50%))')}>
                   <div className="kpi-label">Chiffre d&apos;affaires brut</div>
-                  <div className="kpi-value" style={{ color: 'var(--accent-green)' }}>{fmt(kpis.totalRevenue)}</div>
+                  <div className="kpi-value" style={{ color: 'var(--accent-green)' }}>{fmt(filteredKpis.totalRevenue)}</div>
                   <div className="kpi-sub">↑ Total des abonnements loués</div>
                 </div>
                 <div className="glass-panel kpi-card" style={accentStyle('linear-gradient(90deg, hsl(355,85%,58%), hsl(20,85%,58%))')}>
                   <div className="kpi-label">Coût de revient (COGS)</div>
-                  <div className="kpi-value" style={{ color: 'var(--accent-red)' }}>{fmt(kpis.totalInvestment)}</div>
+                  <div className="kpi-value" style={{ color: 'var(--accent-red)' }}>{fmt(filteredKpis.totalInvestment)}</div>
                   <div className="kpi-sub">↓ Achats des comptes à l&apos;étranger</div>
                 </div>
                 <div className="glass-panel kpi-card" style={accentStyle('var(--gradient-aurora)')}>
                   <div className="kpi-label">Bénéfice net réel</div>
-                  <div className="kpi-value gradient-text">{fmt(kpis.netProfit)}</div>
+                  <div className="kpi-value gradient-text">{fmt(filteredKpis.netProfit)}</div>
                   <div className="kpi-sub">↑ Marge nette cumulée</div>
                 </div>
                 <div className="glass-panel kpi-card" style={accentStyle('linear-gradient(90deg, hsl(42,100%,58%), hsl(36,100%,55%))')}>
                   <div className="kpi-label">Taux de marge</div>
-                  <div className="kpi-value" style={{ color: 'var(--accent-yellow)' }}>{kpis.marginPercentage.toFixed(1).replace('.', ',')}%</div>
+                  <div className="kpi-value" style={{ color: 'var(--accent-yellow)' }}>{filteredKpis.marginPercentage.toFixed(1).replace('.', ',')}%</div>
                   <div className="kpi-sub">📊 Rentabilité globale</div>
                 </div>
               </div>
@@ -2077,6 +2123,80 @@ function ServiceEditCard({ svc, onSave, onToggle, onDelete, onEditStock, onAddSt
                 Remplissez ces 3 champs pour ajouter un compte lors du clic sur « Sauvegarder ».
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── AUDIT ── */}
+      {activePage === 'audit' && (
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <div className="admin-section-head fade-in-up">
+            <h2>Journal d&apos;audit</h2>
+            <p>Historique des actions effectuées dans le panel admin — 200 dernières entrées.</p>
+          </div>
+          <div className="glass-panel admin-card fade-in-up">
+            <div className="admin-card-head" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div className="icon-bubble">🔍</div>
+                Activité administrative
+                <span className="badge-pill neutral">{auditLogs.length} entrée{auditLogs.length > 1 ? 's' : ''}</span>
+              </div>
+              <button onClick={() => { setAuditLoaded(false); }} className="btn btn-ghost btn-sm" style={{ fontSize: '0.78rem' }}>
+                ↻ Actualiser
+              </button>
+            </div>
+            {auditLogs.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px 16px', color: 'var(--text-muted)' }}>
+                <p>Aucune action enregistrée pour le moment.</p>
+                <p style={{ fontSize: '0.8rem', marginTop: 8 }}>Les actions seront enregistrées dès la prochaine opération admin.</p>
+              </div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Action</th>
+                      <th>Description</th>
+                      <th>IP</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {auditLogs.map(log => {
+                      const actionColors: Record<string, string> = {
+                        'order.validate': 'var(--accent-green)',
+                        'order.reject': 'var(--accent-red)',
+                        'order.cancel': 'var(--accent-red)',
+                        'order.mark_unpaid': 'var(--accent-yellow)',
+                        'order.mark_paid': 'var(--accent-green)',
+                        'order.send_reminder': 'var(--accent-yellow)',
+                        'service.upsert': 'var(--secondary)',
+                        'service.toggle': 'var(--text-gray)',
+                        'service.delete': 'var(--accent-red)',
+                        'stock.create': 'var(--secondary)',
+                        'stock.delete': 'var(--accent-red)',
+                        'settings.update': 'var(--text-gray)',
+                      };
+                      const color = actionColors[log.action] || 'var(--text-muted)';
+                      return (
+                        <tr key={log.id}>
+                          <td style={{ color: 'var(--text-gray)', fontSize: '0.78rem', whiteSpace: 'nowrap' }}>
+                            {new Date(log.createdAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                          </td>
+                          <td>
+                            <span style={{ fontFamily: "'SF Mono',Menlo,monospace", fontSize: '0.75rem', color, background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: 4 }}>
+                              {log.action}
+                            </span>
+                          </td>
+                          <td style={{ fontSize: '0.85rem', color: 'var(--text-soft)' }}>{log.description}</td>
+                          <td style={{ fontFamily: "'SF Mono',Menlo,monospace", fontSize: '0.72rem', color: 'var(--text-muted)' }}>{log.ip || '—'}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}
