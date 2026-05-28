@@ -75,6 +75,15 @@ const SERVICE_FILTERS: Record<FilterType, string[]> = {
 export default function Home() {
   const [view, setView] = useState<View>('storefront');
   const [dashTab, setDashTab] = useState<DashTab>('orders');
+
+  const goToDashboard = () => {
+    setView('dashboard');
+    window.history.replaceState({}, '', '/espace-client');
+  };
+  const goToStorefront = () => {
+    setView('storefront');
+    window.history.replaceState({}, '', '/');
+  };
   const [services, setServices] = useState<Service[]>([]);
   const [servicesLoaded, setServicesLoaded] = useState(false);
   const [stocks, setStocks] = useState<Stock[]>([]);
@@ -140,30 +149,39 @@ export default function Home() {
 
     void Promise.resolve().then(() => {
       const params = new URLSearchParams(window.location.search);
+      // /espace-client redirige ici avec ce param pour activer le dashboard
+      if (params.get('espace-client') === '1' || window.location.pathname === '/espace-client') {
+        setView('dashboard');
+        window.history.replaceState({}, '', '/espace-client');
+      }
       if (params.get('success') && params.get('email')) {
         setView('dashboard');
+        window.history.replaceState({}, '', '/espace-client');
       }
       if (params.get('verify') === 'success') {
         setView('dashboard');
         setAuthMsg('✅ Email confirmé ! Vous êtes connecté.');
+        window.history.replaceState({}, '', '/espace-client');
       } else if (params.get('verify') === 'invalid') {
         setView('dashboard');
         setAuthError('Lien de vérification invalide ou expiré.');
+        window.history.replaceState({}, '', '/espace-client');
       }
       const rt = params.get('reset');
       if (rt) {
         setView('dashboard');
         setAuthMode('reset');
         setResetToken(rt);
+        window.history.replaceState({}, '', '/espace-client');
       }
       if (params.get('migrated') === 'true') {
         setView('dashboard');
         setCancelSuccess('Prélèvement automatique activé. Votre carte est enregistrée pour les prochains paiements.');
-        window.history.replaceState({}, '', window.location.pathname);
+        window.history.replaceState({}, '', '/espace-client');
       }
       if (params.get('from') === 'portal') {
         setView('dashboard');
-        window.history.replaceState({}, '', window.location.pathname);
+        window.history.replaceState({}, '', '/espace-client');
       }
     });
 
@@ -266,6 +284,7 @@ export default function Home() {
     setOrders([]);
     setSearchedEmail('');
     setActiveChatOrderId(null);
+    goToStorefront();
   };
 
   const resendVerification = async () => {
@@ -361,6 +380,7 @@ export default function Home() {
         setDashTab('orders');
         setAuthMode('login');
         setAuthMsg('Votre compte a été définitivement supprimé.');
+        goToStorefront();
       } else {
         setDeleteError(d.error || 'Erreur lors de la suppression du compte');
       }
@@ -544,17 +564,17 @@ export default function Home() {
       {/* NAVBAR */}
       <header className="navbar">
         <div className="nav-inner">
-          <button onClick={() => setView('storefront')} className="nav-logo">
+          <button onClick={goToStorefront} className="nav-logo">
             <div className="nav-logo-icon">SM</div>
             <span className="gradient-text">StreamMalin</span>
           </button>
 
           <nav className="nav-links">
-            <a href="#offres" onClick={() => setView('storefront')} className="nav-link">Offres</a>
-            <a href="#marketplace" onClick={() => setView('storefront')} className="nav-link">Marketplace</a>
-            <a href="#calculateur" onClick={() => setView('storefront')} className="nav-link">Calculateur</a>
-            <a href="#faq" onClick={() => setView('storefront')} className="nav-link">FAQ</a>
-            <button onClick={() => setView('dashboard')} className="btn btn-outline btn-sm" style={{ marginLeft: 8 }}>
+            <a href="#offres" onClick={goToStorefront} className="nav-link">Offres</a>
+            <a href="#marketplace" onClick={goToStorefront} className="nav-link">Marketplace</a>
+            <a href="#calculateur" onClick={goToStorefront} className="nav-link">Calculateur</a>
+            <a href="#faq" onClick={goToStorefront} className="nav-link">FAQ</a>
+            <button onClick={goToDashboard} className="btn btn-outline btn-sm" style={{ marginLeft: 8 }}>
               👤 Espace Client
             </button>
           </nav>
@@ -563,11 +583,11 @@ export default function Home() {
         </div>
         {menuOpen && (
           <div className="md:hidden border-t border-white/5 px-6 py-4 flex flex-col gap-3" style={{ background: 'hsla(222,44%,7%,0.95)' }}>
-            <a href="#offres" onClick={() => { setView('storefront'); setMenuOpen(false); }} className="nav-link">Offres</a>
-            <a href="#marketplace" onClick={() => { setView('storefront'); setMenuOpen(false); }} className="nav-link">Marketplace</a>
-            <a href="#calculateur" onClick={() => { setView('storefront'); setMenuOpen(false); }} className="nav-link">Calculateur</a>
-            <a href="#faq" onClick={() => { setView('storefront'); setMenuOpen(false); }} className="nav-link">FAQ</a>
-            <button onClick={() => { setView('dashboard'); setMenuOpen(false); }} className="btn btn-outline btn-sm">👤 Espace Client</button>
+            <a href="#offres" onClick={() => { goToStorefront(); setMenuOpen(false); }} className="nav-link">Offres</a>
+            <a href="#marketplace" onClick={() => { goToStorefront(); setMenuOpen(false); }} className="nav-link">Marketplace</a>
+            <a href="#calculateur" onClick={() => { goToStorefront(); setMenuOpen(false); }} className="nav-link">Calculateur</a>
+            <a href="#faq" onClick={() => { goToStorefront(); setMenuOpen(false); }} className="nav-link">FAQ</a>
+            <button onClick={() => { goToDashboard(); setMenuOpen(false); }} className="btn btn-outline btn-sm">👤 Espace Client</button>
           </div>
         )}
       </header>
@@ -596,7 +616,7 @@ export default function Home() {
                 <a href="#offres" className="btn btn-primary btn-lg">
                   Découvrir les Offres <span style={{ fontSize: '1.2em' }}>→</span>
                 </a>
-                <button onClick={() => setView('dashboard')} className="btn btn-outline btn-lg">
+                <button onClick={goToDashboard} className="btn btn-outline btn-lg">
                   👤 Mon Espace Client
                 </button>
               </div>
@@ -1017,7 +1037,7 @@ export default function Home() {
                   </div>
                 )}
               </div>
-              <button onClick={() => setView('storefront')} className="btn btn-ghost btn-sm">
+              <button onClick={goToStorefront} className="btn btn-ghost btn-sm">
                 ← Boutique
               </button>
             </div>

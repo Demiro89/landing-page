@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { prisma } from '@/lib/prisma';
-import { sendOrderDetailsEmail, sendUnpaidReminderEmail } from '@/lib/nodemailer';
+import { sendOrderDetailsEmail, sendUnpaidReminderEmail, sendRenewalEmail } from '@/lib/nodemailer';
 import { sendTelegramNotification } from '@/lib/telegram';
 import { createInvoiceForOrder } from '@/lib/invoice';
 import { decrypt } from '@/lib/crypto';
@@ -207,11 +207,12 @@ export async function POST(request: Request) {
 
       /* ─── Renouvellement automatique réussi ─── */
       case 'invoice.payment_succeeded': {
-        const invoice = event.data.object as Stripe.Invoice;
-        const subscriptionId = invoice.parent?.subscription_details?.subscription;
+        const inv = event.data.object as Stripe.Invoice;
+        const subscriptionId = inv.parent?.subscription_details?.subscription;
         if (!subscriptionId) break;
         const sub = await stripe.subscriptions.retrieve(typeof subscriptionId === 'string' ? subscriptionId : subscriptionId.id, { expand: ['default_payment_method'] });
         const pm = sub.default_payment_method as Stripe.PaymentMethod | null;
+        const nextBillingAt = new Date((sub.items.data[0]?.current_period_end || 0) * 1000);
         await prisma.order.updateMany({
           where: { stripeSubscriptionId: sub.id },
           data: {
@@ -219,13 +220,24 @@ export async function POST(request: Request) {
             unpaidSince: null,
             reminderCount: 0,
             lastReminderAt: null,
-            nextBillingAt: new Date((sub.items.data[0]?.current_period_end || 0) * 1000),
+            nextBillingAt,
             cardLast4: pm?.card?.last4 || undefined,
             cardBrand: pm?.card?.brand || undefined,
             cardExpMonth: pm?.card?.exp_month || undefined,
             cardExpYear: pm?.card?.exp_year || undefined,
           },
         });
+        // Envoyer un email de confirmation uniquement pour les renouvellements (pas le premier paiement)
+        if (inv.billing_reason === 'subscription_cycle') {
+          const order = await prisma.order.findFirst({
+            where: { stripeSubscriptionId: sub.id },
+            include: { service: true },
+          });
+          if (order) {
+            const amount = (inv.amount_paid ?? 0) / 100;
+            sendRenewalEmail(order.clientEmail, order.service.name, order.id, amount, nextBillingAt).catch(() => {});
+          }
+        }
         break;
       }
 
