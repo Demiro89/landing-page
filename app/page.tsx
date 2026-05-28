@@ -288,6 +288,12 @@ export default function Home() {
   const [changePwdMsg, setChangePwdMsg] = useState('');
   const [changePwdError, setChangePwdError] = useState('');
 
+  const [newEmail, setNewEmail] = useState('');
+  const [emailChangePwd, setEmailChangePwd] = useState('');
+  const [changeEmailBusy, setChangeEmailBusy] = useState(false);
+  const [changeEmailMsg, setChangeEmailMsg] = useState('');
+  const [changeEmailError, setChangeEmailError] = useState('');
+
   const doChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setChangePwdMsg(''); setChangePwdError('');
@@ -307,6 +313,28 @@ export default function Home() {
       }
     } finally {
       setChangePwdBusy(false);
+    }
+  };
+
+  const doChangeEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setChangeEmailMsg(''); setChangeEmailError('');
+    setChangeEmailBusy(true);
+    try {
+      const r = await fetch('/api/client/change-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newEmail, currentPassword: emailChangePwd }),
+      });
+      const d = await r.json();
+      if (d.success) {
+        setChangeEmailMsg('Email de confirmation envoyé à ' + newEmail + '. Cliquez sur le lien pour valider le changement.');
+        setNewEmail(''); setEmailChangePwd('');
+      } else {
+        setChangeEmailError(d.error || 'Erreur lors du changement.');
+      }
+    } finally {
+      setChangeEmailBusy(false);
     }
   };
 
@@ -1435,6 +1463,46 @@ export default function Home() {
                     <div style={{ marginBottom: 24, padding: 16, borderRadius: 12, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
                       <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 6 }}>Adresse email</div>
                       <div style={{ fontSize: '0.95rem', color: 'var(--text-white)', fontWeight: 600 }}>{customer.email}</div>
+                    </div>
+
+                    {/* Changement d'email */}
+                    <div style={{ marginBottom: 24, padding: 20, borderRadius: 12, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-white)', marginBottom: 16 }}>
+                        Changer l&apos;adresse email
+                      </div>
+                      <form onSubmit={doChangeEmail} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        <input
+                          type="email"
+                          placeholder="Nouvelle adresse email"
+                          value={newEmail}
+                          onChange={e => setNewEmail(e.target.value)}
+                          className="dash-input"
+                          autoComplete="email"
+                          required
+                        />
+                        <input
+                          type="password"
+                          placeholder="Mot de passe actuel (pour confirmer)"
+                          value={emailChangePwd}
+                          onChange={e => setEmailChangePwd(e.target.value)}
+                          className="dash-input"
+                          autoComplete="current-password"
+                          required
+                        />
+                        {changeEmailError && (
+                          <div style={{ padding: '8px 12px', borderRadius: 8, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: 'var(--accent-red)', fontSize: '0.82rem' }}>
+                            {changeEmailError}
+                          </div>
+                        )}
+                        {changeEmailMsg && (
+                          <div style={{ padding: '8px 12px', borderRadius: 8, background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', color: 'var(--accent-green)', fontSize: '0.82rem' }}>
+                            {changeEmailMsg}
+                          </div>
+                        )}
+                        <button type="submit" disabled={changeEmailBusy} className="btn btn-primary btn-sm" style={{ alignSelf: 'flex-start' }}>
+                          {changeEmailBusy ? 'Envoi en cours…' : 'Envoyer le lien de confirmation'}
+                        </button>
+                      </form>
                     </div>
 
                     {/* Portabilité des données — RGPD Art. 20 */}
