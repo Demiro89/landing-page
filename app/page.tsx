@@ -1060,7 +1060,7 @@ export default function Home() {
                       {authMode === 'login' && 'Accédez à vos abonnements actifs, vos identifiants chiffrés et au support.'}
                       {authMode === 'register' && 'Créez un compte pour gérer vos locations. Un email de confirmation vous sera envoyé.'}
                       {authMode === 'forgot' && 'Saisissez votre email, nous vous enverrons un lien pour choisir un nouveau mot de passe.'}
-                      {authMode === 'reset' && 'Saisissez votre nouveau mot de passe ci-dessous (6 caractères minimum).'}
+                      {authMode === 'reset' && 'Saisissez votre nouveau mot de passe ci-dessous (8 caractères minimum).'}
                     </p>
 
                     {(authMode === 'login' || authMode === 'register') && (
@@ -1082,12 +1082,12 @@ export default function Home() {
                           <div style={{ position: 'relative' }}>
                             <input
                               type={showPassword ? 'text' : 'password'}
-                              placeholder="6 caractères minimum"
+                              placeholder="8 caractères minimum"
                               value={authPassword}
                               onChange={(e) => setAuthPassword(e.target.value)}
                               className="dash-input"
                               autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
-                              minLength={6}
+                              minLength={8}
                               required
                               style={{ paddingRight: 44 }}
                             />
@@ -1159,11 +1159,11 @@ export default function Home() {
                       <form onSubmit={doReset} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                         <input
                           type="password"
-                          placeholder="Nouveau mot de passe (6 caractères min.)"
+                          placeholder="Nouveau mot de passe (8 caractères min.)"
                           value={authPassword}
                           onChange={(e) => setAuthPassword(e.target.value)}
                           className="dash-input"
-                          minLength={6}
+                          minLength={8}
                           required
                         />
                         <button type="submit" disabled={authLoading} className="btn btn-primary">
@@ -1407,6 +1407,24 @@ export default function Home() {
                     <div style={{ marginBottom: 24, padding: 16, borderRadius: 12, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
                       <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 6 }}>Adresse email</div>
                       <div style={{ fontSize: '0.95rem', color: 'var(--text-white)', fontWeight: 600 }}>{customer.email}</div>
+                    </div>
+
+                    {/* Portabilité des données — RGPD Art. 20 */}
+                    <div style={{ marginBottom: 24, padding: 20, borderRadius: 12, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-white)', marginBottom: 8 }}>
+                        Mes données personnelles
+                      </div>
+                      <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: 14 }}>
+                        Conformément au RGPD (Art. 20), vous pouvez télécharger l&apos;intégralité des données liées à votre compte : profil, commandes, identifiants d&apos;accès et historique support.
+                      </p>
+                      <a
+                        href="/api/client/export-data"
+                        download
+                        className="btn btn-ghost btn-sm"
+                        style={{ fontSize: '0.83rem' }}
+                      >
+                        Exporter mes données (JSON)
+                      </a>
                     </div>
 
                     <div style={{ marginTop: 30, padding: 20, borderRadius: 12, background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.3)' }}>
