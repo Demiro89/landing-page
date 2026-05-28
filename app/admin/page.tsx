@@ -586,9 +586,14 @@ export default function AdminPage() {
 
               {/* Recent orders */}
               <div className="glass-panel admin-card fade-in-up">
-                <div className="admin-card-head">
-                  <div className="icon-bubble">🕐</div>
-                  Historique récent des commandes
+                <div className="admin-card-head" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div className="icon-bubble">🕐</div>
+                    Historique récent des commandes
+                  </div>
+                  <a href="/api/admin/export?type=orders" download className="btn btn-ghost btn-sm" style={{ fontSize: '0.78rem' }}>
+                    Exporter CSV
+                  </a>
                 </div>
                 <div style={{ marginBottom: 12 }}>
                   <input
@@ -1073,12 +1078,17 @@ export default function AdminPage() {
               </div>
 
               <div className="glass-panel admin-card fade-in-up">
-                <div className="admin-card-head">
-                  <div className="icon-bubble">💾</div>
-                  Base de données clients
-                  <span className="badge-pill neutral" style={{ marginLeft: 'auto' }}>
-                    {clients.length} client{clients.length > 1 ? 's' : ''}
-                  </span>
+                <div className="admin-card-head" style={{ flexWrap: 'wrap', gap: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div className="icon-bubble">💾</div>
+                    Base de données clients
+                    <span className="badge-pill neutral">
+                      {clients.length} client{clients.length > 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  <a href="/api/admin/export?type=clients" download className="btn btn-ghost btn-sm" style={{ fontSize: '0.78rem', marginLeft: 'auto' }}>
+                    Exporter CSV
+                  </a>
                 </div>
 
                 {clients.length === 0 ? (
