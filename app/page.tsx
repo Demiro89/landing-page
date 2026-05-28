@@ -1060,7 +1060,7 @@ export default function Home() {
                       {authMode === 'login' && 'Accédez à vos abonnements actifs, vos identifiants chiffrés et au support.'}
                       {authMode === 'register' && 'Créez un compte pour gérer vos locations. Un email de confirmation vous sera envoyé.'}
                       {authMode === 'forgot' && 'Saisissez votre email, nous vous enverrons un lien pour choisir un nouveau mot de passe.'}
-                      {authMode === 'reset' && 'Saisissez votre nouveau mot de passe ci-dessous (6 caractères minimum).'}
+                      {authMode === 'reset' && 'Saisissez votre nouveau mot de passe ci-dessous (8 caractères minimum).'}
                     </p>
 
                     {(authMode === 'login' || authMode === 'register') && (
@@ -1082,12 +1082,12 @@ export default function Home() {
                           <div style={{ position: 'relative' }}>
                             <input
                               type={showPassword ? 'text' : 'password'}
-                              placeholder="6 caractères minimum"
+                              placeholder="8 caractères minimum"
                               value={authPassword}
                               onChange={(e) => setAuthPassword(e.target.value)}
                               className="dash-input"
                               autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
-                              minLength={6}
+                              minLength={8}
                               required
                               style={{ paddingRight: 44 }}
                             />
@@ -1159,11 +1159,11 @@ export default function Home() {
                       <form onSubmit={doReset} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                         <input
                           type="password"
-                          placeholder="Nouveau mot de passe (6 caractères min.)"
+                          placeholder="Nouveau mot de passe (8 caractères min.)"
                           value={authPassword}
                           onChange={(e) => setAuthPassword(e.target.value)}
                           className="dash-input"
-                          minLength={6}
+                          minLength={8}
                           required
                         />
                         <button type="submit" disabled={authLoading} className="btn btn-primary">

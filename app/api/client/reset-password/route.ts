@@ -15,8 +15,8 @@ export async function POST(request: Request) {
     if (!token || !password) {
       return NextResponse.json({ error: 'Token et mot de passe requis' }, { status: 400 });
     }
-    if (password.length < 6) {
-      return NextResponse.json({ error: 'Le mot de passe doit contenir au moins 6 caractères' }, { status: 400 });
+    if (password.length < 8) {
+      return NextResponse.json({ error: 'Le mot de passe doit contenir au moins 8 caractères' }, { status: 400 });
     }
 
     const customer = await prisma.customer.findFirst({ where: { resetToken: token } });
