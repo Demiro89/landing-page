@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { setSession } from '@/lib/clientAuth';
+import { setSession, bumpSessionVersion } from '@/lib/clientAuth';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,7 +23,8 @@ export async function GET(request: Request) {
     });
 
     // Connecter automatiquement
-    await setSession(customer.id);
+    const version = await bumpSessionVersion(customer.id);
+    await setSession(customer.id, version);
 
     return NextResponse.redirect(new URL('/?verify=success', request.url));
   } catch (error: unknown) {

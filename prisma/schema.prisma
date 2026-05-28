@@ -126,6 +126,7 @@ model Customer {
   pendingEmail         String?   // Nouvelle adresse en attente de confirmation
   emailChangeToken     String?
   emailChangeTokenExp  DateTime?
+  sessionVersion       Int       @default(0)
   stripeCustomerId     String?   @unique
   createdAt            DateTime  @default(now())
   orders               Order[]

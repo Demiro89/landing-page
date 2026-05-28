@@ -29,7 +29,7 @@ export async function POST(request: Request) {
       }, { status: 403 });
     }
 
-    await setSession(customer.id);
+    await setSession(customer.id, customer.sessionVersion);
     return NextResponse.json({
       success: true,
       customer: { id: customer.id, email: customer.email },

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { hashPassword, setSession } from '@/lib/clientAuth';
+import { hashPassword, setSession, bumpSessionVersion } from '@/lib/clientAuth';
 import { enforceRateLimit } from '@/lib/rateLimit';
 
 export const dynamic = 'force-dynamic';
@@ -34,7 +34,8 @@ export async function POST(request: Request) {
       },
     });
 
-    await setSession(customer.id);
+    const newVersion = await bumpSessionVersion(customer.id);
+    await setSession(customer.id, newVersion);
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
