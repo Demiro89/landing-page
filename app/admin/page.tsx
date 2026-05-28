@@ -104,6 +104,7 @@ export default function AdminPage() {
   const [ordersPage, setOrdersPage] = useState(0);
   const [showCredIds, setShowCredIds] = useState<Set<string>>(new Set());
   const [kpiRange, setKpiRange] = useState<'all' | 'month' | 'quarter' | 'year'>('all');
+  const [busyOrderId, setBusyOrderId] = useState<string | null>(null);
 
   const [services, setServices] = useState<Service[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -220,25 +221,37 @@ export default function AdminPage() {
 
   /* ─── Validation des commandes manuelles (PayPal / crypto) ────────────── */
   const validateOrder = async (orderId: string) => {
+    if (busyOrderId) return;
     if (!confirm('Valider cette commande ? Les identifiants seront livrés au client par email.')) return;
-    const r = await fetch('/api/admin/stock', {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'validate_order', orderId }),
-    });
-    const d = await r.json();
-    if (d.success) { toast('Commande validée et livrée !'); loadAll(); }
-    else toast(d.error || 'Erreur');
+    setBusyOrderId(orderId);
+    try {
+      const r = await fetch('/api/admin/stock', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'validate_order', orderId }),
+      });
+      const d = await r.json();
+      if (d.success) { toast('Commande validée et livrée !'); loadAll(); }
+      else toast(d.error || 'Erreur');
+    } finally {
+      setBusyOrderId(null);
+    }
   };
 
   const rejectOrder = async (orderId: string) => {
+    if (busyOrderId) return;
     if (!confirm('Refuser cette commande en attente ?')) return;
-    const r = await fetch('/api/admin/stock', {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'reject_order', orderId }),
-    });
-    const d = await r.json();
-    if (d.success) { toast('Commande refusée'); loadAll(); }
-    else toast(d.error || 'Erreur');
+    setBusyOrderId(orderId);
+    try {
+      const r = await fetch('/api/admin/stock', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reject_order', orderId }),
+      });
+      const d = await r.json();
+      if (d.success) { toast('Commande refusée'); loadAll(); }
+      else toast(d.error || 'Erreur');
+    } finally {
+      setBusyOrderId(null);
+    }
   };
 
   const loadSupportThreads = async () => {
@@ -781,10 +794,10 @@ export default function AdminPage() {
                           </div>
                         </details>
                         <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                          <button onClick={() => validateOrder(o.id)} className="btn btn-primary btn-sm">
-                            ✅ Valider &amp; livrer
+                          <button onClick={() => validateOrder(o.id)} disabled={busyOrderId === o.id} aria-busy={busyOrderId === o.id} className="btn btn-primary btn-sm">
+                            {busyOrderId === o.id ? 'Traitement…' : '✅ Valider & livrer'}
                           </button>
-                          <button onClick={() => rejectOrder(o.id)} className="btn btn-danger btn-sm">
+                          <button onClick={() => rejectOrder(o.id)} disabled={busyOrderId === o.id} aria-busy={busyOrderId === o.id} className="btn btn-danger btn-sm">
                             ✕ Refuser
                           </button>
                         </div>
