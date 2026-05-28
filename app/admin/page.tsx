@@ -103,6 +103,7 @@ export default function AdminPage() {
   const [clientsSearch, setClientsSearch] = useState('');
   const [ordersPage, setOrdersPage] = useState(0);
   const [showCredIds, setShowCredIds] = useState<Set<string>>(new Set());
+  const [kpiRange, setKpiRange] = useState<'all' | 'month' | 'quarter' | 'year'>('all');
 
   const [services, setServices] = useState<Service[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -272,6 +273,28 @@ export default function AdminPage() {
     await loadSupportThreads();
     setSendingSupport(false);
   };
+
+  /* ─── KPIs filtrés par plage de dates ──────────────────────────────────── */
+  const filteredKpis = (() => {
+    const now = new Date();
+    const cutoff = new Date(now);
+    if (kpiRange === 'month') cutoff.setMonth(now.getMonth() - 1);
+    else if (kpiRange === 'quarter') cutoff.setMonth(now.getMonth() - 3);
+    else if (kpiRange === 'year') cutoff.setFullYear(now.getFullYear() - 1);
+
+    const subset = kpiRange === 'all' ? orders : orders.filter((o: Order) => new Date(o.date) >= cutoff);
+    const totalRevenue = subset.reduce((s: number, o: Order) => s + o.total, 0);
+    const totalCogs = subset.reduce((s: number, o: Order) => s + o.price * 0.25, 0);
+    const netProfit = totalRevenue - totalCogs;
+    const marginPercentage = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
+    return {
+      totalRevenue: parseFloat(totalRevenue.toFixed(2)),
+      totalCogs: parseFloat(totalCogs.toFixed(2)),
+      totalInvestment: kpis.totalInvestment,
+      netProfit: parseFloat(netProfit.toFixed(2)),
+      marginPercentage: parseFloat(marginPercentage.toFixed(2)),
+    };
+  })();
 
   /* ─── Chart ───────────────────────────────────────────────────────────── */
   const chartData = (() => {
@@ -527,26 +550,38 @@ export default function AdminPage() {
                 </button>
               </div>
 
-              {/* KPI */}
+              {/* KPI — filtre par période */}
+              <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+                {(['all', 'month', 'quarter', 'year'] as const).map((r) => (
+                  <button
+                    key={r}
+                    onClick={() => setKpiRange(r)}
+                    className={`btn btn-sm ${kpiRange === r ? 'btn-primary' : 'btn-ghost'}`}
+                    style={{ fontSize: '0.78rem' }}
+                  >
+                    {r === 'all' ? 'Tout' : r === 'month' ? '30 jours' : r === 'quarter' ? '3 mois' : '12 mois'}
+                  </button>
+                ))}
+              </div>
               <div className="kpi-grid fade-in-up-stagger">
                 <div className="glass-panel kpi-card" style={accentStyle('linear-gradient(90deg, hsl(145,80%,48%), hsl(170,80%,50%))')}>
                   <div className="kpi-label">Chiffre d&apos;affaires brut</div>
-                  <div className="kpi-value" style={{ color: 'var(--accent-green)' }}>{fmt(kpis.totalRevenue)}</div>
+                  <div className="kpi-value" style={{ color: 'var(--accent-green)' }}>{fmt(filteredKpis.totalRevenue)}</div>
                   <div className="kpi-sub">↑ Total des abonnements loués</div>
                 </div>
                 <div className="glass-panel kpi-card" style={accentStyle('linear-gradient(90deg, hsl(355,85%,58%), hsl(20,85%,58%))')}>
                   <div className="kpi-label">Coût de revient (COGS)</div>
-                  <div className="kpi-value" style={{ color: 'var(--accent-red)' }}>{fmt(kpis.totalInvestment)}</div>
+                  <div className="kpi-value" style={{ color: 'var(--accent-red)' }}>{fmt(filteredKpis.totalInvestment)}</div>
                   <div className="kpi-sub">↓ Achats des comptes à l&apos;étranger</div>
                 </div>
                 <div className="glass-panel kpi-card" style={accentStyle('var(--gradient-aurora)')}>
                   <div className="kpi-label">Bénéfice net réel</div>
-                  <div className="kpi-value gradient-text">{fmt(kpis.netProfit)}</div>
+                  <div className="kpi-value gradient-text">{fmt(filteredKpis.netProfit)}</div>
                   <div className="kpi-sub">↑ Marge nette cumulée</div>
                 </div>
                 <div className="glass-panel kpi-card" style={accentStyle('linear-gradient(90deg, hsl(42,100%,58%), hsl(36,100%,55%))')}>
                   <div className="kpi-label">Taux de marge</div>
-                  <div className="kpi-value" style={{ color: 'var(--accent-yellow)' }}>{kpis.marginPercentage.toFixed(1).replace('.', ',')}%</div>
+                  <div className="kpi-value" style={{ color: 'var(--accent-yellow)' }}>{filteredKpis.marginPercentage.toFixed(1).replace('.', ',')}%</div>
                   <div className="kpi-sub">📊 Rentabilité globale</div>
                 </div>
               </div>
