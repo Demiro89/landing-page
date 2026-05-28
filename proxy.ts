@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 
 /**
@@ -30,7 +31,10 @@ export function proxy(request: NextRequest) {
     if (!pathname.startsWith('/admin/login')) {
       const token = request.cookies.get(ADMIN_COOKIE)?.value;
       const expected = process.env.ADMIN_SECRET_TOKEN;
-      if (!expected || !token || token !== expected) {
+      const valid = !!expected && !!token &&
+        token.length === expected.length &&
+        crypto.timingSafeEqual(Buffer.from(token), Buffer.from(expected));
+      if (!valid) {
         return NextResponse.redirect(new URL('/admin/login', request.url));
       }
     }
