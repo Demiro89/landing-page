@@ -3,7 +3,7 @@ import { cookies } from 'next/headers';
 import { prisma } from './prisma';
 
 const SESSION_COOKIE = 'sm_client_session';
-const SESSION_MAX_AGE = 60 * 60 * 24 * 30; // 30 jours
+const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 jours
 
 // Le secret de session est obligatoire : aucune valeur par défaut.
 // Sans lui, n'importe qui pourrait forger un cookie de session valide.

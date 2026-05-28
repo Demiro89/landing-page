@@ -25,6 +25,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Paramètres manquants' }, { status: 400 });
     }
 
+    // Validation de format : identifiants alphanumériques bornés (defense-in-depth).
+    const isValidId = (v: unknown) =>
+      typeof v === 'string' && v.length > 0 && v.length <= 64 && /^[A-Za-z0-9_-]+$/.test(v);
+    if (!isValidId(serviceId) || !isValidId(stockAccountId)) {
+      return NextResponse.json({ error: 'Identifiant invalide' }, { status: 400 });
+    }
+
     const cleanedEmail = String(email).trim().toLowerCase();
     const cleanedYoutubeEmail = youtubeEmail ? String(youtubeEmail).trim().toLowerCase() : '';
     if (!cleanedEmail.includes('@')) {
