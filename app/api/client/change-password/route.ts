@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getCurrentCustomer, verifyPassword, hashPassword } from '@/lib/clientAuth';
+import { getCurrentCustomer, verifyPassword, hashPassword, bumpSessionVersion, setSession } from '@/lib/clientAuth';
 import { prisma } from '@/lib/prisma';
 import { enforceRateLimit } from '@/lib/rateLimit';
 
@@ -36,6 +36,9 @@ export async function POST(request: Request) {
     where: { id: customer.id },
     data: { passwordHash: hashPassword(newPassword) },
   });
+
+  const newVersion = await bumpSessionVersion(customer.id);
+  await setSession(customer.id, newVersion);
 
   return NextResponse.json({ success: true });
 }

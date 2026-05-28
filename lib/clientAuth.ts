@@ -37,24 +37,28 @@ function sign(payload: string): string {
   return crypto.createHmac('sha256', SECRET).update(payload).digest('hex');
 }
 
-function createToken(customerId: string): string {
+// Token format: ${customerId}.${sessionVersion}.${exp}.${hmac}
+// The sessionVersion is stored in the DB; incrementing it invalidates all existing tokens.
+function createToken(customerId: string, version: number): string {
   const exp = Date.now() + SESSION_MAX_AGE * 1000;
-  const payload = `${customerId}.${exp}`;
+  const payload = `${customerId}.${version}.${exp}`;
   return `${payload}.${sign(payload)}`;
 }
 
-function verifyToken(token: string): string | null {
+function verifyToken(token: string): { customerId: string; version: number } | null {
   const parts = token.split('.');
-  if (parts.length !== 3) return null;
-  const [customerId, expStr, sig] = parts;
-  const payload = `${customerId}.${expStr}`;
+  if (parts.length !== 4) return null;
+  const [customerId, versionStr, expStr, sig] = parts;
+  const payload = `${customerId}.${versionStr}.${expStr}`;
   if (sign(payload) !== sig) return null;
   if (Date.now() > parseInt(expStr, 10)) return null;
-  return customerId;
+  const version = parseInt(versionStr, 10);
+  if (!Number.isFinite(version)) return null;
+  return { customerId, version };
 }
 
-export async function setSession(customerId: string) {
-  const token = createToken(customerId);
+export async function setSession(customerId: string, version: number) {
+  const token = createToken(customerId, version);
   const jar = await cookies();
   jar.set(SESSION_COOKIE, token, {
     httpOnly: true,
@@ -74,9 +78,22 @@ export async function getCurrentCustomer() {
   const jar = await cookies();
   const token = jar.get(SESSION_COOKIE)?.value;
   if (!token) return null;
-  const customerId = verifyToken(token);
-  if (!customerId) return null;
-  return prisma.customer.findUnique({ where: { id: customerId } });
+  const parsed = verifyToken(token);
+  if (!parsed) return null;
+  const customer = await prisma.customer.findUnique({ where: { id: parsed.customerId } });
+  if (!customer) return null;
+  // Reject tokens whose version no longer matches (password/email changed, explicit revocation).
+  if (customer.sessionVersion !== parsed.version) return null;
+  return customer;
+}
+
+export async function bumpSessionVersion(customerId: string): Promise<number> {
+  const updated = await prisma.customer.update({
+    where: { id: customerId },
+    data: { sessionVersion: { increment: 1 } },
+    select: { sessionVersion: true },
+  });
+  return updated.sessionVersion;
 }
 
 /* ─── Tokens de vérification email ────────────────────────────────────────── */

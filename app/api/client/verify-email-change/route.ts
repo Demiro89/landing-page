@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { bumpSessionVersion } from '@/lib/clientAuth';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,6 +42,8 @@ export async function GET(request: NextRequest) {
       emailChangeTokenExp: null,
     },
   });
+
+  await bumpSessionVersion(customer.id);
 
   return NextResponse.redirect(`${APP_URL}/?emailChange=success`);
 }
