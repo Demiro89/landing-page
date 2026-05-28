@@ -105,6 +105,8 @@ export default function AdminPage() {
   const [showCredIds, setShowCredIds] = useState<Set<string>>(new Set());
   const [kpiRange, setKpiRange] = useState<'all' | 'month' | 'quarter' | 'year'>('all');
   const [busyOrderId, setBusyOrderId] = useState<string | null>(null);
+  const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const [services, setServices] = useState<Service[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -251,6 +253,58 @@ export default function AdminPage() {
       else toast(d.error || 'Erreur');
     } finally {
       setBusyOrderId(null);
+    }
+  };
+
+  const toggleOrderSelection = (orderId: string) => {
+    setSelectedOrders(prev => {
+      const next = new Set(prev);
+      if (next.has(orderId)) next.delete(orderId); else next.add(orderId);
+      return next;
+    });
+  };
+
+  // Exécute une action en série sur plusieurs commandes (évite les races DB côté serveur).
+  const runBulkOrders = async (action: 'validate_order' | 'reject_order', ids: string[]) => {
+    let ok = 0, fail = 0;
+    for (const orderId of ids) {
+      try {
+        const r = await fetch('/api/admin/stock', {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action, orderId }),
+        });
+        const d = await r.json();
+        if (d.success) ok++; else fail++;
+      } catch { fail++; }
+    }
+    return { ok, fail };
+  };
+
+  const validateSelected = async (ids: string[]) => {
+    if (bulkBusy || ids.length === 0) return;
+    if (!confirm(`Valider et livrer ${ids.length} commande(s) ? Les identifiants seront envoyés à chaque client.`)) return;
+    setBulkBusy(true);
+    try {
+      const { ok, fail } = await runBulkOrders('validate_order', ids);
+      toast(fail ? `${ok} validée(s), ${fail} en échec` : `${ok} commande(s) validée(s) et livrée(s) !`);
+      setSelectedOrders(new Set());
+      loadAll();
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const rejectSelected = async (ids: string[]) => {
+    if (bulkBusy || ids.length === 0) return;
+    if (!confirm(`Refuser ${ids.length} commande(s) en attente ?`)) return;
+    setBulkBusy(true);
+    try {
+      const { ok, fail } = await runBulkOrders('reject_order', ids);
+      toast(fail ? `${ok} refusée(s), ${fail} en échec` : `${ok} commande(s) refusée(s)`);
+      setSelectedOrders(new Set());
+      loadAll();
+    } finally {
+      setBulkBusy(false);
     }
   };
 
@@ -744,6 +798,10 @@ export default function AdminPage() {
           {/* ── COMMANDES À VALIDER ── */}
           {activePage === 'pending' && (() => {
             const pending = orders.filter(o => o.status === 'pending');
+            const selectedIds = pending.filter(o => selectedOrders.has(o.id)).map(o => o.id);
+            const allSelected = pending.length > 0 && selectedIds.length === pending.length;
+            const someSelected = selectedIds.length > 0 && !allSelected;
+            const toggleAll = () => setSelectedOrders(allSelected ? new Set() : new Set(pending.map(o => o.id)));
             return (
               <div style={{ position: 'relative', zIndex: 1 }}>
                 <div className="admin-section-head fade-in-up">
@@ -758,9 +816,48 @@ export default function AdminPage() {
                   </div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {/* Barre d'actions groupées */}
+                    <div className="bulk-bar" role="toolbar" aria-label="Actions groupées sur les commandes">
+                      <label className="bulk-selectall">
+                        <input
+                          type="checkbox"
+                          checked={allSelected}
+                          ref={el => { if (el) el.indeterminate = someSelected; }}
+                          onChange={toggleAll}
+                          aria-label="Tout sélectionner"
+                          disabled={bulkBusy}
+                        />
+                        <span>{selectedIds.length > 0 ? `${selectedIds.length} sélectionnée(s)` : 'Tout sélectionner'}</span>
+                      </label>
+                      <div style={{ flex: 1 }} />
+                      <button
+                        onClick={() => validateSelected(selectedIds)}
+                        disabled={bulkBusy || selectedIds.length === 0}
+                        aria-busy={bulkBusy}
+                        className="btn btn-primary btn-sm"
+                      >
+                        {bulkBusy ? 'Traitement…' : `✅ Valider la sélection${selectedIds.length ? ` (${selectedIds.length})` : ''}`}
+                      </button>
+                      <button
+                        onClick={() => rejectSelected(selectedIds)}
+                        disabled={bulkBusy || selectedIds.length === 0}
+                        aria-busy={bulkBusy}
+                        className="btn btn-danger btn-sm"
+                      >
+                        ✕ Refuser la sélection{selectedIds.length ? ` (${selectedIds.length})` : ''}
+                      </button>
+                    </div>
                     {pending.map(o => (
-                      <div key={o.id} className="glass-panel admin-card fade-in-up">
+                      <div key={o.id} className={`glass-panel admin-card fade-in-up${selectedOrders.has(o.id) ? ' admin-card-selected' : ''}`}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                          <input
+                            type="checkbox"
+                            checked={selectedOrders.has(o.id)}
+                            onChange={() => toggleOrderSelection(o.id)}
+                            aria-label={`Sélectionner la commande de ${o.clientEmail}`}
+                            disabled={bulkBusy}
+                            style={{ width: 18, height: 18, flexShrink: 0, cursor: 'pointer', accentColor: 'var(--primary)' }}
+                          />
                           <span style={{ width: 40, height: 40, borderRadius: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', background: o.service?.gradient || 'rgba(255,255,255,0.06)' }}>
                             {o.service?.icon}
                           </span>
@@ -794,10 +891,10 @@ export default function AdminPage() {
                           </div>
                         </details>
                         <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                          <button onClick={() => validateOrder(o.id)} disabled={busyOrderId === o.id} aria-busy={busyOrderId === o.id} className="btn btn-primary btn-sm">
+                          <button onClick={() => validateOrder(o.id)} disabled={busyOrderId === o.id || bulkBusy} aria-busy={busyOrderId === o.id} className="btn btn-primary btn-sm">
                             {busyOrderId === o.id ? 'Traitement…' : '✅ Valider & livrer'}
                           </button>
-                          <button onClick={() => rejectOrder(o.id)} disabled={busyOrderId === o.id} aria-busy={busyOrderId === o.id} className="btn btn-danger btn-sm">
+                          <button onClick={() => rejectOrder(o.id)} disabled={busyOrderId === o.id || bulkBusy} aria-busy={busyOrderId === o.id} className="btn btn-danger btn-sm">
                             ✕ Refuser
                           </button>
                         </div>
