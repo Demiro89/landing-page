@@ -1,5 +1,5 @@
-import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
+import { verifyAdminSessionToken } from './lib/adminSession';
 
 /**
  * Proxy (equivalent to middleware in this Next.js version).
@@ -30,11 +30,7 @@ export function proxy(request: NextRequest) {
     // The login page itself must be reachable without a cookie
     if (!pathname.startsWith('/admin/login')) {
       const token = request.cookies.get(ADMIN_COOKIE)?.value;
-      const expected = process.env.ADMIN_SECRET_TOKEN;
-      const valid = !!expected && !!token &&
-        token.length === expected.length &&
-        crypto.timingSafeEqual(Buffer.from(token), Buffer.from(expected));
-      if (!valid) {
+      if (!verifyAdminSessionToken(token)) {
         return NextResponse.redirect(new URL('/admin/login', request.url));
       }
     }
@@ -48,15 +44,17 @@ export function proxy(request: NextRequest) {
   const host = request.headers.get('host');
   const source = request.headers.get('origin') || request.headers.get('referer');
 
-  if (source && host) {
-    let sourceHost: string;
-    try {
-      sourceHost = new URL(source).host;
-    } catch {
-      return forbidden();
-    }
-    if (sourceHost !== host) return forbidden();
+  // Fail-closed : une requête mutante sans origine vérifiable est rejetée.
+  // (Les navigateurs envoient toujours Origin/Referer sur un POST/PUT/DELETE.)
+  if (!host || !source) return forbidden();
+
+  let sourceHost: string;
+  try {
+    sourceHost = new URL(source).host;
+  } catch {
+    return forbidden();
   }
+  if (sourceHost !== host) return forbidden();
 
   return NextResponse.next();
 }
