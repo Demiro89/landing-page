@@ -363,6 +363,75 @@ export async function sendVerificationEmail(toEmail: string, token: string) {
   }
 }
 
+export async function sendRenewalEmail(
+  toEmail: string,
+  serviceName: string,
+  orderId: string,
+  amount: number,
+  nextBillingAt: Date
+) {
+  const nextDate = nextBillingAt.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  if (!process.env.RESEND_API_KEY) {
+    console.log(`--- [SIMULATION RENOUVELLEMENT] ${toEmail} | ${serviceName} | ${amount}€ | next: ${nextDate}`);
+    return { success: true, simulated: true };
+  }
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: toEmail,
+      subject: `✅ Renouvellement confirmé — ${serviceName} - StreamMalin`,
+      html: `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8">
+<style>
+  body{font-family:'Outfit','Inter',sans-serif;background:#0b0c10;color:#e5e7eb;margin:0;padding:20px}
+  .container{max-width:600px;margin:0 auto;background:linear-gradient(135deg,rgba(20,24,33,.95),rgba(10,12,16,.95));border:1px solid rgba(168,85,247,.2);border-radius:16px;padding:30px;box-shadow:0 10px 30px rgba(168,85,247,.1)}
+  .logo{font-size:28px;font-weight:800;background:linear-gradient(135deg,#a855f7,#3b82f6);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+  .box{background:rgba(15,23,42,.8);border:1px solid rgba(168,85,247,.2);border-radius:12px;padding:16px 20px;margin:20px 0}
+  .row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+  .row:last-child{border-bottom:none}
+  .label{color:#9ca3af;font-size:13px}
+  .value{color:#e5e7eb;font-size:13px;font-weight:600}
+  .badge{display:inline-block;background:rgba(34,197,94,.15);border:1px solid #22c55e;color:#86efac;padding:5px 12px;border-radius:9999px;font-size:13px;font-weight:600}
+  .btn{display:inline-block;background:linear-gradient(135deg,#a855f7,#3b82f6);color:#fff!important;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:700;margin-top:15px}
+  .footer{margin-top:28px;border-top:1px solid rgba(255,255,255,.05);padding-top:18px;text-align:center;font-size:12px;color:#6b7280}
+</style></head>
+<body>
+  <div class="container">
+    <div style="text-align:center;border-bottom:1px solid rgba(168,85,247,.15);padding-bottom:20px;margin-bottom:22px">
+      <div class="logo">StreamMalin</div>
+    </div>
+    <p>Bonjour,</p>
+    <p>Votre abonnement <strong style="color:#fff">${serviceName}</strong> a bien été renouvelé. Le prélèvement automatique s'est effectué avec succès.</p>
+    <div style="text-align:center;margin:14px 0"><span class="badge">✅ Renouvellement confirmé</span></div>
+    <div class="box">
+      <div class="row"><span class="label">Service</span><span class="value">${serviceName}</span></div>
+      <div class="row"><span class="label">Commande</span><span class="value">${orderId}</span></div>
+      <div class="row"><span class="label">Montant prélevé</span><span class="value">${amount.toFixed(2)} €</span></div>
+      <div class="row"><span class="label">Prochain renouvellement</span><span class="value">${nextDate}</span></div>
+    </div>
+    <p style="font-size:0.9rem;color:#9ca3af">Vos accès restent inchangés. Si vous avez des questions, contactez-nous via votre espace client.</p>
+    <div style="text-align:center;margin-top:22px">
+      <a href="${APP_URL}/espace-client" class="btn">Accéder à mon Espace Client</a>
+    </div>
+    <div class="footer">
+      <p>&copy; ${new Date().getFullYear()} StreamMalin — Service indépendant édité en micro-entreprise.</p>
+      <p>Support : hello@streammalin.fr</p>
+    </div>
+  </div>
+</body>
+</html>`,
+    });
+    if (error) { console.error('Resend renewal error:', error); return { success: false, error }; }
+    return { success: true, messageId: data?.id };
+  } catch (err) {
+    console.error('Erreur envoi email renouvellement:', err);
+    return { success: false, error: err };
+  }
+}
+
 export async function sendEmailChangeVerificationEmail(toEmail: string, token: string) {
   const verifyUrl = `${APP_URL}/api/client/verify-email-change?token=${token}`;
 

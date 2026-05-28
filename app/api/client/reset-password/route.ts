@@ -31,6 +31,8 @@ export async function POST(request: Request) {
         resetToken: null,
         resetTokenExp: null,
         emailVerified: true, // si le mdp est réinitialisé via email, l'email est de fait vérifié
+        loginAttempts: 0,
+        lockedUntil: null,
       },
     });
 
