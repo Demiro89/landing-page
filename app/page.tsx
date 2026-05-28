@@ -1409,6 +1409,24 @@ export default function Home() {
                       <div style={{ fontSize: '0.95rem', color: 'var(--text-white)', fontWeight: 600 }}>{customer.email}</div>
                     </div>
 
+                    {/* Portabilité des données — RGPD Art. 20 */}
+                    <div style={{ marginBottom: 24, padding: 20, borderRadius: 12, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-white)', marginBottom: 8 }}>
+                        Mes données personnelles
+                      </div>
+                      <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: 14 }}>
+                        Conformément au RGPD (Art. 20), vous pouvez télécharger l&apos;intégralité des données liées à votre compte : profil, commandes, identifiants d&apos;accès et historique support.
+                      </p>
+                      <a
+                        href="/api/client/export-data"
+                        download
+                        className="btn btn-ghost btn-sm"
+                        style={{ fontSize: '0.83rem' }}
+                      >
+                        Exporter mes données (JSON)
+                      </a>
+                    </div>
+
                     <div style={{ marginTop: 30, padding: 20, borderRadius: 12, background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.3)' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, color: 'var(--accent-red)', fontWeight: 800, fontSize: '1rem' }}>
                         ⚠️ Zone dangereuse — Supprimer mon compte
