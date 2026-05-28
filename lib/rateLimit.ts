@@ -1,11 +1,18 @@
 import { NextResponse } from 'next/server';
 import { prisma } from './prisma';
 
-/** Extrait l'IP cliente depuis les en-têtes du proxy. */
+/**
+ * Extrait l'IP cliente depuis les en-têtes du proxy.
+ * Sur Vercel, `x-real-ip` est défini par l'edge et NON modifiable par le client.
+ * On le privilégie car `x-forwarded-for` peut être préfixé de fausses entrées
+ * par un client malveillant (contournement du rate limit / brute-force).
+ */
 function clientIp(request: Request): string {
+  const realIp = request.headers.get('x-real-ip')?.trim();
+  if (realIp) return realIp;
   const xff = request.headers.get('x-forwarded-for') || '';
   const first = xff.split(',')[0].trim();
-  return first || request.headers.get('x-real-ip') || 'unknown';
+  return first || 'unknown';
 }
 
 /**

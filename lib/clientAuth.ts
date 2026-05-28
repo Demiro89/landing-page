@@ -50,7 +50,10 @@ function verifyToken(token: string): { customerId: string; version: number } | n
   if (parts.length !== 4) return null;
   const [customerId, versionStr, expStr, sig] = parts;
   const payload = `${customerId}.${versionStr}.${expStr}`;
-  if (sign(payload) !== sig) return null;
+  // Comparaison à temps constant pour empêcher toute attaque temporelle sur la signature.
+  const sigBuf = Buffer.from(sig, 'hex');
+  const expBuf = Buffer.from(sign(payload), 'hex');
+  if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) return null;
   if (Date.now() > parseInt(expStr, 10)) return null;
   const version = parseInt(versionStr, 10);
   if (!Number.isFinite(version)) return null;
