@@ -8,11 +8,16 @@ export const dynamic = 'force-dynamic';
 const MAX_ATTEMPTS = 5;
 const LOCK_DURATION_MS = 15 * 60 * 1000; // 15 minutes
 
-const errorMessage = (error: unknown) => error instanceof Error ? error.message : 'Erreur serveur';
+const errorMessage = (error: unknown) => {
+  // Journalise l'erreur réelle côté serveur ; n'expose jamais les détails au client
+  // (les messages Prisma révèlent le schéma : tables, colonnes, contraintes).
+  console.error('[api]', error);
+  return 'Erreur serveur';
+};
 
 export async function POST(request: Request) {
   try {
-    const limited = await enforceRateLimit(request, 'login', 8, 900);
+    const limited = await enforceRateLimit(request, 'login', 8, 900, true);
     if (limited) return limited;
 
     const { email, password } = await request.json();

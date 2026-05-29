@@ -2,7 +2,12 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
-const errorMessage = (error: unknown) => error instanceof Error ? error.message : 'Erreur serveur';
+const errorMessage = (error: unknown) => {
+  // Journalise l'erreur réelle côté serveur ; n'expose jamais les détails au client
+  // (les messages Prisma révèlent le schéma : tables, colonnes, contraintes).
+  console.error('[api]', error);
+  return 'Erreur serveur';
+};
 
 /**
  * GET /api/stocks/public : Retourne les comptes de stock disponibles SANS les identifiants sensibles.

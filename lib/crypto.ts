@@ -18,13 +18,15 @@ let cachedKey: Buffer | null = null;
 function getKey(): Buffer {
   if (cachedKey) return cachedKey;
   const raw = process.env.ENCRYPTION_KEY;
-  if (!raw || raw.length < 16) {
+  if (!raw || raw.length < 32) {
     throw new Error(
       'ENCRYPTION_KEY manquant ou trop court : définissez une valeur secrète aléatoire ' +
-      "d'au moins 16 caractères dans vos variables d'environnement (ex. openssl rand -hex 32)."
+      "d'au moins 32 caractères dans vos variables d'environnement (ex. openssl rand -hex 32)."
     );
   }
-  cachedKey = crypto.createHash('sha256').update(raw).digest();
+  // scrypt : résistant au brute-force même si ENCRYPTION_KEY a une faible entropie.
+  // Salt fixe d'application — la rotation de clé nécessite une migration explicite des données.
+  cachedKey = crypto.scryptSync(raw, 'streammalin-enc-v1', 32);
   return cachedKey;
 }
 

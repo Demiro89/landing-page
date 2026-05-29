@@ -7,6 +7,8 @@ import { enforceRateLimit } from '@/lib/rateLimit';
 
 export const dynamic = 'force-dynamic';
 
+const MAX_MESSAGE_LENGTH = 2000;
+
 /** Un client ne peut accéder qu'aux fils liés à ses propres commandes. */
 function ownsOrder(
   order: { clientEmail: string; customerId: string | null },
@@ -14,6 +16,11 @@ function ownsOrder(
 ): boolean {
   if (order.customerId && order.customerId === customer.id) return true;
   return order.clientEmail.toLowerCase() === customer.email.toLowerCase();
+}
+
+/** Échappe les caractères HTML pour les notifications Telegram (mode HTML). */
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 /**
@@ -37,11 +44,33 @@ export async function GET(request: Request) {
       return NextResponse.json({ success: true, threads });
     }
 
-    // 2. Messages d'un ticket spécifique
     if (!orderId) {
       return NextResponse.json({ error: 'orderId requis' }, { status: 400 });
     }
 
+    // 2. Fil spécifique — auth vérifiée AVANT la query DB pour éviter l'oracle d'existence.
+    if (!isAdmin) {
+      const customer = await getCurrentCustomer();
+      if (!customer) {
+        return NextResponse.json({ error: 'Authentification requise' }, { status: 401 });
+      }
+      const thread = await prisma.chatThread.findUnique({
+        where: { orderId },
+        include: {
+          messages: { orderBy: { createdAt: 'asc' } },
+          order: { include: { service: true } },
+        },
+      });
+      if (!thread) {
+        return NextResponse.json({ error: 'Fil de discussion introuvable' }, { status: 404 });
+      }
+      if (!thread.order || !ownsOrder(thread.order, customer)) {
+        return NextResponse.json({ error: 'Accès refusé' }, { status: 403 });
+      }
+      return NextResponse.json({ success: true, thread });
+    }
+
+    // 3. Admin avec orderId
     const thread = await prisma.chatThread.findUnique({
       where: { orderId },
       include: {
@@ -49,22 +78,9 @@ export async function GET(request: Request) {
         order: { include: { service: true } },
       },
     });
-
     if (!thread) {
       return NextResponse.json({ error: 'Fil de discussion introuvable' }, { status: 404 });
     }
-
-    // Contrôle de propriété : un client ne peut consulter que ses propres fils.
-    if (!isAdmin) {
-      const customer = await getCurrentCustomer();
-      if (!customer) {
-        return NextResponse.json({ error: 'Authentification requise' }, { status: 401 });
-      }
-      if (!thread.order || !ownsOrder(thread.order, customer)) {
-        return NextResponse.json({ error: 'Accès refusé' }, { status: 403 });
-      }
-    }
-
     return NextResponse.json({ success: true, thread });
   } catch (error) {
     console.error('Erreur GET chat route:', error);
@@ -86,10 +102,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Paramètres manquants' }, { status: 400 });
     }
 
+    if (typeof text !== 'string' || text.length > MAX_MESSAGE_LENGTH) {
+      return NextResponse.json(
+        { error: `Message trop long (maximum ${MAX_MESSAGE_LENGTH} caractères)` },
+        { status: 400 }
+      );
+    }
+
     const isAdmin = await isAdminAuthenticated();
 
-    // Seul l'admin connecté peut signer un message "Support StreamMalin".
-    if (String(sender).includes('Support') && !isAdmin) {
+    // Seul l'admin connecté peut signer un message "Support StreamMalin" (vérification insensible à la casse).
+    if (String(sender).toLowerCase().includes('support') && !isAdmin) {
       return NextResponse.json({ error: 'Non autorisé à envoyer ce type de message' }, { status: 403 });
     }
 
@@ -127,11 +150,13 @@ export async function POST(request: Request) {
 
     // Notification Telegram uniquement quand c'est le client qui écrit.
     if (!isAdmin) {
-      const preview = text.length > 200 ? text.slice(0, 200) + '…' : text;
+      const rawPreview = text.length > 200 ? text.slice(0, 200) + '…' : text;
+      // Les balises HTML sont échappées pour éviter l'injection dans le template Telegram.
+      const preview = escapeHtml(rawPreview);
       sendTelegramNotification(
         `💬 <b>Nouveau message client</b>\n` +
-        `👤 <b>${order.clientEmail}</b>\n` +
-        `📺 Service : ${order.service?.name || orderId}\n` +
+        `👤 <b>${escapeHtml(order.clientEmail)}</b>\n` +
+        `📺 Service : ${escapeHtml(order.service?.name || orderId)}\n` +
         `📝 ${preview}\n\n` +
         `🔗 Répondre : https://streammalin.fr/admin`
       ).catch(() => {});

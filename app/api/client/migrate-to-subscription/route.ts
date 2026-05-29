@@ -10,7 +10,12 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_mock', {
 });
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-const errorMessage = (error: unknown) => error instanceof Error ? error.message : 'Erreur serveur';
+const errorMessage = (error: unknown) => {
+  // Journalise l'erreur réelle côté serveur ; n'expose jamais les détails au client
+  // (les messages Prisma révèlent le schéma : tables, colonnes, contraintes).
+  console.error('[api]', error);
+  return 'Erreur serveur';
+};
 
 /**
  * Migre une commande existante (PayPal/manuel) vers un abonnement Stripe.

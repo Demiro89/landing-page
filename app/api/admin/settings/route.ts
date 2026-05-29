@@ -28,7 +28,12 @@ const DEFAULT_SETTINGS: Record<string, string> = {
 };
 
 const checkAuth = isAdminAuthenticated;
-const errorMessage = (error: unknown) => error instanceof Error ? error.message : 'Erreur serveur';
+const errorMessage = (error: unknown) => {
+  // Journalise l'erreur réelle côté serveur ; n'expose jamais les détails au client
+  // (les messages Prisma révèlent le schéma : tables, colonnes, contraintes).
+  console.error('[api]', error);
+  return 'Erreur serveur';
+};
 
 export async function GET() {
   if (!(await checkAuth())) {

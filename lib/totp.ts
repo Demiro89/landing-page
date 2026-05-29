@@ -77,18 +77,24 @@ function hotp(secret: Buffer, counter: number): string {
 /**
  * Vérifie un code à 6 chiffres. Tolère une fenêtre de ±1 période (±30 s)
  * pour absorber un léger décalage d'horloge. Comparaison à temps constant.
+ * @returns le counter TOTP utilisé (pour protection anti-replay), ou null si invalide.
  */
-export function verifyTotp(secret: string, token: string, window = 1): boolean {
-  if (!/^\d{6}$/.test(token || '')) return false;
+export function verifyTotpAndGetCounter(secret: string, token: string, window = 1): number | null {
+  if (!/^\d{6}$/.test(token || '')) return null;
   const secretBuf = base32Decode(secret);
-  if (secretBuf.length === 0) return false;
+  if (secretBuf.length === 0) return null;
   const counter = Math.floor(Date.now() / 1000 / PERIOD);
   const tokenBuf = Buffer.from(token);
   for (let i = -window; i <= window; i++) {
     const candidate = Buffer.from(hotp(secretBuf, counter + i));
     if (candidate.length === tokenBuf.length && crypto.timingSafeEqual(candidate, tokenBuf)) {
-      return true;
+      return counter + i;
     }
   }
-  return false;
+  return null;
+}
+
+/** Wrapper rétrocompatible (utiliser verifyTotpAndGetCounter pour la protection anti-replay). */
+export function verifyTotp(secret: string, token: string, window = 1): boolean {
+  return verifyTotpAndGetCounter(secret, token, window) !== null;
 }

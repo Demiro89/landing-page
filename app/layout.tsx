@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { headers } from 'next/headers';
 import './globals.css';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.streammalin.fr';
@@ -42,11 +43,14 @@ const jsonLd = {
   description: DESCRIPTION,
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Nonce CSP généré par le proxy, appliqué au script JSON-LD inline.
+  const nonce = (await headers()).get('x-nonce') ?? undefined;
+
   return (
     <html lang="fr" className="scroll-smooth">
       {/* Le fond et la couleur de texte sont définis dans globals.css (variables de thème). */}
@@ -60,6 +64,7 @@ export default function RootLayout({
 
         <script
           type="application/ld+json"
+          nonce={nonce}
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       </body>

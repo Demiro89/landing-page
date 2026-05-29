@@ -29,6 +29,11 @@ export async function POST(request: Request) {
     if (!serviceId || !stockAccountId || !email) {
       return NextResponse.json({ error: 'Paramètres manquants' }, { status: 400 });
     }
+    const isValidId = (v: unknown) =>
+      typeof v === 'string' && v.length > 0 && v.length <= 64 && /^[A-Za-z0-9_-]+$/.test(v);
+    if (!isValidId(serviceId) || !isValidId(stockAccountId)) {
+      return NextResponse.json({ error: 'Identifiant invalide' }, { status: 400 });
+    }
     const methodLabel = METHOD_LABELS[paymentMethod];
     if (!methodLabel) {
       return NextResponse.json({ error: 'Moyen de paiement invalide' }, { status: 400 });
@@ -40,7 +45,7 @@ export async function POST(request: Request) {
       );
     }
     const cleanedEmail = String(email).trim().toLowerCase();
-    if (!cleanedEmail.includes('@')) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanedEmail)) {
       return NextResponse.json({ error: 'Adresse email invalide' }, { status: 400 });
     }
     if (serviceId === 'youtube' && !youtubeEmail) {
@@ -63,10 +68,9 @@ export async function POST(request: Request) {
     const acceptedAt = new Date();
     const acceptanceUserAgent = (request.headers.get('user-agent') || '').slice(0, 450);
     const acceptanceIp = (
-      request.headers.get('x-forwarded-for') ||
-      request.headers.get('x-real-ip') ||
-      ''
-    ).split(',')[0].trim().slice(0, 90);
+      request.headers.get('x-real-ip')?.trim() ||
+      (request.headers.get('x-forwarded-for') || '').split(',')[0].trim()
+    ).slice(0, 90);
     const termsVersion = LEGAL_LAST_UPDATED;
 
     // Évite les doublons sur double-clic : réutilise une commande en attente identique.

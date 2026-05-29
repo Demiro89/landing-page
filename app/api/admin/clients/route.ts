@@ -5,7 +5,12 @@ import { isAdminAuthenticated } from '@/lib/adminAuth';
 export const dynamic = 'force-dynamic';
 
 const checkAuth = isAdminAuthenticated;
-const errorMessage = (error: unknown) => error instanceof Error ? error.message : 'Erreur serveur';
+const errorMessage = (error: unknown) => {
+  // Journalise l'erreur réelle côté serveur ; n'expose jamais les détails au client
+  // (les messages Prisma révèlent le schéma : tables, colonnes, contraintes).
+  console.error('[api]', error);
+  return 'Erreur serveur';
+};
 
 /**
  * GET /api/admin/clients : Liste des clients uniques dérivés des commandes.

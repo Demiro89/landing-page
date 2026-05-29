@@ -5,15 +5,22 @@ import { prisma } from '@/lib/prisma';
 import { ADMIN_COOKIE_NAME, readAdminSecret, isAdminAuthenticated } from '@/lib/adminAuth';
 import { createAdminSessionToken, ADMIN_SESSION_TTL_SEC } from '@/lib/adminSession';
 import { enforceRateLimit } from '@/lib/rateLimit';
-import { verifyTotp } from '@/lib/totp';
+import { verifyTotpAndGetCounter } from '@/lib/totp';
 import { decrypt } from '@/lib/crypto';
 
 export const dynamic = 'force-dynamic';
 
 function timingSafeEqualStr(a: string, b: string): boolean {
-  const bufA = Buffer.from(a);
-  const bufB = Buffer.from(b);
-  return bufA.length === bufB.length && crypto.timingSafeEqual(bufA, bufB);
+  // Pad les deux buffers à la même longueur pour que timingSafeEqual s'exécute
+  // toujours en temps constant (pas de fuite de timing sur la longueur du mot de passe).
+  const lenA = Buffer.byteLength(a, 'utf8');
+  const lenB = Buffer.byteLength(b, 'utf8');
+  const maxLen = Math.max(lenA, lenB, 1);
+  const bufA = Buffer.alloc(maxLen, 0);
+  const bufB = Buffer.alloc(maxLen, 0);
+  Buffer.from(a, 'utf8').copy(bufA);
+  Buffer.from(b, 'utf8').copy(bufB);
+  return crypto.timingSafeEqual(bufA, bufB) && lenA === lenB;
 }
 
 /**
@@ -22,6 +29,11 @@ function timingSafeEqualStr(a: string, b: string): boolean {
 export async function POST(request: Request) {
   try {
     const { password, action, totp } = await request.json();
+
+    // Rate limit appliqué avant toute action (inclut logout) pour prévenir
+    // les appels en masse et le délogout forcé par tiers.
+    const limited = await enforceRateLimit(request, 'admin-auth', 8, 900, true);
+    if (limited) return limited;
 
     // Gestion de la déconnexion
     if (action === 'logout') {
@@ -37,10 +49,6 @@ export async function POST(request: Request) {
       });
       return NextResponse.json({ success: true, message: 'Déconnexion réussie' });
     }
-
-    // Limitation anti brute-force sur les tentatives de connexion.
-    const limited = await enforceRateLimit(request, 'admin-auth', 8, 900);
-    if (limited) return limited;
 
     // Gestion de la connexion — aucune valeur par défaut codée en dur.
     const adminPassword = process.env.ADMIN_PASSWORD;
@@ -64,12 +72,27 @@ export async function POST(request: Request) {
         }
         const secretRow = await prisma.setting.findUnique({ where: { key: 'admin_totp_secret' } });
         const secret = secretRow?.value ? decrypt(secretRow.value) : '';
-        if (!secret || !verifyTotp(secret, String(totp))) {
+        const usedCounter = secret ? verifyTotpAndGetCounter(secret, String(totp)) : null;
+        if (!secret || usedCounter === null) {
           return NextResponse.json(
             { success: false, needsTotp: true, error: 'Code de vérification incorrect' },
             { status: 401 }
           );
         }
+        // Anti-replay : rejeter tout code dont le counter a déjà été consommé.
+        const lastCounterRow = await prisma.setting.findUnique({ where: { key: 'admin_totp_last_counter' } });
+        const lastCounter = lastCounterRow ? parseInt(lastCounterRow.value, 10) : -1;
+        if (!isNaN(lastCounter) && usedCounter <= lastCounter) {
+          return NextResponse.json(
+            { success: false, needsTotp: true, error: 'Code déjà utilisé, attendez le prochain code' },
+            { status: 401 }
+          );
+        }
+        await prisma.setting.upsert({
+          where: { key: 'admin_totp_last_counter' },
+          create: { key: 'admin_totp_last_counter', value: String(usedCounter) },
+          update: { value: String(usedCounter) },
+        });
       }
 
       const sessionToken = createAdminSessionToken();

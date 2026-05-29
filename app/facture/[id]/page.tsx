@@ -15,22 +15,27 @@ const fmtDate = (d: Date) =>
 
 export default async function InvoicePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+
+  // Contrôle d'accès AVANT toute requête : on n'interroge la base que si le
+  // demandeur est admin ou un client authentifié. Cela évite tout oracle
+  // d'existence (timing / différence de réponse) sur des IDs de factures énumérables.
+  const isAdmin = await isAdminAuthenticated();
+  const customer = isAdmin ? null : await getCurrentCustomer();
+  if (!isAdmin && !customer) notFound();
+
   const invoice = await prisma.invoice.findUnique({
     where: { id },
     include: { order: true },
   });
   if (!invoice) notFound();
 
-  // Contrôle d'accès : seul l'admin ou le client propriétaire peut voir la facture.
-  const isAdmin = await isAdminAuthenticated();
-  if (!isAdmin) {
-    const customer = await getCurrentCustomer();
-    const email = customer?.email.toLowerCase();
-    const owns = !!customer && (
+  // Contrôle de propriété : seul l'admin ou le client propriétaire peut voir la facture.
+  if (!isAdmin && customer) {
+    const email = customer.email.toLowerCase();
+    const owns =
       (invoice.order?.customerId != null && invoice.order.customerId === customer.id) ||
       invoice.clientEmail.toLowerCase() === email ||
-      invoice.order?.clientEmail.toLowerCase() === email
-    );
+      invoice.order?.clientEmail.toLowerCase() === email;
     // On renvoie un 404 plutôt qu'un 403 pour ne pas révéler l'existence de la facture.
     if (!owns) notFound();
   }

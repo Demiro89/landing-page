@@ -9,9 +9,12 @@ export interface AuditEntry {
 }
 
 export function clientIpFromRequest(request: Request): string {
+  // x-real-ip est défini par l'edge Vercel (non falsifiable).
+  // x-forwarded-for peut être préfixé de fausses entrées par le client.
+  const realIp = request.headers.get('x-real-ip')?.trim();
+  if (realIp) return realIp;
   const xff = request.headers.get('x-forwarded-for') || '';
-  const first = xff.split(',')[0].trim();
-  return first || request.headers.get('x-real-ip') || 'unknown';
+  return xff.split(',')[0].trim() || 'unknown';
 }
 
 export async function writeAuditLog(entry: AuditEntry): Promise<void> {

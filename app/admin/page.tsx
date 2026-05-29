@@ -56,6 +56,9 @@ interface Client {
 interface Settings { [key: string]: string }
 
 type AdminPage = 'dashboard' | 'pending' | 'stocks' | 'services' | 'subscribers' | 'clients' | 'unpaid' | 'cancellations' | 'support' | 'settings' | 'audit';
+
+// Ordre stable des pages pour les raccourcis clavier (touches 1-9 puis 0).
+const ADMIN_PAGE_ORDER: AdminPage[] = ['dashboard', 'pending', 'stocks', 'services', 'subscribers', 'clients', 'unpaid', 'cancellations', 'support', 'settings', 'audit'];
 type AccentStyle = React.CSSProperties & { '--accent-color': string };
 type StockWithService = StockAccount & { serviceName: string; serviceIcon: string; serviceGradient: string };
 interface ServiceForm {
@@ -107,6 +110,7 @@ export default function AdminPage() {
   const [busyOrderId, setBusyOrderId] = useState<string | null>(null);
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
 
   const [services, setServices] = useState<Service[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -159,6 +163,42 @@ export default function AdminPage() {
   };
 
   useEffect(() => { loadAll(); }, []);
+
+  /* ─── Raccourcis clavier ──────────────────────────────────────────────── */
+  useEffect(() => {
+    const isTyping = (el: EventTarget | null): boolean => {
+      const node = el as HTMLElement | null;
+      if (!node) return false;
+      return node.tagName === 'INPUT' || node.tagName === 'TEXTAREA' || node.tagName === 'SELECT' || node.isContentEditable;
+    };
+    const onKey = (e: KeyboardEvent) => {
+      // Échap : ferme l'aide et tout modal ouvert.
+      if (e.key === 'Escape') {
+        setShowShortcuts(false);
+        setEditStock(null);
+        setEditOrder(null);
+        setCatalogOpen(false);
+        return;
+      }
+      if (e.ctrlKey || e.metaKey || e.altKey || isTyping(e.target)) return;
+      // ? : affiche/masque l'aide des raccourcis.
+      if (e.key === '?') { e.preventDefault(); setShowShortcuts(s => !s); return; }
+      // / : place le focus sur la recherche visible.
+      if (e.key === '/') {
+        const input = document.querySelector<HTMLInputElement>('input[type="search"]');
+        if (input) { e.preventDefault(); input.focus(); }
+        return;
+      }
+      // 1-9 puis 0 : navigation directe entre les pages.
+      if (/^[0-9]$/.test(e.key)) {
+        const idx = e.key === '0' ? 9 : parseInt(e.key, 10) - 1;
+        const page = ADMIN_PAGE_ORDER[idx];
+        if (page) { e.preventDefault(); setActivePage(page); }
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   /* ─── 2FA (TOTP) ──────────────────────────────────────────────────────── */
   const start2faSetup = async () => {
@@ -575,6 +615,14 @@ export default function AdminPage() {
               <span className="hero-badge-dot" style={{ width: 6, height: 6 }} />
               MODE SUPER-ADMIN
             </div>
+            <button
+              onClick={() => setShowShortcuts(true)}
+              className="btn btn-ghost btn-sm"
+              aria-label="Afficher les raccourcis clavier"
+              title="Raccourcis clavier (?)"
+            >
+              ⌨ ?
+            </button>
             <button onClick={doLogout} className="btn btn-danger btn-sm">
               Déconnexion ↩
             </button>
@@ -1959,6 +2007,35 @@ export default function AdminPage() {
           )}
 
         {/* Modal global – accessible depuis tous les onglets */}
+        {showShortcuts && (
+          <div className="modal-overlay" onClick={() => setShowShortcuts(false)}>
+            <div className="glass-panel modal-content" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="shortcuts-title">
+              <div className="admin-card-head" id="shortcuts-title">
+                <div className="icon-bubble">⌨</div>
+                Raccourcis clavier
+              </div>
+              <div className="shortcuts-list">
+                {ADMIN_PAGE_ORDER.map((page, i) => {
+                  const item = navItems.find(n => n[0] === page);
+                  const keyLabel = i === 9 ? '0' : i < 9 ? String(i + 1) : '—';
+                  return (
+                    <div key={page} className="shortcut-row">
+                      <kbd className="kbd">{keyLabel}</kbd>
+                      <span>{item ? item[2] : page}</span>
+                    </div>
+                  );
+                })}
+                <div className="shortcut-row"><kbd className="kbd">/</kbd><span>Rechercher (focus)</span></div>
+                <div className="shortcut-row"><kbd className="kbd">?</kbd><span>Afficher / masquer cette aide</span></div>
+                <div className="shortcut-row"><kbd className="kbd">Échap</kbd><span>Fermer un volet ou cette aide</span></div>
+              </div>
+              <div style={{ marginTop: 18, textAlign: 'right' }}>
+                <button className="btn btn-outline btn-sm" onClick={() => setShowShortcuts(false)}>Fermer</button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {editStock && (
           <div className="modal-overlay" onClick={() => setEditStock(null)}>
             <div className="glass-panel modal-content" onClick={e => e.stopPropagation()}>
