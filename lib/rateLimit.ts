@@ -2,17 +2,42 @@ import { NextResponse } from 'next/server';
 import { prisma } from './prisma';
 
 /**
- * Extrait l'IP cliente depuis les en-têtes du proxy.
- * Sur Vercel, `x-real-ip` est défini par l'edge et NON modifiable par le client.
- * On le privilégie car `x-forwarded-for` peut être préfixé de fausses entrées
- * par un client malveillant (contournement du rate limit / brute-force).
+ * Extrait l'IP cliente de façon robuste quelle que soit la plateforme.
+ *
+ * Stratégie (ordre de priorité) :
+ * 1. `x-real-ip` — posé par l'edge Vercel / Nginx (non falsifiable si configuré).
+ * 2. Dernière entrée de `x-forwarded-for` — quand un reverse-proxy de confiance
+ *    est déclaré via TRUSTED_PROXY_IPS, c'est lui qui a ajouté la dernière entrée ;
+ *    le client ne peut pas la contrôler (il ne peut qu'en préfixer de fausses).
+ * 3. Fallback 'unknown' — ne jamais planter, mais le rate limit s'applique à 'unknown'
+ *    (toutes les requêtes sans IP partagent le même compteur, ce qui est conservateur).
+ *
+ * Pour activer le mode reverse-proxy hors Vercel, définir dans les variables d'env :
+ *   TRUSTED_PROXY_IPS=10.0.0.1,10.0.0.2   (IPs de vos proxies Nginx/HAProxy)
  */
 function clientIp(request: Request): string {
+  // Vercel ou tout proxy qui pose x-real-ip de façon fiable.
   const realIp = request.headers.get('x-real-ip')?.trim();
   if (realIp) return realIp;
-  const xff = request.headers.get('x-forwarded-for') || '';
-  const first = xff.split(',')[0].trim();
-  return first || 'unknown';
+
+  const xff = (request.headers.get('x-forwarded-for') || '').trim();
+  if (!xff) return 'unknown';
+
+  const trustedProxies = (process.env.TRUSTED_PROXY_IPS || '')
+    .split(',')
+    .map((ip) => ip.trim())
+    .filter(Boolean);
+
+  if (trustedProxies.length > 0) {
+    // Derrière un reverse-proxy connu : la dernière IP de x-forwarded-for est
+    // celle ajoutée par le proxy — le client ne peut pas la falsifier.
+    const parts = xff.split(',').map((p) => p.trim());
+    return parts[parts.length - 1] || 'unknown';
+  }
+
+  // Aucune configuration proxy : on prend la première entrée (comportement Vercel-like).
+  // Risque de spoofing si pas de proxy de confiance en amont — documenter le déploiement.
+  return xff.split(',')[0].trim() || 'unknown';
 }
 
 /**

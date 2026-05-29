@@ -29,6 +29,7 @@ function withCsp(request: NextRequest): NextResponse {
     `connect-src 'self' https://api.stripe.com${isProd ? '' : ' ws:'}`,
     "frame-src https://js.stripe.com https://hooks.stripe.com",
     "object-src 'none'",
+    "worker-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
     "frame-ancestors 'none'",
