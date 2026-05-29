@@ -32,7 +32,7 @@ export async function POST(request: Request) {
 
     // Rate limit appliqué avant toute action (inclut logout) pour prévenir
     // les appels en masse et le délogout forcé par tiers.
-    const limited = await enforceRateLimit(request, 'admin-auth', 8, 900);
+    const limited = await enforceRateLimit(request, 'admin-auth', 8, 900, true);
     if (limited) return limited;
 
     // Gestion de la déconnexion

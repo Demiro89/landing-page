@@ -117,7 +117,7 @@ export async function GET() {
     return NextResponse.json({ success: true, services: formattedServices });
   } catch (error: unknown) {
     console.error('Erreur GET public services:', error);
-    const message = error instanceof Error ? error.message : 'Erreur serveur';
-    return NextResponse.json({ error: message }, { status: 500 });
+    // On n'expose jamais le détail de l'erreur au client (fuite de schéma DB).
+    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
   }
 }

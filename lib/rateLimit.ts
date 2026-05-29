@@ -21,15 +21,20 @@ function clientIp(request: Request): string {
  *
  * Renvoie une réponse 429 si la limite est atteinte, sinon null (requête autorisée).
  *
- * @param name      nom logique de l'action (ex: "login")
- * @param max       nombre maximum de requêtes autorisées dans la fenêtre
- * @param windowSec durée de la fenêtre en secondes
+ * @param name       nom logique de l'action (ex: "login")
+ * @param max        nombre maximum de requêtes autorisées dans la fenêtre
+ * @param windowSec  durée de la fenêtre en secondes
+ * @param failClosed si true, une panne de la base bloque la requête (429) au lieu
+ *                   de la laisser passer. À activer pour les endpoints sensibles
+ *                   (login admin/client) afin d'empêcher tout contournement du
+ *                   rate limit pendant une indisponibilité DB.
  */
 export async function enforceRateLimit(
   request: Request,
   name: string,
   max: number,
-  windowSec: number
+  windowSec: number,
+  failClosed = false
 ): Promise<NextResponse | null> {
   const key = `${name}:${clientIp(request)}`;
   const now = new Date();
@@ -69,9 +74,16 @@ export async function enforceRateLimit(
 
     return null;
   } catch (err) {
-    // En cas d'erreur DB, on n'empêche pas la requête (fail-open) pour ne pas
-    // bloquer le service, mais on journalise l'incident.
     console.error('[rateLimit] erreur:', (err as Error).message);
+    // failClosed : sur un endpoint sensible, une panne DB ne doit pas ouvrir la
+    // porte au brute-force. On répond 429 plutôt que d'autoriser la requête.
+    if (failClosed) {
+      return NextResponse.json(
+        { error: 'Service temporairement indisponible. Veuillez réessayer.' },
+        { status: 429, headers: { 'Retry-After': '30' } }
+      );
+    }
+    // Sinon (endpoints non critiques), on laisse passer pour ne pas bloquer le service.
     return null;
   }
 }

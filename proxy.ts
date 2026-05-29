@@ -19,6 +19,10 @@ function withCsp(request: NextRequest): NextResponse {
   const csp = [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' https:${isProd ? '' : " 'unsafe-eval'"}`,
+    // 'unsafe-inline' est requis pour style-src : l'app utilise ~550 attributs JSX
+    // style={{…}} qui génèrent des attributs HTML style="" — les nonces CSP ne
+    // couvrent que les balises <style>/<script>, pas les attributs. Le retirer
+    // casserait toute l'interface. Aucun impact XSS direct (pas d'exécution de JS).
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' data: blob: https:",
