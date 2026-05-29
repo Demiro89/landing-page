@@ -106,12 +106,13 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    {
-      source: '/((?!_next/static|_next/image|favicon.ico).*)',
-      missing: [
-        { type: 'header', key: 'next-router-prefetch' },
-        { type: 'header', key: 'purpose', value: 'prefetch' },
-      ],
-    },
+    /*
+     * Toutes les routes sauf les assets statiques. On NE saute PAS les requêtes
+     * de prefetch (next-router-prefetch / Purpose: prefetch) : le proxy assure
+     * la sécurité (porte d'accès, protection admin, CSRF) et doit s'exécuter sur
+     * toutes les requêtes, sinon un client peut contourner ces gardes en
+     * ajoutant simplement un en-tête de prefetch.
+     */
+    '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 };
