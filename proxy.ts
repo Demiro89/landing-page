@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAdminSessionToken } from './lib/adminSession';
+import { verifySiteAccessToken, SITE_ACCESS_COOKIE } from './lib/siteAccess';
 
 const ADMIN_COOKIE = 'ADMIN_SECRET_TOKEN';
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
@@ -47,6 +48,28 @@ function withCsp(request: NextRequest): NextResponse {
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  /* ── Porte d'accès au site (mode « accès restreint ») ──
+   * Active uniquement si SITE_ACCESS_CODE est défini. Tant que le visiteur n'a
+   * pas saisi le bon code (cookie SITE_ACCESS valide), tout est redirigé vers
+   * /acces. La page /acces et son API /api/acces restent toujours joignables. */
+  if (process.env.SITE_ACCESS_CODE) {
+    const isGatePath = pathname === '/acces' || pathname.startsWith('/api/acces');
+    const hasAccess = verifySiteAccessToken(request.cookies.get(SITE_ACCESS_COOKIE)?.value);
+
+    if (!isGatePath && !hasAccess) {
+      // Les appels API renvoient un 403 JSON ; les pages sont redirigées vers /acces.
+      if (pathname.startsWith('/api')) {
+        return NextResponse.json({ error: 'Accès restreint.' }, { status: 403 });
+      }
+      return NextResponse.redirect(new URL('/acces', request.url));
+    }
+
+    // Déjà autorisé mais encore sur la page d'accès → renvoyer à l'accueil.
+    if (pathname === '/acces' && hasAccess) {
+      return NextResponse.redirect(new URL('/', request.url));
+    }
+  }
 
   /* ── Admin route protection ── */
   if (pathname.startsWith('/admin')) {
