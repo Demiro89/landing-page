@@ -37,20 +37,26 @@ export async function enforceRateLimit(
   const windowEnd = new Date(now.getTime() + windowSec * 1000);
 
   try {
-    // Incrément atomique (anti-TOCTOU) : l'upsert + increment est exécuté en une
-    // seule opération côté base, donc deux requêtes concurrentes ne peuvent pas
-    // lire le même compteur puis l'écraser.
-    const rec = await prisma.rateLimit.upsert({
-      where: { key },
-      create: { key, count: 1, windowEnd },
-      update: { count: { increment: 1 } },
-    });
+    // Transaction pour éviter la race condition : on vérifie la fenêtre AVANT d'incrémenter.
+    // Si la fenêtre est expirée, on repart à 1 ; sinon on incrémente.
+    const rec = await prisma.$transaction(async (tx) => {
+      const existing = await tx.rateLimit.findUnique({ where: { key } });
 
-    // Fenêtre expirée : on la réinitialise (l'incrément précédent est ignoré).
-    if (rec.windowEnd <= now) {
-      await prisma.rateLimit.update({ where: { key }, data: { count: 1, windowEnd } });
-      return null;
-    }
+      if (!existing || existing.windowEnd <= now) {
+        // Fenêtre expirée ou première requête : créer/reset avec count=1.
+        return tx.rateLimit.upsert({
+          where: { key },
+          create: { key, count: 1, windowEnd },
+          update: { count: 1, windowEnd },
+        });
+      }
+
+      // Dans la fenêtre courante : incrémenter.
+      return tx.rateLimit.update({
+        where: { key },
+        data: { count: { increment: 1 } },
+      });
+    });
 
     // Limite dépassée dans la fenêtre courante.
     if (rec.count > max) {

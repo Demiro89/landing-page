@@ -34,7 +34,7 @@ export async function POST(request: Request) {
 
     const cleanedEmail = String(email).trim().toLowerCase();
     const cleanedYoutubeEmail = youtubeEmail ? String(youtubeEmail).trim().toLowerCase() : '';
-    if (!cleanedEmail.includes('@')) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanedEmail)) {
       return NextResponse.json({ error: 'Adresse email invalide' }, { status: 400 });
     }
 
@@ -84,8 +84,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Le paiement est temporairement indisponible. Merci de réessayer plus tard.' }, { status: 503 });
     }
 
-    // Mode simulation (développement uniquement) si Stripe pas configuré
-    if (!stripeConfigured) {
+    // Mode simulation : nécessite un opt-in explicite via STRIPE_SIMULATION_ENABLED=true
+    // pour éviter l'activation accidentelle sur les environnements de preview.
+    const simulationEnabled = process.env.STRIPE_SIMULATION_ENABLED === 'true';
+    if (!stripeConfigured && !simulationEnabled) {
+      console.error('[checkout] Stripe non configuré et simulation désactivée');
+      return NextResponse.json({ error: 'Le paiement est temporairement indisponible.' }, { status: 503 });
+    }
+    if (!stripeConfigured && simulationEnabled) {
       console.log('--- MODE SIMULATION STRIPE (subscription, dev) ---');
       const order = await prisma.$transaction(async (tx) => {
         const stockIncrement = await tx.stockAccount.updateMany({
