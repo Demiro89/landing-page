@@ -34,7 +34,13 @@ export default function AdminLoginPage() {
         setLoginError(totpCode ? (d.error || 'Code de vérification incorrect.') : '');
         return;
       }
-      setLoginError('Identifiants incorrects.');
+      // Cas 429 (trop de tentatives) ou autre : afficher le message réel du serveur
+      // pour ne pas masquer un blocage anti-brute-force derrière « Identifiants incorrects ».
+      if (r.status === 429) {
+        setLoginError(d.error || 'Trop de tentatives. Réessayez dans quelques minutes.');
+        return;
+      }
+      setLoginError(d.error || 'Identifiants incorrects.');
     } finally {
       setLoading(false);
     }
