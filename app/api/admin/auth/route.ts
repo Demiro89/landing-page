@@ -71,20 +71,26 @@ export async function POST(request: Request) {
           return NextResponse.json({ success: false, needsTotp: true }, { status: 401 });
         }
         const secretRow = await prisma.setting.findUnique({ where: { key: 'admin_totp_secret' } });
-        const secret = secretRow?.value ? decrypt(secretRow.value) : '';
-        const usedCounter = secret ? verifyTotpAndGetCounter(secret, String(totp)) : null;
+        const rawSecret = secretRow?.value ?? '';
+        const secret = rawSecret ? decrypt(rawSecret) : '';
+
+        // Fenêtre ±2 périodes (±60s) pour absorber les décalages d'horloge téléphone/serveur.
+        const usedCounter = secret ? verifyTotpAndGetCounter(secret, String(totp), 2) : null;
+
         if (!secret || usedCounter === null) {
+          console.error('[admin/auth] TOTP invalide — secret disponible:', !!secret);
           return NextResponse.json(
-            { success: false, needsTotp: true, error: 'Code de vérification incorrect' },
+            { success: false, needsTotp: true, error: 'Code incorrect. Vérifiez l\'heure de votre téléphone.' },
             { status: 401 }
           );
         }
+
         // Anti-replay : rejeter tout code dont le counter a déjà été consommé.
         const lastCounterRow = await prisma.setting.findUnique({ where: { key: 'admin_totp_last_counter' } });
         const lastCounter = lastCounterRow ? parseInt(lastCounterRow.value, 10) : -1;
         if (!isNaN(lastCounter) && usedCounter <= lastCounter) {
           return NextResponse.json(
-            { success: false, needsTotp: true, error: 'Code déjà utilisé, attendez le prochain code' },
+            { success: false, needsTotp: true, error: 'Code déjà utilisé — attendez le prochain code (30 s).' },
             { status: 401 }
           );
         }

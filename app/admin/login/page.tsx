@@ -31,7 +31,7 @@ export default function AdminLoginPage() {
       if (d.success) { router.replace('/admin'); return; }
       if (d.needsTotp) {
         setNeedsTotp(true);
-        setLoginError(totpCode ? 'Code de vérification incorrect.' : '');
+        setLoginError(totpCode ? (d.error || 'Code de vérification incorrect.') : '');
         return;
       }
       setLoginError('Identifiants incorrects.');
