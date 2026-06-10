@@ -5,6 +5,7 @@ import { sendOrderDetailsEmail } from '@/lib/nodemailer';
 import { createInvoiceForOrder } from '@/lib/invoice';
 import { decrypt } from '@/lib/crypto';
 import { LEGAL_LAST_UPDATED } from '@/lib/legalConfig';
+import { enforceRateLimit } from '@/lib/rateLimit';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,6 +20,10 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
  */
 export async function POST(request: Request) {
   try {
+    // Limite la création de sessions Stripe (anti-abus / anti-spam de checkout).
+    const limited = await enforceRateLimit(request, 'checkout-stripe', 15, 600);
+    if (limited) return limited;
+
     const { serviceId, stockAccountId, email, youtubeEmail, acceptedCgv, acceptedImmediateExecution, acceptedEligibility } = await request.json();
 
     if (!serviceId || !stockAccountId || !email) {
@@ -202,8 +207,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, url: session.url });
   } catch (error: unknown) {
+    // On journalise le détail côté serveur mais on n'expose jamais le message
+    // brut au client (peut révéler des détails Stripe / schéma interne).
     console.error('Erreur Stripe Checkout Route:', error);
-    const message = error instanceof Error ? error.message : 'Erreur serveur Stripe';
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: 'Erreur serveur. Merci de réessayer plus tard.' }, { status: 500 });
   }
 }
