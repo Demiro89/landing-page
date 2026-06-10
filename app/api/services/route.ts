@@ -87,25 +87,35 @@ export async function GET() {
     const services = await prisma.service.findMany({
       where: { active: true },
       include: {
-        stocks: true,
+        // On ne sélectionne QUE les champs nécessaires au calcul de disponibilité.
+        // Surtout PAS `details` (identifiants de compte, potentiellement en clair
+        // tant que la migration crypto n'est pas terminée) ni `accountsBoughtPrice`
+        // (coût de revient / COGS confidentiel) — cet endpoint est public.
+        stocks: {
+          select: { id: true, price: true, maxSlots: true, filledSlots: true },
+        },
       },
     });
 
     // Calculer le stock disponible réel pour chaque service
     const formattedServices = services.map(service => {
+      // On retire le tableau `stocks` brut de la réponse publique : seules les
+      // valeurs agrégées ci-dessous sont exposées au storefront.
+      const { stocks, ...publicService } = service;
+
       // Trouver les comptes de stock liés qui ont encore des places
-      const availableStocks = service.stocks.filter(
+      const availableStocks = stocks.filter(
         stock => stock.filledSlots < stock.maxSlots
       );
-      
+
       // Stock total restant = somme des slots disponibles (maxSlots - filledSlots)
       const availableSlotsCount = availableStocks.reduce(
-        (acc, curr) => acc + (curr.maxSlots - curr.filledSlots), 
+        (acc, curr) => acc + (curr.maxSlots - curr.filledSlots),
         0
       );
 
       return {
-        ...service,
+        ...publicService,
         availableSlots: availableSlotsCount,
         // On retourne l'id du premier compte de stock disponible pour le checkout
         availableStockId: availableStocks[0]?.id || null,

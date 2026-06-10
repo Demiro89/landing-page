@@ -8,6 +8,7 @@ import { enforceRateLimit } from '@/lib/rateLimit';
 export const dynamic = 'force-dynamic';
 
 const MAX_MESSAGE_LENGTH = 2000;
+const MAX_SENDER_LENGTH = 120;
 
 /** Un client ne peut accéder qu'aux fils liés à ses propres commandes. */
 function ownsOrder(
@@ -117,10 +118,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Message vide' }, { status: 400 });
     }
 
+    // Le `sender` est un libellé d'affichage : on borne son type et sa longueur
+    // pour empêcher l'injection de blobs surdimensionnés en base.
+    if (typeof sender !== 'string' || sender.length > MAX_SENDER_LENGTH) {
+      return NextResponse.json({ error: 'Expéditeur invalide' }, { status: 400 });
+    }
+
     const isAdmin = await isAdminAuthenticated();
 
     // Seul l'admin connecté peut signer un message "Support StreamMalin" (vérification insensible à la casse).
-    if (String(sender).toLowerCase().includes('support') && !isAdmin) {
+    if (sender.toLowerCase().includes('support') && !isAdmin) {
       return NextResponse.json({ error: 'Non autorisé à envoyer ce type de message' }, { status: 403 });
     }
 
