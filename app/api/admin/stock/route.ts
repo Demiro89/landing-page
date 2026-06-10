@@ -6,8 +6,14 @@ import { isAdminAuthenticated } from '@/lib/adminAuth';
 import { encrypt, decrypt } from '@/lib/crypto';
 import { createInvoiceForOrder } from '@/lib/invoice';
 import { writeAuditLog, clientIpFromRequest } from '@/lib/auditLog';
+import { enforceRateLimit } from '@/lib/rateLimit';
 
 export const dynamic = 'force-dynamic';
+
+// Throttle commun aux mutations admin : limite les dégâts en cas de session
+// volée et les opérations en masse involontaires (60 écritures / minute).
+const writeRateLimit = (request: Request) =>
+  enforceRateLimit(request, 'admin-write', 60, 60);
 
 const checkAuth = isAdminAuthenticated;
 const errorMessage = (error: unknown) => {
@@ -131,6 +137,8 @@ export async function POST(request: Request) {
   if (!(await checkAuth())) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
   }
+  const limited = await writeRateLimit(request);
+  if (limited) return limited;
 
   try {
     const body = await request.json();
@@ -227,6 +235,8 @@ export async function PUT(request: Request) {
   if (!(await checkAuth())) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
   }
+  const limited = await writeRateLimit(request);
+  if (limited) return limited;
 
   try {
     const body = await request.json();
@@ -352,14 +362,16 @@ export async function PUT(request: Request) {
       const { orderId, clientEmail, youtubeEmail } = body;
       if (!orderId) return NextResponse.json({ error: 'orderId requis' }, { status: 400 });
 
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       const data: { clientEmail?: string; youtubeEmail?: string | null } = {};
       if (clientEmail !== undefined) {
         const cleaned = String(clientEmail).trim().toLowerCase();
-        if (!cleaned.includes('@')) return NextResponse.json({ error: 'Adresse email invalide' }, { status: 400 });
+        if (!emailRegex.test(cleaned)) return NextResponse.json({ error: 'Adresse email invalide' }, { status: 400 });
         data.clientEmail = cleaned;
       }
       if (youtubeEmail !== undefined) {
         const cleaned = String(youtubeEmail).trim().toLowerCase();
+        if (cleaned && !emailRegex.test(cleaned)) return NextResponse.json({ error: 'Adresse email YouTube invalide' }, { status: 400 });
         data.youtubeEmail = cleaned || null;
       }
 
@@ -472,6 +484,8 @@ export async function DELETE(request: Request) {
   if (!(await checkAuth())) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
   }
+  const limited = await writeRateLimit(request);
+  if (limited) return limited;
 
   try {
     const { searchParams } = new URL(request.url);

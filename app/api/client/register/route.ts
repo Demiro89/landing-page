@@ -21,8 +21,11 @@ export async function POST(request: Request) {
     if (!email || !password) {
       return NextResponse.json({ error: 'Email et mot de passe requis' }, { status: 400 });
     }
-    if (password.length < 8) {
-      return NextResponse.json({ error: 'Le mot de passe doit contenir au moins 8 caractères' }, { status: 400 });
+    if (typeof password !== 'string' || password.length < 8 || !/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
+      return NextResponse.json(
+        { error: 'Le mot de passe doit contenir au moins 8 caractères, dont une lettre et un chiffre' },
+        { status: 400 }
+      );
     }
 
     const normalized = email.toLowerCase().trim();

@@ -329,13 +329,15 @@ function CheckoutContent() {
 
             {/* Email */}
             <div className="form-field">
-              <label className="form-label">
+              <label className="form-label" htmlFor="checkout-email">
                 Adresse email <span className="required">*</span>
                 <span style={{ fontWeight: 400, color: 'var(--text-muted)', letterSpacing: 0, textTransform: 'none', marginLeft: 8 }}>(pour recevoir votre confirmation)</span>
               </label>
               <input
+                id="checkout-email"
                 type="email"
                 required
+                autoComplete="email"
                 placeholder="vous@exemple.com"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
@@ -353,13 +355,15 @@ function CheckoutContent() {
                   </div>
                 </div>
                 <div className="form-field">
-                  <label className="form-label">
+                  <label className="form-label" htmlFor="checkout-youtube-email">
                     Adresse e-mail YouTube (Google) <span className="required">*</span>
                     <span style={{ fontWeight: 400, color: 'var(--text-muted)', letterSpacing: 0, textTransform: 'none', marginLeft: 8 }}>(pour recevoir l&apos;invitation)</span>
                   </label>
                   <input
+                    id="checkout-youtube-email"
                     type="email"
                     required
+                    autoComplete="email"
                     placeholder="votre.compte@gmail.com"
                     value={youtubeEmail}
                     onChange={e => setYoutubeEmail(e.target.value)}

@@ -3,11 +3,16 @@ import { prisma } from '@/lib/prisma';
 import { getCurrentCustomer } from '@/lib/clientAuth';
 import { sendCancellationEmail } from '@/lib/nodemailer';
 import { sendTelegramNotification } from '@/lib/telegram';
+import { enforceRateLimit } from '@/lib/rateLimit';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   try {
+    // Limite le spam de résiliations (et l'envoi d'emails associé).
+    const limited = await enforceRateLimit(request, 'cancel-order', 10, 600);
+    if (limited) return limited;
+
     const customer = await getCurrentCustomer();
     if (!customer) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 });

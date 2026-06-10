@@ -20,8 +20,11 @@ export async function POST(request: Request) {
     if (!token || !password) {
       return NextResponse.json({ error: 'Token et mot de passe requis' }, { status: 400 });
     }
-    if (password.length < 8) {
-      return NextResponse.json({ error: 'Le mot de passe doit contenir au moins 8 caractères' }, { status: 400 });
+    if (typeof password !== 'string' || password.length < 8 || !/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
+      return NextResponse.json(
+        { error: 'Le mot de passe doit contenir au moins 8 caractères, dont une lettre et un chiffre' },
+        { status: 400 }
+      );
     }
 
     const customer = await prisma.customer.findFirst({ where: { resetToken: token } });
@@ -29,8 +32,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Lien de réinitialisation invalide ou expiré' }, { status: 400 });
     }
 
-    await prisma.customer.update({
-      where: { id: customer.id },
+    // Consommation atomique du token : empêche un double usage en cas de
+    // requêtes parallèles avec le même lien.
+    const consumed = await prisma.customer.updateMany({
+      where: { id: customer.id, resetToken: token },
       data: {
         passwordHash: hashPassword(password),
         resetToken: null,
@@ -40,6 +45,9 @@ export async function POST(request: Request) {
         lockedUntil: null,
       },
     });
+    if (consumed.count === 0) {
+      return NextResponse.json({ error: 'Lien de réinitialisation invalide ou expiré' }, { status: 400 });
+    }
 
     const newVersion = await bumpSessionVersion(customer.id);
     await setSession(customer.id, newVersion);
