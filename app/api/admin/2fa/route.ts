@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { isAdminAuthenticated } from '@/lib/adminAuth';
 import { generateTotpSecret, totpUri, verifyTotp } from '@/lib/totp';
 import { encrypt, decrypt } from '@/lib/crypto';
+import { enforceRateLimit } from '@/lib/rateLimit';
+import { writeAuditLog, clientIpFromRequest } from '@/lib/auditLog';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,6 +32,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
   }
   try {
+    // Limite les tentatives de codes TOTP (enable/disable) — fail-closed.
+    const limited = await enforceRateLimit(request, 'admin-2fa', 10, 900, true);
+    if (limited) return limited;
+
     const body = await request.json();
     const { action } = body;
 
@@ -54,6 +60,12 @@ export async function POST(request: Request) {
       }
       await setSetting('admin_totp_secret', encrypt(String(secret)));
       await setSetting('admin_totp_enabled', 'true');
+      void writeAuditLog({
+        action: '2fa.enable',
+        entityType: 'settings',
+        description: '2FA admin activée',
+        ip: clientIpFromRequest(request),
+      });
       return NextResponse.json({ success: true });
     }
 
@@ -66,6 +78,12 @@ export async function POST(request: Request) {
       }
       await setSetting('admin_totp_enabled', 'false');
       await setSetting('admin_totp_secret', '');
+      void writeAuditLog({
+        action: '2fa.disable',
+        entityType: 'settings',
+        description: '2FA admin désactivée',
+        ip: clientIpFromRequest(request),
+      });
       return NextResponse.json({ success: true });
     }
 

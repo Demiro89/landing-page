@@ -582,7 +582,7 @@ export default function Home() {
           <button className="md:hidden text-white text-2xl" onClick={() => setMenuOpen(!menuOpen)} aria-label={menuOpen ? 'Fermer le menu' : 'Ouvrir le menu'} aria-expanded={menuOpen} aria-haspopup="true">☰</button>
         </div>
         {menuOpen && (
-          <div className="md:hidden border-t border-white/5 px-6 py-4 flex flex-col gap-3" style={{ background: 'hsla(222,44%,7%,0.95)' }}>
+          <div className="md:hidden border-t border-white/5 px-6 py-4 flex flex-col gap-3" style={{ background: 'color-mix(in srgb, var(--bg-dark) 96%, transparent)' }}>
             <a href="#offres" onClick={() => { goToStorefront(); setMenuOpen(false); }} className="nav-link">Offres</a>
             <a href="#marketplace" onClick={() => { goToStorefront(); setMenuOpen(false); }} className="nav-link">Marketplace</a>
             <a href="#calculateur" onClick={() => { goToStorefront(); setMenuOpen(false); }} className="nav-link">Calculateur</a>
@@ -816,7 +816,7 @@ export default function Home() {
                         <div className="comparison-icon" style={{ background: s.gradient }}>{s.icon}</div>
                         <div>
                           <div style={{ fontWeight: 700, color: 'var(--text-white)', fontSize: '0.92rem' }}>{s.name}</div>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{s.tagline.slice(0, 38)}</div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200 }}>{s.tagline}</div>
                         </div>
                       </div>
                       <div className="comparison-price-old">{s.original.toFixed(2)}€/m</div>
@@ -1139,7 +1139,7 @@ export default function Home() {
                       {authMode === 'login' && 'Accédez à vos abonnements actifs, vos identifiants chiffrés et au support.'}
                       {authMode === 'register' && 'Créez un compte pour gérer vos locations. Un email de confirmation vous sera envoyé.'}
                       {authMode === 'forgot' && 'Saisissez votre email, nous vous enverrons un lien pour choisir un nouveau mot de passe.'}
-                      {authMode === 'reset' && 'Saisissez votre nouveau mot de passe ci-dessous (8 caractères minimum).'}
+                      {authMode === 'reset' && 'Saisissez votre nouveau mot de passe ci-dessous (8 caractères minimum, avec une lettre et un chiffre).'}
                     </p>
 
                     {(authMode === 'login' || authMode === 'register') && (
@@ -1161,7 +1161,7 @@ export default function Home() {
                           <div style={{ position: 'relative' }}>
                             <input
                               type={showPassword ? 'text' : 'password'}
-                              placeholder="8 caractères minimum"
+                              placeholder="8 caractères min., une lettre et un chiffre"
                               value={authPassword}
                               onChange={(e) => setAuthPassword(e.target.value)}
                               className="dash-input"
@@ -1238,7 +1238,7 @@ export default function Home() {
                       <form onSubmit={doReset} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                         <input
                           type="password"
-                          placeholder="Nouveau mot de passe (8 caractères min.)"
+                          placeholder="Nouveau mot de passe (8 car. min., lettre + chiffre)"
                           value={authPassword}
                           onChange={(e) => setAuthPassword(e.target.value)}
                           className="dash-input"
@@ -1440,6 +1440,7 @@ export default function Home() {
                               aria-modal="true"
                               aria-labelledby="cancel-modal-title"
                               onClick={() => { setCancelOrderId(null); setCancelError(''); }}
+                              onKeyDown={(e) => { if (e.key === 'Escape') { setCancelOrderId(null); setCancelError(''); } }}
                               style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)', padding: 20 }}
                             >
                               <div className="glass-panel" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 460, width: '100%', padding: 30 }}>
@@ -1468,6 +1469,7 @@ export default function Home() {
                                     onClick={() => { setCancelOrderId(null); setCancelError(''); }}
                                     className="btn btn-ghost"
                                     style={{ flex: 1 }}
+                                    autoFocus
                                   >Annuler</button>
                                 </div>
                               </div>
@@ -1569,7 +1571,7 @@ export default function Home() {
                         />
                         <input
                           type="password"
-                          placeholder="Nouveau mot de passe (8 caractères min.)"
+                          placeholder="Nouveau mot de passe (8 car. min., lettre + chiffre)"
                           value={newPwd}
                           onChange={e => setNewPwd(e.target.value)}
                           className="dash-input"

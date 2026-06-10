@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentCustomer, clearSession } from '@/lib/clientAuth';
+import { enforceRateLimit } from '@/lib/rateLimit';
 
 export const dynamic = 'force-dynamic';
 const errorMessage = (error: unknown) => {
@@ -12,6 +13,10 @@ const errorMessage = (error: unknown) => {
 
 export async function POST(request: Request) {
   try {
+    // Opération destructrice : throttle par IP, fail-closed.
+    const limited = await enforceRateLimit(request, 'delete-account', 5, 900, true);
+    if (limited) return limited;
+
     const customer = await getCurrentCustomer();
     if (!customer) {
       return NextResponse.json({ error: 'Non connecté' }, { status: 401 });

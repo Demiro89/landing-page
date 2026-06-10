@@ -20,7 +20,12 @@ function ownsOrder(
 
 /** Échappe les caractères HTML pour les notifications Telegram (mode HTML). */
 function escapeHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 /**
@@ -107,6 +112,9 @@ export async function POST(request: Request) {
         { error: `Message trop long (maximum ${MAX_MESSAGE_LENGTH} caractères)` },
         { status: 400 }
       );
+    }
+    if (!text.trim()) {
+      return NextResponse.json({ error: 'Message vide' }, { status: 400 });
     }
 
     const isAdmin = await isAdminAuthenticated();

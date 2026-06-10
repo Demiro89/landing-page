@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { isAdminAuthenticated } from '@/lib/adminAuth';
 import { writeAuditLog, clientIpFromRequest } from '@/lib/auditLog';
+import { enforceRateLimit } from '@/lib/rateLimit';
 
 export const dynamic = 'force-dynamic';
 
@@ -55,9 +56,11 @@ export async function PUT(request: Request) {
   if (!(await checkAuth())) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
   }
+  const limited = await enforceRateLimit(request, 'admin-write', 60, 60);
+  if (limited) return limited;
   try {
     const body = await request.json();
-    const updates: Array<{ key: string; value: string }> = body.settings || [];
+    const updates: Array<{ key: string; value: string }> = Array.isArray(body.settings) ? body.settings : [];
 
     const forbidden = updates.filter(({ key }) => !ALLOWED_KEYS.has(key));
     if (forbidden.length > 0) {

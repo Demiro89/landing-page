@@ -33,8 +33,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${APP_URL}/?emailChange=conflict`);
   }
 
-  await prisma.customer.update({
-    where: { id: customer.id },
+  // Consommation atomique du token : empêche un double usage en cas de
+  // requêtes parallèles avec le même lien.
+  const consumed = await prisma.customer.updateMany({
+    where: { id: customer.id, emailChangeToken: token },
     data: {
       email: newEmail,
       pendingEmail: null,
@@ -42,6 +44,9 @@ export async function GET(request: NextRequest) {
       emailChangeTokenExp: null,
     },
   });
+  if (consumed.count === 0) {
+    return NextResponse.redirect(`${APP_URL}/?emailChange=invalid`);
+  }
 
   await bumpSessionVersion(customer.id);
 

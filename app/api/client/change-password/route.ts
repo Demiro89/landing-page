@@ -24,8 +24,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Mot de passe actuel incorrect' }, { status: 401 });
   }
 
-  if (newPassword.length < 8) {
-    return NextResponse.json({ error: 'Le nouveau mot de passe doit contenir au moins 8 caractères' }, { status: 400 });
+  if (typeof newPassword !== 'string' || newPassword.length < 8 || !/[a-zA-Z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
+    return NextResponse.json(
+      { error: 'Le nouveau mot de passe doit contenir au moins 8 caractères, dont une lettre et un chiffre' },
+      { status: 400 }
+    );
   }
 
   if (currentPassword === newPassword) {

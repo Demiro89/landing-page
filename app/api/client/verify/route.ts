@@ -17,10 +17,15 @@ export async function GET(request: Request) {
       return NextResponse.redirect(new URL('/?verify=invalid', request.url));
     }
 
-    await prisma.customer.update({
-      where: { id: customer.id },
+    // Consommation atomique du token : si deux requêtes arrivent en parallèle
+    // avec le même token, une seule passe (count = 1), l'autre est rejetée.
+    const consumed = await prisma.customer.updateMany({
+      where: { id: customer.id, verificationToken: token },
       data: { emailVerified: true, verificationToken: null },
     });
+    if (consumed.count === 0) {
+      return NextResponse.redirect(new URL('/?verify=invalid', request.url));
+    }
 
     // Connecter automatiquement
     const version = await bumpSessionVersion(customer.id);
