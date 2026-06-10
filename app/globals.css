@@ -709,7 +709,7 @@ body::after {
   font-size: 1.1rem; font-weight: 700; flex-shrink: 0;
   transition: var(--transition);
 }
-.faq-item.open .faq-icon { transform: rotate(45deg); background: var(--gradient-aurora); color: #fff; }
+.faq-item.open .faq-icon { transform: rotate(180deg); background: var(--gradient-aurora); color: #fff; }
 .faq-item.open { border: 1px solid rgba(139, 92, 246, 0.25); box-shadow: 0 12px 30px rgba(139,92,246,0.12); }
 .faq-answer {
   padding: 0 24px 22px;
@@ -1644,6 +1644,88 @@ select:focus-visible,
     min-height: 44px;
   }
 }
+
+/* ─── DASHBOARD AMBIENT GLOWS ─── */
+.dash-orb {
+  position: absolute; border-radius: 50%;
+  filter: blur(80px); pointer-events: none; z-index: 0;
+}
+.dash-orb-1 {
+  top: 60px; left: -15%;
+  width: 500px; height: 500px;
+  background: radial-gradient(circle, hsla(258,90%,66%,0.16), transparent 70%);
+}
+.dash-orb-2 {
+  top: 300px; right: -12%;
+  width: 420px; height: 420px;
+  background: radial-gradient(circle, hsla(239,84%,67%,0.1), transparent 70%);
+}
+
+/* ─── DASHBOARD STATUS BADGE ─── */
+.dash-status-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 5px 12px; border-radius: 50px;
+  background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.2);
+  font-size: 0.7rem; font-weight: 700;
+  color: var(--accent-green); letter-spacing: 0.06em;
+  margin-bottom: 12px;
+}
+.dash-status-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--accent-green);
+  box-shadow: 0 0 6px var(--accent-green);
+}
+
+/* ─── AUTH FORM TABS ─── */
+.auth-tab-bar {
+  display: flex; gap: 8px; margin-bottom: 18px;
+  padding: 4px; background: rgba(255,255,255,0.04); border-radius: 10px;
+}
+.auth-tab-btn {
+  flex: 1; background: transparent; border: none;
+  color: var(--text-gray); border-radius: 7px;
+  padding: 8px 12px; font-size: 0.85rem; font-weight: 600;
+  cursor: pointer; transition: var(--transition-fast);
+  font-family: 'Outfit', sans-serif;
+}
+.auth-tab-btn.active { background: var(--gradient-aurora); color: #fff; }
+.auth-tab-btn:hover:not(.active) { color: var(--text-white); background: rgba(255,255,255,0.05); }
+
+/* ─── SETTINGS SECTION ─── */
+.settings-section {
+  margin-bottom: 24px; padding: 20px; border-radius: 12px;
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+}
+.settings-section-title {
+  font-weight: 700; font-size: 0.95rem; color: var(--text-white); margin-bottom: 16px;
+}
+.settings-section-label {
+  font-size: 0.78rem; color: var(--text-muted); margin-bottom: 6px;
+}
+.settings-section-value {
+  font-size: 0.95rem; color: var(--text-white); font-weight: 600;
+}
+
+/* ─── INLINE FEEDBACK MESSAGES ─── */
+.msg-error {
+  padding: 8px 12px; border-radius: 8px;
+  background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3);
+  color: var(--accent-red); font-size: 0.82rem;
+}
+.msg-success {
+  padding: 8px 12px; border-radius: 8px;
+  background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.25);
+  color: var(--accent-green); font-size: 0.82rem;
+}
+.msg-warn {
+  padding: 8px 12px; border-radius: 8px;
+  background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.25);
+  color: var(--accent-yellow); font-size: 0.82rem;
+}
+
+/* ─── SIDEBAR LOGOUT ─── */
+.dash-sidebar-logout { color: var(--accent-red) !important; }
+.dash-sidebar-logout:hover { background: rgba(239,68,68,0.08) !important; }
 
 /* Respecte le réglage système « réduire les animations » : on neutralise
    les animations décoratives (orbes, shimmer, fade-up) pour le confort

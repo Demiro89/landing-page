@@ -670,7 +670,7 @@ export default function Home() {
                         <h3>{s.name}</h3>
                         <p className="tagline">{s.tagline}</p>
                         <ul className="features">
-                          {s.features.slice(0, 3).map((f, i) => (
+                          {s.features.map((f, i) => (
                             <li key={i}>{f}</li>
                           ))}
                         </ul>
@@ -965,7 +965,9 @@ export default function Home() {
                       aria-controls={`faq-answer-${i}`}
                     >
                       <span>{item.q}</span>
-                      <span className="faq-icon" aria-hidden="true">+</span>
+                      <span className="faq-icon" aria-hidden="true">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                      </span>
                     </button>
                     {faqOpen === i && (
                       <div className="faq-answer" id={`faq-answer-${i}`} role="region">{item.a}</div>
@@ -981,7 +983,7 @@ export default function Home() {
             <div className="section-inner" style={{ maxWidth: 900 }}>
               <div className="cta-block glass-panel">
                 <div className="section-eyebrow">— Dernier appel —</div>
-                <h2>Prêt à réduire vos factures <span className="gradient-text" style={{ whiteSpace: 'nowrap' }}>dès aujourd&apos;hui&nbsp;?</span></h2>
+                <h2>Prêt à réduire vos factures <span className="gradient-text">dès aujourd&apos;hui&nbsp;?</span></h2>
                 <p>Rejoignez nos clients économes. Accès transmis après validation, résiliable à tout moment, sans engagement.</p>
                 <div className="cta-buttons">
                   {services.slice(0, 3).map((s, i) => (
@@ -1003,15 +1005,15 @@ export default function Home() {
       {view === 'dashboard' && (
         <main style={{ position: 'relative', minHeight: '100vh' }}>
           {/* Ambient glows */}
-          <div style={{ position: 'absolute', top: 60, left: '-15%', width: 500, height: 500, borderRadius: '50%', background: 'radial-gradient(circle, hsla(258,90%,66%,0.16), transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none', zIndex: 0 }} />
-          <div style={{ position: 'absolute', top: 300, right: '-12%', width: 420, height: 420, borderRadius: '50%', background: 'radial-gradient(circle, hsla(239,84%,67%,0.1), transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none', zIndex: 0 }} />
+          <div className="dash-orb dash-orb-1" />
+          <div className="dash-orb dash-orb-2" />
 
           <div className="dash-wrap">
             {/* Header */}
             <div className="dash-header fade-in-up">
               <div>
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '5px 12px', borderRadius: 50, background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', fontSize: '0.7rem', fontWeight: 700, color: 'var(--accent-green)', letterSpacing: '0.06em', marginBottom: 12 }}>
-                  <span className="hero-badge-dot" style={{ width: 6, height: 6 }} />
+                <div className="dash-status-badge">
+                  <span className="dash-status-dot" />
                   CONNECTÉ · SESSION SÉCURISÉE
                 </div>
                 <h1 className="dash-title">
@@ -1084,8 +1086,7 @@ export default function Home() {
                 {customer && (
                   <button
                     onClick={doLogout}
-                    className="dash-sidebar-btn"
-                    style={{ color: 'var(--accent-red)' }}
+                    className="dash-sidebar-btn dash-sidebar-logout"
                   >
                     <span style={{ fontSize: '1.05rem' }}>🚪</span> Déconnexion
                   </button>
@@ -1117,18 +1118,16 @@ export default function Home() {
                     </div>
 
                     {authMode !== 'reset' && (
-                      <div style={{ display: 'flex', gap: 8, marginBottom: 18, padding: 4, background: 'rgba(255,255,255,0.04)', borderRadius: 10 }}>
+                      <div className="auth-tab-bar">
                         <button
                           onClick={() => { setAuthMode('login'); setAuthError(''); setAuthMsg(''); }}
-                          className="btn btn-sm"
-                          style={{ flex: 1, background: authMode === 'login' ? 'var(--gradient-aurora)' : 'transparent', color: authMode === 'login' ? '#fff' : 'var(--text-gray)', border: 'none' }}
+                          className={`auth-tab-btn${authMode === 'login' ? ' active' : ''}`}
                         >
                           🔐 Connexion
                         </button>
                         <button
                           onClick={() => { setAuthMode('register'); setAuthError(''); setAuthMsg(''); }}
-                          className="btn btn-sm"
-                          style={{ flex: 1, background: authMode === 'register' ? 'var(--gradient-aurora)' : 'transparent', color: authMode === 'register' ? '#fff' : 'var(--text-gray)', border: 'none' }}
+                          className={`auth-tab-btn${authMode === 'register' ? ' active' : ''}`}
                         >
                           ✨ Inscription
                         </button>
@@ -1252,14 +1251,10 @@ export default function Home() {
                     )}
 
                     {authError && (
-                      <p style={{ color: 'var(--accent-red)', fontSize: '0.8rem', marginTop: 12, padding: '8px 12px', background: 'rgba(255,80,80,0.08)', borderRadius: 8 }}>
-                        ⚠️ {authError}
-                      </p>
+                      <p className="msg-error" style={{ marginTop: 12 }}>⚠️ {authError}</p>
                     )}
                     {authMsg && (
-                      <p style={{ color: 'var(--accent-green)', fontSize: '0.8rem', marginTop: 12, padding: '8px 12px', background: 'rgba(16,185,129,0.08)', borderRadius: 8 }}>
-                        {authMsg}
-                      </p>
+                      <p className="msg-success" style={{ marginTop: 12 }}>{authMsg}</p>
                     )}
                   </div>
                 )}
@@ -1327,7 +1322,7 @@ export default function Home() {
                     ) : (
                       <>
                         {cancelSuccess && (
-                          <div style={{ marginBottom: 16, padding: 14, borderRadius: 12, background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)', color: 'var(--accent-green)', fontSize: '0.88rem' }}>
+                          <div className="msg-success" style={{ marginBottom: 16, padding: 14, borderRadius: 12, fontSize: '0.88rem' }}>
                             ✅ {cancelSuccess}
                           </div>
                         )}
@@ -1491,16 +1486,14 @@ export default function Home() {
                       Paramètres du compte
                     </div>
 
-                    <div style={{ marginBottom: 24, padding: 16, borderRadius: 12, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 6 }}>Adresse email</div>
-                      <div style={{ fontSize: '0.95rem', color: 'var(--text-white)', fontWeight: 600 }}>{customer.email}</div>
+                    <div className="settings-section" style={{ padding: 16 }}>
+                      <div className="settings-section-label">Adresse email</div>
+                      <div className="settings-section-value">{customer.email}</div>
                     </div>
 
                     {/* Changement d'email */}
-                    <div style={{ marginBottom: 24, padding: 20, borderRadius: 12, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                      <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-white)', marginBottom: 16 }}>
-                        Changer l&apos;adresse email
-                      </div>
+                    <div className="settings-section">
+                      <div className="settings-section-title">Changer l&apos;adresse email</div>
                       <form onSubmit={doChangeEmail} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                         <input
                           type="email"
@@ -1520,16 +1513,8 @@ export default function Home() {
                           autoComplete="current-password"
                           required
                         />
-                        {changeEmailError && (
-                          <div style={{ padding: '8px 12px', borderRadius: 8, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: 'var(--accent-red)', fontSize: '0.82rem' }}>
-                            {changeEmailError}
-                          </div>
-                        )}
-                        {changeEmailMsg && (
-                          <div style={{ padding: '8px 12px', borderRadius: 8, background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', color: 'var(--accent-green)', fontSize: '0.82rem' }}>
-                            {changeEmailMsg}
-                          </div>
-                        )}
+                        {changeEmailError && <div className="msg-error">{changeEmailError}</div>}
+                        {changeEmailMsg && <div className="msg-success">{changeEmailMsg}</div>}
                         <button type="submit" disabled={changeEmailBusy} className="btn btn-primary btn-sm" style={{ alignSelf: 'flex-start' }}>
                           {changeEmailBusy ? 'Envoi en cours…' : 'Envoyer le lien de confirmation'}
                         </button>
@@ -1537,10 +1522,8 @@ export default function Home() {
                     </div>
 
                     {/* Portabilité des données — RGPD Art. 20 */}
-                    <div style={{ marginBottom: 24, padding: 20, borderRadius: 12, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                      <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-white)', marginBottom: 8 }}>
-                        Mes données personnelles
-                      </div>
+                    <div className="settings-section">
+                      <div className="settings-section-title">Mes données personnelles</div>
                       <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: 14 }}>
                         Conformément au RGPD (Art. 20), vous pouvez télécharger l&apos;intégralité des données liées à votre compte : profil, commandes, identifiants d&apos;accès et historique support.
                       </p>
@@ -1555,10 +1538,8 @@ export default function Home() {
                     </div>
 
                     {/* Changement de mot de passe */}
-                    <div style={{ marginBottom: 24, padding: 20, borderRadius: 12, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                      <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-white)', marginBottom: 16 }}>
-                        Changer le mot de passe
-                      </div>
+                    <div className="settings-section">
+                      <div className="settings-section-title">Changer le mot de passe</div>
                       <form onSubmit={doChangePassword} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                         <input
                           type="password"
@@ -1579,16 +1560,8 @@ export default function Home() {
                           minLength={8}
                           required
                         />
-                        {changePwdError && (
-                          <div style={{ padding: '8px 12px', borderRadius: 8, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: 'var(--accent-red)', fontSize: '0.82rem' }}>
-                            {changePwdError}
-                          </div>
-                        )}
-                        {changePwdMsg && (
-                          <div style={{ padding: '8px 12px', borderRadius: 8, background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', color: 'var(--accent-green)', fontSize: '0.82rem' }}>
-                            {changePwdMsg}
-                          </div>
-                        )}
+                        {changePwdError && <div className="msg-error">{changePwdError}</div>}
+                        {changePwdMsg && <div className="msg-success">{changePwdMsg}</div>}
                         <button type="submit" disabled={changePwdBusy} className="btn btn-primary btn-sm" style={{ alignSelf: 'flex-start' }}>
                           {changePwdBusy ? 'Enregistrement…' : 'Modifier le mot de passe'}
                         </button>
@@ -1620,9 +1593,7 @@ export default function Home() {
                       />
 
                       {deleteError && (
-                        <div style={{ marginBottom: 12, padding: 10, borderRadius: 8, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: 'var(--accent-red)', fontSize: '0.82rem' }}>
-                          {deleteError}
-                        </div>
+                        <div className="msg-error" style={{ marginBottom: 12 }}>{deleteError}</div>
                       )}
 
                       <button
