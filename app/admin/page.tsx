@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { SERVICE_CATALOG, CATALOG_CATEGORIES, type ServicePreset } from '@/lib/serviceCatalog';
 
 /* ─── Types ─────────────────────────────────────────────────────────────── */
@@ -12,7 +13,7 @@ interface Service {
 }
 interface StockAccount {
   id: string; serviceId: string; accountsBoughtPrice: number; price: number;
-  maxSlots: number; filledSlots: number; details: string; createdAt: string;
+  maxSlots: number; filledSlots: number; details: string; createdAt: string; updatedAt: string;
 }
 interface Order {
   id: string; date: string; price: number; fee: number; total: number;
@@ -84,13 +85,14 @@ const serviceFields: Array<{ label: string; key: ServiceFormKey; placeholder: st
 function toast(msg: string, duration = 5000) {
   const el = document.getElementById('sm-toast');
   if (!el) return;
-  el.textContent = '✅ ' + msg;
+  el.textContent = msg;
   el.style.display = 'block';
   setTimeout(() => { el.style.display = 'none'; }, duration);
 }
 
 /* ─── Main Component ─────────────────────────────────────────────────────── */
 export default function AdminPage() {
+  const router = useRouter();
   const [activePage, setActivePage] = useState<AdminPage>('dashboard');
 
   // Double authentification (2FA / TOTP)
@@ -113,6 +115,7 @@ export default function AdminPage() {
   const [showShortcuts, setShowShortcuts] = useState(false);
 
   const [services, setServices] = useState<Service[]>([]);
+  const [loadError, setLoadError] = useState('');
   const [orders, setOrders] = useState<Order[]>([]);
   const [kpis, setKpis] = useState<Kpis>({ totalRevenue: 0, totalCogs: 0, totalInvestment: 0, netProfit: 0, marginPercentage: 0 });
   const [clients, setClients] = useState<Client[]>([]);
@@ -144,25 +147,36 @@ export default function AdminPage() {
   /* ─── Auth ───────────────────────────────────────────────────────────── */
   const doLogout = async () => {
     if (!confirm('Confirmer la déconnexion ?')) return;
-    await fetch('/api/admin/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'logout' }) });
-    window.location.href = '/admin/login';
+    try {
+      const response = await fetch('/api/admin/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'logout' }) });
+      if (!response.ok) { toast('Déconnexion impossible. Réessayez.'); return; }
+      router.replace('/admin/login');
+      router.refresh();
+    } catch { toast('Connexion au serveur impossible. Réessayez.'); }
   };
 
   /* ─── Data ────────────────────────────────────────────────────────────── */
-  const loadAll = async () => {
-    const [stockRes, clientRes, settRes, twoFaRes] = await Promise.all([
-      fetch('/api/admin/stock').then(r => r.json()),
-      fetch('/api/admin/clients').then(r => r.json()),
-      fetch('/api/admin/settings').then(r => r.json()),
-      fetch('/api/admin/2fa').then(r => r.json()).catch(() => ({})),
-    ]);
-    if (stockRes.success) { setServices(stockRes.services); setOrders(stockRes.orders); setKpis(stockRes.kpis); }
-    if (clientRes.success) setClients(clientRes.clients);
-    if (settRes.success) setSettings(settRes.settings);
-    if (twoFaRes.success) setTwoFaEnabled(twoFaRes.enabled);
-  };
+  const loadAll = useCallback(async () => {
+    try {
+      const [stockRes, clientRes, settRes, twoFaRes] = await Promise.all(
+        ['stock', 'clients', 'settings', '2fa'].map(async path => {
+          const response = await fetch(`/api/admin/${path}`);
+          if (response.status === 401) router.replace('/admin/login');
+          if (!response.ok) throw new Error('Chargement impossible');
+          const data = await response.json();
+          if (!data.success) throw new Error('Réponse invalide');
+          return data;
+        }),
+      );
+      setServices(stockRes.services); setOrders(stockRes.orders); setKpis(stockRes.kpis);
+      setClients(clientRes.clients);
+      setSettings(settRes.settings);
+      setTwoFaEnabled(twoFaRes.enabled);
+      setLoadError('');
+    } catch { setLoadError('Chargement impossible. Les données affichées peuvent être anciennes. Réessayez avant toute modification.'); }
+  }, [router]);
 
-  useEffect(() => { loadAll(); }, []);
+  useEffect(() => { void Promise.resolve().then(loadAll); }, [loadAll]);
 
   /* ─── Raccourcis clavier ──────────────────────────────────────────────── */
   useEffect(() => {
@@ -458,7 +472,7 @@ export default function AdminPage() {
     const r = await fetch('/api/admin/stock', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'update_stock', id: editStock.id, accountsBoughtPrice: editStock.accountsBoughtPrice, price: editStock.price, maxSlots: editStock.maxSlots, filledSlots: editStock.filledSlots, details: editStock.details }),
+      body: JSON.stringify({ action: 'update_stock', id: editStock.id, expectedUpdatedAt: editStock.updatedAt, accountsBoughtPrice: editStock.accountsBoughtPrice, price: editStock.price, maxSlots: editStock.maxSlots, filledSlots: editStock.filledSlots, details: editStock.details }),
     });
     const d = await r.json();
     if (d.success) { toast('Compte de stock mis à jour !'); setEditStock(null); loadAll(); }
@@ -663,6 +677,7 @@ export default function AdminPage() {
 
         {/* Main */}
         <main className="admin-main">
+          {loadError && <div className="admin-load-error error-box" role="alert">{loadError}<button className="btn btn-ghost btn-sm" onClick={loadAll}>Réessayer</button></div>}
 
           {/* ── DASHBOARD ── */}
           {activePage === 'dashboard' && (
@@ -692,24 +707,24 @@ export default function AdminPage() {
               </div>
               <div className="kpi-grid fade-in-up-stagger">
                 <div className="glass-panel kpi-card" style={accentStyle('linear-gradient(90deg, hsl(145,80%,48%), hsl(170,80%,50%))')}>
-                  <div className="kpi-label">Chiffre d&apos;affaires brut</div>
+                  <div className="kpi-label">Montant des commandes</div>
                   <div className="kpi-value" style={{ color: 'var(--accent-green)' }}>{fmt(filteredKpis.totalRevenue)}</div>
-                  <div className="kpi-sub">↑ Total des abonnements loués</div>
+                  <div className="kpi-sub">Tous statuts · pas un relevé d&apos;encaissements</div>
                 </div>
                 <div className="glass-panel kpi-card" style={accentStyle('linear-gradient(90deg, hsl(355,85%,58%), hsl(20,85%,58%))')}>
-                  <div className="kpi-label">Coût de revient (COGS)</div>
+                  <div className="kpi-label">Achats de comptes</div>
                   <div className="kpi-value" style={{ color: 'var(--accent-red)' }}>{fmt(filteredKpis.totalInvestment)}</div>
-                  <div className="kpi-sub">↓ Achats des comptes à l&apos;étranger</div>
+                  <div className="kpi-sub">Coûts saisis dans le stock</div>
                 </div>
                 <div className="glass-panel kpi-card" style={accentStyle('var(--gradient-aurora)')}>
-                  <div className="kpi-label">Bénéfice net réel</div>
+                  <div className="kpi-label">Marge indicative</div>
                   <div className="kpi-value gradient-text">{fmt(filteredKpis.netProfit)}</div>
-                  <div className="kpi-sub">↑ Marge nette cumulée</div>
+                  <div className="kpi-sub">Estimation · hors frais, taxes et remboursements</div>
                 </div>
                 <div className="glass-panel kpi-card" style={accentStyle('linear-gradient(90deg, hsl(42,100%,58%), hsl(36,100%,55%))')}>
-                  <div className="kpi-label">Taux de marge</div>
+                  <div className="kpi-label">Marge indicative (%)</div>
                   <div className="kpi-value" style={{ color: 'var(--accent-yellow)' }}>{filteredKpis.marginPercentage.toFixed(1).replace('.', ',')}%</div>
-                  <div className="kpi-sub">📊 Rentabilité globale</div>
+                  <div className="kpi-sub">Ne constitue pas un résultat comptable</div>
                 </div>
               </div>
 
@@ -717,7 +732,7 @@ export default function AdminPage() {
               <div className="glass-panel admin-card fade-in-up">
                 <div className="admin-card-head">
                   <div className="icon-bubble">📈</div>
-                  Bénéfices nets — 7 derniers jours
+                  Estimation par commandes — 7 derniers jours
                   <span style={{ marginLeft: 'auto', fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 500 }}>
                     Actualisé en direct
                   </span>

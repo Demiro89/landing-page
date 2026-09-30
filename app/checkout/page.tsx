@@ -18,6 +18,7 @@ interface ServiceDetails {
 interface PublicStockSummary {
   id: string;
   serviceId: string;
+  price: number;
 }
 
 type PayTab = 'cb' | 'paypal' | 'crypto';
@@ -28,10 +29,6 @@ const CRYPTO_META: Record<CryptoCoin, { label: string; color: string; symbol: st
   eth: { label: 'Ethereum (ETH)', color: '#627EEA', symbol: '⟠' },
   usdt: { label: 'USDT (TRC20)', color: '#26A17B', symbol: '₮' },
   ltc: { label: 'Litecoin (LTC)', color: '#345D9D', symbol: 'Ł' },
-};
-
-const FALLBACK_RATES: Record<CryptoCoin, number> = {
-  btc: 0.000017, eth: 0.00028, usdt: 1.0, ltc: 0.012,
 };
 
 function CheckoutContent() {
@@ -55,9 +52,11 @@ function CheckoutContent() {
   const [acceptedEligibility, setAcceptedEligibility] = useState(false);
   const [stockChecked, setStockChecked] = useState(false);
   const [stockAvailable, setStockAvailable] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [gateways, setGateways] = useState<Record<PayTab, boolean>>({ cb: false, paypal: false, crypto: false });
   const [manualOrderId, setManualOrderId] = useState<string | null>(null);
   const [manualBusy, setManualBusy] = useState(false);
-  const [cryptoRates, setCryptoRates] = useState<Record<CryptoCoin, number>>(FALLBACK_RATES);
+  const [cryptoRates, setCryptoRates] = useState<Record<CryptoCoin, number>>({ btc: 0, eth: 0, usdt: 0, ltc: 0 });
   const [ratesLive, setRatesLive] = useState(false);
   const [ratesUpdatedAt, setRatesUpdatedAt] = useState<Date | null>(null);
 
@@ -82,15 +81,15 @@ function CheckoutContent() {
           servicesRes.json() as Promise<{ success?: boolean; services?: ServiceDetails[] }>,
           stocksRes.json() as Promise<{ success?: boolean; stocks?: PublicStockSummary[] }>,
         ]);
-        if (servicesData.success) {
-          const found = servicesData.services?.find((s) => s.id === serviceId);
-          if (found) setService(found);
+        if (!servicesRes.ok || !stocksRes.ok || !servicesData.success || !stocksData.success) throw new Error('Checkout data unavailable');
+        const found = servicesData.services?.find((s) => s.id === serviceId);
+        const selectedStock = stocksData.stocks?.find((stock) => stock.id === stockId && stock.serviceId === serviceId);
+        if (found && selectedStock && Number.isFinite(selectedStock.price) && selectedStock.price > 0) {
+          setService({ ...found, price: selectedStock.price });
+          setStockAvailable(true);
         }
-        if (stocksData.success) {
-          setStockAvailable(
-            Boolean(stocksData.stocks?.some((stock) => stock.id === stockId && stock.serviceId === serviceId))
-          );
-        }
+      } catch {
+        setLoadError(true);
       } finally {
         setStockChecked(true);
         setLoadingService(false);
@@ -110,11 +109,16 @@ function CheckoutContent() {
             ltc: d.settings.crypto_ltc || '',
           });
           setPaypalEmail(d.settings.paypal_email || '');
+          const enabled = { cb: d.settings.gateway_cb === 'true', paypal: d.settings.gateway_paypal === 'true' && Boolean(d.settings.paypal_email), crypto: d.settings.gateway_crypto === 'true' && Boolean(d.settings.crypto_btc || d.settings.crypto_eth || d.settings.crypto_usdt || d.settings.crypto_ltc) };
+          setGateways(enabled);
+          setPayTab(enabled.cb ? 'cb' : enabled.paypal ? 'paypal' : 'crypto');
+        } else {
+          setErrorMsg('Les moyens de paiement sont temporairement indisponibles.');
         }
       })
-      .catch(() => {});
+      .catch(() => setErrorMsg('Les moyens de paiement sont temporairement indisponibles.'));
 
-    // Taux de change live via CoinGecko (sans clé API, fallback sur taux statiques).
+    // Do not display a payment amount if live conversion is unavailable.
     fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,litecoin,tether&vs_currencies=eur')
       .then(r => r.json())
       .then((d: Record<string, { eur: number }>) => {
@@ -122,13 +126,13 @@ function CheckoutContent() {
         const ethEur = d.ethereum?.eur;
         const ltcEur = d.litecoin?.eur;
         const usdtEur = d.tether?.eur;
-        if (btcEur && ethEur && ltcEur && usdtEur) {
+        if ([btcEur, ethEur, ltcEur, usdtEur].every(rate => Number.isFinite(rate) && rate > 0)) {
           setCryptoRates({ btc: 1 / btcEur, eth: 1 / ethEur, usdt: 1 / usdtEur, ltc: 1 / ltcEur });
           setRatesLive(true);
           setRatesUpdatedAt(new Date());
         }
       })
-      .catch(() => {}); // reste sur FALLBACK_RATES silencieusement
+      .catch(() => {});
   }, [serviceId, stockId]);
 
   const isYoutube = serviceId === 'youtube';
@@ -148,6 +152,7 @@ function CheckoutContent() {
       setErrorMsg('Cette offre n\'est plus disponible. Merci de sélectionner une autre offre.');
       return;
     }
+    if (!gateways.cb) { setErrorMsg('Ce moyen de paiement est indisponible.'); return; }
     setIsSubmitting(true);
     setErrorMsg('');
     try {
@@ -202,6 +207,11 @@ function CheckoutContent() {
       setErrorMsg('Cette offre n\'est plus disponible. Merci de sélectionner une autre offre.');
       return null;
     }
+    if (!gateways[method] || manualBusy) return null;
+    if (method === 'crypto' && (!ratesLive || !ratesUpdatedAt || Date.now() - ratesUpdatedAt.getTime() > 300000)) {
+      setErrorMsg('Le taux de conversion doit être actualisé avant de continuer. Rechargez la page ou contactez le support.');
+      return null;
+    }
     setManualBusy(true);
     setErrorMsg('');
     try {
@@ -214,6 +224,7 @@ function CheckoutContent() {
           email: email.trim().toLowerCase(),
           youtubeEmail: isYoutube ? youtubeEmail.trim().toLowerCase() : undefined,
           paymentMethod: method,
+          cryptoCoin: method === 'crypto' ? activeCoin : undefined,
           acceptedCgv,
           acceptedImmediateExecution: acceptedImmediate,
           acceptedEligibility,
@@ -250,9 +261,9 @@ function CheckoutContent() {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center' }}>
         <div className="dash-empty-icon" style={{ marginBottom: 24 }}>⚠️</div>
-        <h2 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: 10 }}>Session de checkout invalide</h2>
+        <h1 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: 10 }}>{loadError ? 'Paiement temporairement indisponible' : 'Cette offre n’est plus disponible'}</h1>
         <p style={{ fontSize: '0.9rem', color: 'var(--text-gray)', maxWidth: 420, marginBottom: 24 }}>
-          Le lien de paiement est erroné ou cette offre n&apos;est plus disponible actuellement.
+          {loadError ? 'Nous n’avons pas pu charger votre commande. Réessayez dans quelques instants.' : 'Contactez-nous pour connaître les prochaines disponibilités ou choisissez une autre offre.'}
         </p>
         <Link href="/" className="btn btn-primary">← Retour à la boutique</Link>
       </div>
@@ -269,10 +280,6 @@ function CheckoutContent() {
 
   return (
     <div style={{ minHeight: '100vh', position: 'relative' }}>
-      {/* Ambient glows */}
-      <div style={{ position: 'absolute', top: 60, left: '-15%', width: 520, height: 520, borderRadius: '50%', background: 'radial-gradient(circle, hsla(258,90%,66%,0.16), transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none', zIndex: 0 }} />
-      <div style={{ position: 'absolute', top: 300, right: '-12%', width: 460, height: 460, borderRadius: '50%', background: 'radial-gradient(circle, hsla(239,84%,67%,0.12), transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none', zIndex: 0 }} />
-
       {/* Navbar */}
       <header className="navbar">
         <div className="nav-inner">
@@ -307,7 +314,8 @@ function CheckoutContent() {
               Choisir un moyen de paiement
             </div>
 
-            {errorMsg && <div className="error-box">⚠️ {errorMsg}</div>}
+            {errorMsg && <div className="error-box" role="alert">{errorMsg}</div>}
+            {!Object.values(gateways).some(Boolean) && <p role="status">Aucun moyen de paiement disponible actuellement.</p>}
 
             {/* Pay tabs */}
             <div className="pay-tabs">
@@ -320,6 +328,8 @@ function CheckoutContent() {
                   key={tab.id}
                   onClick={() => { setPayTab(tab.id); setManualOrderId(null); setErrorMsg(''); }}
                   className={`pay-tab ${payTab === tab.id ? 'active' : ''}`}
+                  disabled={!gateways[tab.id] || manualBusy || isSubmitting}
+                  aria-pressed={payTab === tab.id}
                 >
                   <span className="pay-icon">{tab.icon}</span>
                   {tab.label}
@@ -436,7 +446,7 @@ function CheckoutContent() {
                 </div>
                 <button
                   type="submit"
-                  disabled={isSubmitting || !email || (isYoutube && !youtubeEmail.trim()) || !consentOk || !stockAvailable}
+                  disabled={isSubmitting || !gateways.cb || !email || (isYoutube && !youtubeEmail.trim()) || !consentOk || !stockAvailable}
                   className="btn-pay"
                 >
                   🔒 {isSubmitting ? 'Redirection…' : !consentOk ? 'Cochez les 3 confirmations pour continuer' : !stockAvailable ? 'Offre indisponible' : `Régler ${service.price.toFixed(2)}€ par carte`}
@@ -508,7 +518,7 @@ function CheckoutContent() {
                 ) : (
                   <button
                     type="button"
-                    disabled={!consentOk || manualBusy || !email || !stockAvailable || !paypalEmail}
+                    disabled={!gateways.paypal || !consentOk || manualBusy || !email || !stockAvailable || !paypalEmail}
                     onClick={async () => {
                       const id = await createManualOrder('paypal');
                       if (id) window.open(paypalUrl, '_blank', 'noopener,noreferrer');
@@ -535,6 +545,8 @@ function CheckoutContent() {
                   {(Object.keys(CRYPTO_META) as CryptoCoin[]).map(coin => (
                     <button
                       key={coin}
+                      disabled={manualBusy || !!manualOrderId || !cryptoAddr[coin]}
+                      aria-pressed={activeCoin === coin}
                       onClick={() => setActiveCoin(coin)}
                       className={`crypto-tile ${activeCoin === coin ? 'active' : ''}`}
                       style={activeCoin === coin ? {
@@ -556,12 +568,12 @@ function CheckoutContent() {
                         Montant à envoyer
                       </div>
                       <div style={{ fontSize: '1.3rem', fontWeight: 900, fontFamily: "'Outfit',sans-serif", color: CRYPTO_META[activeCoin].color, marginTop: 4 }}>
-                        {(service.price * cryptoRates[activeCoin]).toFixed(cryptoPrecision(activeCoin))} {activeCoin.toUpperCase()}
+                        {ratesLive ? `${(service.price * cryptoRates[activeCoin]).toFixed(cryptoPrecision(activeCoin))} ${activeCoin.toUpperCase()}` : 'Conversion indisponible'}
                       </div>
                       <div style={{ fontSize: '0.68rem', marginTop: 4, color: ratesLive ? '#10b981' : '#f59e0b', fontWeight: 600 }}>
                         {ratesLive
                           ? `✅ Taux live · ${ratesUpdatedAt?.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
-                          : '⚠️ Taux approximatifs — vérifiez avant d\'envoyer'}
+                          : 'Contactez le support avant tout transfert.'}
                       </div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
@@ -600,7 +612,7 @@ function CheckoutContent() {
                 ) : (
                   <button
                     type="button"
-                    disabled={!consentOk || manualBusy || !email || !cryptoAddr[activeCoin] || !stockAvailable}
+                    disabled={!gateways.crypto || !ratesLive || !consentOk || manualBusy || !email || !cryptoAddr[activeCoin] || !stockAvailable}
                     onClick={() => createManualOrder('crypto')}
                     className="btn btn-primary"
                     style={{ display: 'block', width: '100%', textAlign: 'center', marginTop: 14, opacity: (consentOk && cryptoAddr[activeCoin] && stockAvailable) ? 1 : 0.5, cursor: (consentOk && cryptoAddr[activeCoin] && stockAvailable) ? 'pointer' : 'not-allowed' }}
