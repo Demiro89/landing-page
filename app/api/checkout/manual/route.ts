@@ -4,6 +4,9 @@ import { getCurrentCustomer } from '@/lib/clientAuth';
 import { enforceRateLimit } from '@/lib/rateLimit';
 import { sendTelegramNotification } from '@/lib/telegram';
 import { LEGAL_LAST_UPDATED } from '@/lib/legalConfig';
+import { validateCheckout } from '@/lib/checkoutValidation';
+import { clientIp } from '@/lib/clientIp';
+import { isGatewayEnabled } from '@/lib/paymentSettings';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,41 +23,32 @@ const METHOD_LABELS: Record<string, string> = {
  */
 export async function POST(request: Request) {
   try {
-    const limited = await enforceRateLimit(request, 'checkout-manual', 10, 600);
+    const limited = await enforceRateLimit(request, 'checkout-manual', 10, 600, true);
     if (limited) return limited;
 
-    const { serviceId, stockAccountId, email, youtubeEmail, paymentMethod, acceptedCgv, acceptedImmediateExecution, acceptedEligibility } =
-      await request.json();
-
-    if (!serviceId || !stockAccountId || !email) {
-      return NextResponse.json({ error: 'Paramètres manquants' }, { status: 400 });
-    }
-    const isValidId = (v: unknown) =>
-      typeof v === 'string' && v.length > 0 && v.length <= 64 && /^[A-Za-z0-9_-]+$/.test(v);
-    if (!isValidId(serviceId) || !isValidId(stockAccountId)) {
-      return NextResponse.json({ error: 'Identifiant invalide' }, { status: 400 });
+    const body = await request.json();
+    const input = validateCheckout(body);
+    if ('error' in input) return NextResponse.json({ error: input.error }, { status: 400 });
+    const { serviceId, stockAccountId, email: cleanedEmail, youtubeEmail } = input;
+    const { paymentMethod } = body;
+    if (paymentMethod !== 'paypal' && paymentMethod !== 'crypto') {
+      return NextResponse.json({ error: 'Moyen de paiement invalide' }, { status: 400 });
     }
     const methodLabel = METHOD_LABELS[paymentMethod];
     if (!methodLabel) {
       return NextResponse.json({ error: 'Moyen de paiement invalide' }, { status: 400 });
     }
-    if (!acceptedCgv || !acceptedImmediateExecution || !acceptedEligibility) {
-      return NextResponse.json(
-        { error: "Vous devez accepter les CGV, la demande d'exécution immédiate et confirmer votre éligibilité." },
-        { status: 400 }
-      );
+    if (!(await isGatewayEnabled(paymentMethod))) {
+      return NextResponse.json({ error: 'Ce moyen de paiement est indisponible.' }, { status: 503 });
     }
-    const cleanedEmail = String(email).trim().toLowerCase();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanedEmail)) {
-      return NextResponse.json({ error: 'Adresse email invalide' }, { status: 400 });
-    }
-    if (serviceId === 'youtube' && !youtubeEmail) {
-      return NextResponse.json({ error: 'Adresse e-mail YouTube requise pour YouTube Premium' }, { status: 400 });
+    const destinationKey = paymentMethod === 'paypal' ? 'paypal_email' : ['btc', 'eth', 'usdt', 'ltc'].includes(body.cryptoCoin) ? `crypto_${body.cryptoCoin}` : null;
+    if (!destinationKey || !(await prisma.setting.findUnique({ where: { key: destinationKey } }))?.value) {
+      return NextResponse.json({ error: 'Ce moyen de paiement n’est pas configuré.' }, { status: 503 });
     }
 
     const service = await prisma.service.findUnique({ where: { id: serviceId } });
     const stock = await prisma.stockAccount.findUnique({ where: { id: stockAccountId } });
-    if (!service || !stock) {
+    if (!service?.active || !stock) {
       return NextResponse.json({ error: 'Service ou stock introuvable' }, { status: 404 });
     }
     if (stock.serviceId !== serviceId) {
@@ -63,43 +57,25 @@ export async function POST(request: Request) {
     if (stock.filledSlots >= stock.maxSlots) {
       return NextResponse.json({ error: 'Plus de places disponibles dans ce compte' }, { status: 400 });
     }
+    if (!Number.isFinite(stock.price) || Math.round(stock.price * 100) < 1) {
+      return NextResponse.json({ error: 'Cette offre est temporairement indisponible.' }, { status: 409 });
+    }
 
     // Preuve d'acceptation des CGV : horodatage serveur + métadonnées techniques.
     const acceptedAt = new Date();
     const acceptanceUserAgent = (request.headers.get('user-agent') || '').slice(0, 450);
-    const acceptanceIp = (
-      request.headers.get('x-real-ip')?.trim() ||
-      (request.headers.get('x-forwarded-for') || '').split(',')[0].trim()
-    ).slice(0, 90);
+    const acceptanceIp = clientIp(request);
     const termsVersion = LEGAL_LAST_UPDATED;
 
-    // Évite les doublons sur double-clic : réutilise une commande en attente identique.
-    const existing = await prisma.order.findFirst({
-      where: { stockAccountId, clientEmail: cleanedEmail, status: 'pending' },
-    });
-    if (existing) {
-      await prisma.order.update({
-        where: { id: existing.id },
-        data: {
-          price: stock.price,
-          total: stock.price,
-          paymentMethod: methodLabel,
-          youtubeEmail: youtubeEmail ? String(youtubeEmail).trim().toLowerCase() : null,
-          acceptedCgv: true,
-          acceptedImmediateExecution: true,
-          acceptedAt,
-          acceptedTermsAt: acceptedAt,
-          acceptedWithdrawalWaiverAt: acceptedAt,
-          acceptedEligibilityAt: acceptedAt,
-          termsVersion,
-          acceptanceUserAgent,
-          acceptanceIp,
-        },
-      });
+    const customer = await getCurrentCustomer();
+    const ownerId = customer?.email === cleanedEmail ? customer.id : null;
+    // Reuse only an authenticated owner's identical order; never overwrite proof.
+    const existing = ownerId ? await prisma.order.findFirst({
+      where: { stockAccountId, clientEmail: cleanedEmail, customerId: ownerId, status: 'pending', paymentMethod: methodLabel, youtubeEmail },
+    }) : null;
+    if (existing && ownerId && existing.price === stock.price) {
       return NextResponse.json({ success: true, orderId: existing.id, reused: true });
     }
-
-    const customer = await getCurrentCustomer();
 
     const order = await prisma.order.create({
       data: {
@@ -111,7 +87,7 @@ export async function POST(request: Request) {
         clientEmail: cleanedEmail,
         youtubeEmail: youtubeEmail ? String(youtubeEmail).trim().toLowerCase() : null,
         paymentMethod: methodLabel,
-        customerId: customer?.id || null,
+        customerId: ownerId,
         status: 'pending',
         acceptedCgv: true,
         acceptedImmediateExecution: true,

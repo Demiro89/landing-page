@@ -1,4 +1,5 @@
 import { prisma } from './prisma';
+import { clientIp } from './clientIp';
 
 export interface AuditEntry {
   action: string;
@@ -9,12 +10,7 @@ export interface AuditEntry {
 }
 
 export function clientIpFromRequest(request: Request): string {
-  // x-real-ip est défini par l'edge Vercel (non falsifiable).
-  // x-forwarded-for peut être préfixé de fausses entrées par le client.
-  const realIp = request.headers.get('x-real-ip')?.trim();
-  if (realIp) return realIp;
-  const xff = request.headers.get('x-forwarded-for') || '';
-  return xff.split(',')[0].trim() || 'unknown';
+  return clientIp(request);
 }
 
 export async function writeAuditLog(entry: AuditEntry): Promise<void> {

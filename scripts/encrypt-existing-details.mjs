@@ -11,16 +11,16 @@ import crypto from 'crypto';
 import { PrismaClient } from '@prisma/client';
 
 const ALGO = 'aes-256-gcm';
-const PREFIX = 'enc:v1:';
+const PREFIX = 'enc:v2:';
 
 const raw = process.env.ENCRYPTION_KEY;
-if (!raw || raw.length < 16) {
+if (!raw || raw.length < 32) {
   console.error('❌ ENCRYPTION_KEY manquant ou trop court. Abandon.');
   process.exit(1);
 }
-const KEY = crypto.createHash('sha256').update(raw).digest();
+const KEY = crypto.scryptSync(raw, 'streammalin-enc-v1', 32);
 
-const isEncrypted = (v) => typeof v === 'string' && v.startsWith(PREFIX);
+const isEncrypted = (v) => typeof v === 'string' && (v.startsWith(PREFIX) || v.startsWith('enc:v1:'));
 
 function encrypt(plain) {
   if (plain == null || plain === '' || isEncrypted(plain)) return plain;
@@ -40,16 +40,16 @@ async function main() {
   const stocks = await prisma.stockAccount.findMany();
   for (const s of stocks) {
     if (!isEncrypted(s.details)) {
-      await prisma.stockAccount.update({ where: { id: s.id }, data: { details: encrypt(s.details) } });
-      stocksDone++;
+      const changed = await prisma.stockAccount.updateMany({ where: { id: s.id, details: s.details }, data: { details: encrypt(s.details) } });
+      stocksDone += changed.count;
     }
   }
 
   const orders = await prisma.order.findMany();
   for (const o of orders) {
     if (!isEncrypted(o.details)) {
-      await prisma.order.update({ where: { id: o.id }, data: { details: encrypt(o.details) } });
-      ordersDone++;
+      const changed = await prisma.order.updateMany({ where: { id: o.id, details: o.details }, data: { details: encrypt(o.details) } });
+      ordersDone += changed.count;
     }
   }
 

@@ -6,6 +6,7 @@ import { COMPANY, CURRENT_VAT_EXEMPTION_TEXT } from '@/lib/legalConfig';
 import { getCurrentCustomer } from '@/lib/clientAuth';
 import { isAdminAuthenticated } from '@/lib/adminAuth';
 import PrintButton from '@/components/PrintButton';
+import { ownsOrder } from '@/lib/orderAccess';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,11 +32,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
 
   // Contrôle de propriété : seul l'admin ou le client propriétaire peut voir la facture.
   if (!isAdmin && customer) {
-    const email = customer.email.toLowerCase();
-    const owns =
-      (invoice.order?.customerId != null && invoice.order.customerId === customer.id) ||
-      invoice.clientEmail.toLowerCase() === email ||
-      invoice.order?.clientEmail.toLowerCase() === email;
+    const owns = ownsOrder(invoice.order, customer);
     // On renvoie un 404 plutôt qu'un 403 pour ne pas révéler l'existence de la facture.
     if (!owns) notFound();
   }

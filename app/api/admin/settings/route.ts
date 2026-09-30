@@ -41,7 +41,7 @@ export async function GET() {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
   }
   try {
-    const rows = await prisma.setting.findMany();
+    const rows = await prisma.setting.findMany({ where: { key: { in: [...ALLOWED_KEYS] } } });
     const settings: Record<string, string> = { ...DEFAULT_SETTINGS };
     rows.forEach((r) => {
       if (ALLOWED_KEYS.has(r.key)) settings[r.key] = r.value;
@@ -60,20 +60,27 @@ export async function PUT(request: Request) {
   if (limited) return limited;
   try {
     const body = await request.json();
-    const updates: Array<{ key: string; value: string }> = Array.isArray(body.settings) ? body.settings : [];
+    if (!body || !Array.isArray(body.settings) || body.settings.length > ALLOWED_KEYS.size) {
+      return NextResponse.json({ error: 'Paramètres invalides' }, { status: 400 });
+    }
+    const updates: Array<{ key: string; value: string }> = body.settings;
+    if (updates.some((item) => !item || typeof item.key !== 'string' || typeof item.value !== 'string' || item.value.length > 254 || /[<>\r\n]/.test(item.value)) || new Set(updates.map(item => item.key)).size !== updates.length) {
+      return NextResponse.json({ error: 'Valeurs invalides ou dupliquées' }, { status: 400 });
+    }
+    if (updates.some(({ key, value }) => key.startsWith('gateway_') && value !== 'true' && value !== 'false')) {
+      return NextResponse.json({ error: 'État de passerelle invalide' }, { status: 400 });
+    }
 
     const forbidden = updates.filter(({ key }) => !ALLOWED_KEYS.has(key));
     if (forbidden.length > 0) {
       return NextResponse.json({ error: `Clé(s) non autorisée(s) : ${forbidden.map(f => f.key).join(', ')}` }, { status: 400 });
     }
 
-    for (const { key, value } of updates) {
-      await prisma.setting.upsert({
+    await prisma.$transaction(updates.map(({ key, value }) => prisma.setting.upsert({
         where: { key },
         update: { value: String(value) },
         create: { key, value: String(value) },
-      });
-    }
+      })));
 
     const keys = updates.map(u => u.key).join(', ');
     void writeAuditLog({ action: 'settings.update', entityType: 'settings', description: `Paramètres modifiés : ${keys}`, ip: clientIpFromRequest(request) });

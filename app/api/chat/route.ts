@@ -4,6 +4,7 @@ import { sendTelegramNotification } from '@/lib/telegram';
 import { isAdminAuthenticated } from '@/lib/adminAuth';
 import { getCurrentCustomer } from '@/lib/clientAuth';
 import { enforceRateLimit } from '@/lib/rateLimit';
+import { ownsOrder } from '@/lib/orderAccess';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,14 +12,6 @@ const MAX_MESSAGE_LENGTH = 2000;
 const MAX_SENDER_LENGTH = 120;
 
 /** Un client ne peut accéder qu'aux fils liés à ses propres commandes. */
-function ownsOrder(
-  order: { clientEmail: string; customerId: string | null },
-  customer: { id: string; email: string }
-): boolean {
-  if (order.customerId && order.customerId === customer.id) return true;
-  return order.clientEmail.toLowerCase() === customer.email.toLowerCase();
-}
-
 /** Échappe les caractères HTML pour les notifications Telegram (mode HTML). */
 function escapeHtml(s: string): string {
   return s
@@ -73,7 +66,9 @@ export async function GET(request: Request) {
       if (!thread.order || !ownsOrder(thread.order, customer)) {
         return NextResponse.json({ error: 'Accès refusé' }, { status: 403 });
       }
-      return NextResponse.json({ success: true, thread });
+      // Support history must never be a second endpoint for stock credentials.
+      const { order: threadOrder, ...history } = thread;
+      return NextResponse.json({ success: true, thread: { ...history, order: { id: threadOrder.id, service: threadOrder.service } } });
     }
 
     // 3. Admin avec orderId
@@ -160,7 +155,7 @@ export async function POST(request: Request) {
     }
 
     const message = await prisma.message.create({
-      data: { threadId: thread.id, sender, text },
+      data: { threadId: thread.id, sender: isAdmin ? 'Support StreamMalin' : 'Vous', text },
     });
 
     // Notification Telegram uniquement quand c'est le client qui écrit.
