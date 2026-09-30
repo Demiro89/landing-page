@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentCustomer } from '@/lib/clientAuth';
 import { decrypt } from '@/lib/crypto';
+import { ACCESS_STATUSES } from '@/lib/orderAccess';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,7 +24,7 @@ export async function GET() {
     });
 
     const orders = await prisma.order.findMany({
-      where: { customerId: customer.id, status: 'active' },
+      where: { customerId: customer.id, status: { in: [...ACCESS_STATUSES] } },
       include: {
         service: true,
         chats: {

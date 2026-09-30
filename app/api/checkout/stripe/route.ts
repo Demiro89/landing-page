@@ -6,6 +6,9 @@ import { createInvoiceForOrder } from '@/lib/invoice';
 import { decrypt } from '@/lib/crypto';
 import { LEGAL_LAST_UPDATED } from '@/lib/legalConfig';
 import { enforceRateLimit } from '@/lib/rateLimit';
+import { validateCheckout } from '@/lib/checkoutValidation';
+import { clientIp } from '@/lib/clientIp';
+import { isGatewayEnabled } from '@/lib/paymentSettings';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,37 +24,15 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 export async function POST(request: Request) {
   try {
     // Limite la création de sessions Stripe (anti-abus / anti-spam de checkout).
-    const limited = await enforceRateLimit(request, 'checkout-stripe', 15, 600);
+    const limited = await enforceRateLimit(request, 'checkout-stripe', 15, 600, true);
     if (limited) return limited;
 
-    const { serviceId, stockAccountId, email, youtubeEmail, acceptedCgv, acceptedImmediateExecution, acceptedEligibility } = await request.json();
-
-    if (!serviceId || !stockAccountId || !email) {
-      return NextResponse.json({ error: 'Paramètres manquants' }, { status: 400 });
-    }
-
-    // Validation de format : identifiants alphanumériques bornés (defense-in-depth).
-    const isValidId = (v: unknown) =>
-      typeof v === 'string' && v.length > 0 && v.length <= 64 && /^[A-Za-z0-9_-]+$/.test(v);
-    if (!isValidId(serviceId) || !isValidId(stockAccountId)) {
-      return NextResponse.json({ error: 'Identifiant invalide' }, { status: 400 });
-    }
-
-    const cleanedEmail = String(email).trim().toLowerCase();
-    const cleanedYoutubeEmail = youtubeEmail ? String(youtubeEmail).trim().toLowerCase() : '';
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanedEmail)) {
-      return NextResponse.json({ error: 'Adresse email invalide' }, { status: 400 });
-    }
-
-    if (serviceId === 'youtube' && !cleanedYoutubeEmail) {
-      return NextResponse.json({ error: 'Adresse e-mail YouTube requise pour YouTube Premium' }, { status: 400 });
-    }
-
-    if (!acceptedCgv || !acceptedImmediateExecution || !acceptedEligibility) {
-      return NextResponse.json(
-        { error: 'Vous devez accepter les CGV, la demande d\'exécution immédiate et confirmer votre éligibilité.' },
-        { status: 400 }
-      );
+    const input = validateCheckout(await request.json());
+    if ('error' in input) return NextResponse.json({ error: input.error }, { status: 400 });
+    const { serviceId, stockAccountId, email: cleanedEmail, youtubeEmail } = input;
+    const cleanedYoutubeEmail = youtubeEmail || '';
+    if (!(await isGatewayEnabled('cb'))) {
+      return NextResponse.json({ error: 'Ce moyen de paiement est indisponible.' }, { status: 503 });
     }
 
     // Preuve d'acceptation : horodatage serveur + métadonnées techniques
@@ -59,16 +40,13 @@ export async function POST(request: Request) {
     const acceptanceUserAgent = (request.headers.get('user-agent') || '').slice(0, 450);
     // x-real-ip est défini par l'edge Vercel (non falsifiable), contrairement à
     // x-forwarded-for que le client peut préfixer. Preuve légale d'acceptation.
-    const acceptanceIp = (
-      request.headers.get('x-real-ip')?.trim() ||
-      (request.headers.get('x-forwarded-for') || '').split(',')[0].trim()
-    ).slice(0, 90);
+    const acceptanceIp = clientIp(request);
     const termsVersion = LEGAL_LAST_UPDATED;
 
     const service = await prisma.service.findUnique({ where: { id: serviceId } });
     const stockAccount = await prisma.stockAccount.findUnique({ where: { id: stockAccountId } });
 
-    if (!service || !stockAccount) {
+    if (!service?.active || !stockAccount) {
       return NextResponse.json({ error: 'Service ou stock introuvable' }, { status: 404 });
     }
 
@@ -78,6 +56,9 @@ export async function POST(request: Request) {
 
     if (stockAccount.filledSlots >= stockAccount.maxSlots) {
       return NextResponse.json({ error: 'Plus de places disponibles dans ce compte' }, { status: 400 });
+    }
+    if (!Number.isFinite(stockAccount.price) || Math.round(stockAccount.price * 100) < 1) {
+      return NextResponse.json({ error: 'Cette offre est temporairement indisponible.' }, { status: 409 });
     }
 
     const stripeConfigured = !!process.env.STRIPE_SECRET_KEY && process.env.STRIPE_SECRET_KEY !== 'sk_test_mock';
@@ -100,7 +81,7 @@ export async function POST(request: Request) {
       console.log('--- MODE SIMULATION STRIPE (subscription, dev) ---');
       const order = await prisma.$transaction(async (tx) => {
         const stockIncrement = await tx.stockAccount.updateMany({
-          where: { id: stockAccountId, filledSlots: { lt: stockAccount.maxSlots } },
+          where: { id: stockAccountId, filledSlots: { lt: tx.stockAccount.fields.maxSlots }, service: { active: true } },
           data: { filledSlots: { increment: 1 } },
         });
         if (stockIncrement.count === 0) {
@@ -148,7 +129,7 @@ export async function POST(request: Request) {
         amount: order.total,
         paymentMethod: 'Carte bancaire (Stripe)',
       }).catch((err) => { console.error('[invoice] simulation error:', err); return null; });
-      await sendOrderDetailsEmail(cleanedEmail, service.name, decrypt(stockAccount.details), order.id, cleanedYoutubeEmail || undefined, {
+      await sendOrderDetailsEmail(cleanedEmail, service.name, decrypt(order.details), order.id, cleanedYoutubeEmail || undefined, {
         amount: order.total,
         invoiceId: invoice?.id,
         invoiceNumber: invoice?.number,

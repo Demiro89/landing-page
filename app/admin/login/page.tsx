@@ -14,7 +14,8 @@ export default function AdminLoginPage() {
   useEffect(() => {
     fetch('/api/admin/auth')
       .then(r => r.json())
-      .then(d => { if (d.authenticated) router.replace('/admin'); });
+      .then(d => { if (d.authenticated) router.replace('/admin'); })
+      .catch(() => setLoginError('Connexion au serveur impossible. Réessayez.'));
   }, [router]);
 
   const doLogin = async (e: React.FormEvent) => {
@@ -41,6 +42,8 @@ export default function AdminLoginPage() {
         return;
       }
       setLoginError(d.error || 'Identifiants incorrects.');
+    } catch {
+      setLoginError('Connexion au serveur impossible. Réessayez.');
     } finally {
       setLoading(false);
     }
@@ -48,9 +51,6 @@ export default function AdminLoginPage() {
 
   return (
     <div className="admin-login-wrap">
-      <div style={{ position: 'absolute', top: '20%', left: '15%', width: 360, height: 360, borderRadius: '50%', background: 'radial-gradient(circle, hsla(258,90%,66%,0.2), transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none' }} />
-      <div style={{ position: 'absolute', bottom: '15%', right: '12%', width: 280, height: 280, borderRadius: '50%', background: 'radial-gradient(circle, hsla(239,84%,67%,0.14), transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none' }} />
-
       <div className="glass-panel admin-login-card">
         <div className="admin-login-icon">SM</div>
         <h2 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: 6 }}>
@@ -63,9 +63,11 @@ export default function AdminLoginPage() {
         <form onSubmit={doLogin} style={{ textAlign: 'left' }}>
           {!needsTotp ? (
             <div className="form-field">
-              <label className="form-label">Mot de passe</label>
+              <label className="form-label" htmlFor="admin-password">Mot de passe</label>
               <input
+                id="admin-password"
                 type="password"
+                maxLength={128}
                 placeholder="••••••••"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
@@ -77,10 +79,13 @@ export default function AdminLoginPage() {
             </div>
           ) : (
             <div className="form-field">
-              <label className="form-label">Code de vérification (2FA)</label>
+              <label className="form-label" htmlFor="admin-totp">Code de vérification (2FA)</label>
               <input
+                id="admin-totp"
                 type="text"
                 inputMode="numeric"
+                maxLength={6}
+                pattern="[0-9]{6}"
                 autoComplete="one-time-code"
                 placeholder="123456"
                 value={totpCode}
@@ -95,7 +100,7 @@ export default function AdminLoginPage() {
             </div>
           )}
 
-          {loginError && <div className="error-box">{loginError}</div>}
+          {loginError && <div className="error-box" role="alert">{loginError}</div>}
 
           <button type="submit" className="btn-pay" disabled={loading} style={{ marginTop: 4 }}>
             {loading ? 'Vérification…' : 'Connexion'}
@@ -103,7 +108,7 @@ export default function AdminLoginPage() {
         </form>
 
         <div style={{ marginTop: 20, fontSize: '0.7rem', color: 'var(--text-muted)', textAlign: 'center' }}>
-          Accès sécurisé · Toutes les tentatives sont enregistrées
+          StreamMalin · Administration
         </div>
       </div>
     </div>

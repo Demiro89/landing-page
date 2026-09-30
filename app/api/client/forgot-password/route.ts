@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { generateVerificationToken } from '@/lib/clientAuth';
 import { sendResetPasswordEmail } from '@/lib/nodemailer';
 import { enforceRateLimit } from '@/lib/rateLimit';
+import { normalizeEmail } from '@/lib/checkoutValidation';
 
 export const dynamic = 'force-dynamic';
 const errorMessage = (error: unknown) => {
@@ -18,11 +19,11 @@ export async function POST(request: Request) {
     if (limited) return limited;
 
     const { email } = await request.json();
-    if (!email) {
+    const normalized = normalizeEmail(email);
+    if (!normalized) {
       return NextResponse.json({ error: 'Email requis' }, { status: 400 });
     }
 
-    const normalized = email.toLowerCase().trim();
     const customer = await prisma.customer.findUnique({ where: { email: normalized } });
 
     // Toujours répondre succès pour ne pas révéler si l'email existe

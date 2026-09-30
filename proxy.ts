@@ -5,6 +5,8 @@ import { verifySiteAccessToken, SITE_ACCESS_COOKIE } from './lib/siteAccess';
 const ADMIN_COOKIE = 'ADMIN_SECRET_TOKEN';
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 const CSRF_EXEMPT = ['/api/stripe/webhook'];
+// These endpoints authenticate the provider themselves, without browser cookies.
+const GATE_EXEMPT = new Set(['/api/stripe/webhook', '/api/cron/cleanup']);
 
 function forbidden() {
   return NextResponse.json(
@@ -27,7 +29,7 @@ function withCsp(request: NextRequest): NextResponse {
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' data: blob: https:",
-    `connect-src 'self' https://api.stripe.com${isProd ? '' : ' ws:'}`,
+    `connect-src 'self' https://api.stripe.com https://api.coingecko.com${isProd ? '' : ' ws:'}`,
     "frame-src https://js.stripe.com https://hooks.stripe.com",
     "object-src 'none'",
     "worker-src 'none'",
@@ -43,6 +45,9 @@ function withCsp(request: NextRequest): NextResponse {
 
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set('Content-Security-Policy', csp);
+  if (request.nextUrl.pathname.startsWith('/api/') || request.nextUrl.pathname.startsWith('/facture/')) {
+    response.headers.set('Cache-Control', 'private, no-store');
+  }
   return response;
 }
 
@@ -54,7 +59,7 @@ export function proxy(request: NextRequest) {
    * pas saisi le bon code (cookie SITE_ACCESS valide), tout est redirigé vers
    * /acces. La page /acces et son API /api/acces restent toujours joignables. */
   if (process.env.SITE_ACCESS_CODE) {
-    const isGatePath = pathname === '/acces' || pathname.startsWith('/api/acces');
+    const isGatePath = pathname === '/acces' || pathname === '/api/acces' || GATE_EXEMPT.has(pathname);
     const hasAccess = verifySiteAccessToken(request.cookies.get(SITE_ACCESS_COOKIE)?.value);
 
     if (!isGatePath && !hasAccess) {
@@ -84,20 +89,19 @@ export function proxy(request: NextRequest) {
 
   /* ── CSRF protection for mutating API requests ── */
   if (pathname.startsWith('/api') && !SAFE_METHODS.has(request.method)) {
-    if (!CSRF_EXEMPT.some((p) => pathname.startsWith(p))) {
-      const host = request.headers.get('host');
+    if (!CSRF_EXEMPT.includes(pathname)) {
       const source = request.headers.get('origin') || request.headers.get('referer');
 
       // Fail-closed: mutating requests without a verifiable origin are rejected.
-      if (!host || !source) return forbidden();
+      if (!source) return forbidden();
 
-      let sourceHost: string;
+      let sourceOrigin: string;
       try {
-        sourceHost = new URL(source).host;
+        sourceOrigin = new URL(source).origin;
       } catch {
         return forbidden();
       }
-      if (sourceHost !== host) return forbidden();
+      if (sourceOrigin !== request.nextUrl.origin) return forbidden();
     }
   }
 

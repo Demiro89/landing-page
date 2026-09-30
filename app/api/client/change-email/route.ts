@@ -3,11 +3,12 @@ import { getCurrentCustomer, verifyPassword, generateVerificationToken } from '@
 import { prisma } from '@/lib/prisma';
 import { enforceRateLimit } from '@/lib/rateLimit';
 import { sendEmailChangeVerificationEmail } from '@/lib/nodemailer';
+import { normalizeEmail } from '@/lib/checkoutValidation';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
-  const limited = await enforceRateLimit(request, 'change-email', 3, 3600);
+  const limited = await enforceRateLimit(request, 'change-email', 3, 3600, true);
   if (limited) return limited;
 
   const customer = await getCurrentCustomer();
@@ -17,11 +18,10 @@ export async function POST(request: Request) {
 
   const { newEmail, currentPassword } = await request.json();
 
-  if (!newEmail || !currentPassword) {
+  const normalized = normalizeEmail(newEmail);
+  if (!normalized || typeof currentPassword !== 'string' || !currentPassword || currentPassword.length > 128) {
     return NextResponse.json({ error: 'Nouvel email et mot de passe actuel requis' }, { status: 400 });
   }
-
-  const normalized = newEmail.toLowerCase().trim();
 
   if (normalized === customer.email.toLowerCase()) {
     return NextResponse.json({ error: 'Le nouvel email est identique à l\'adresse actuelle' }, { status: 400 });

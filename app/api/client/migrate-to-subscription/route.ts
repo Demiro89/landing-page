@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { prisma } from '@/lib/prisma';
 import { getCurrentCustomer } from '@/lib/clientAuth';
+import { ownsOrder } from '@/lib/orderAccess';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,12 +39,15 @@ export async function POST(request: Request) {
       where: { id: orderId },
       include: { service: true },
     });
-    if (!order || order.clientEmail.toLowerCase() !== customer.email.toLowerCase()) {
+    if (!order || !ownsOrder(order, customer)) {
       return NextResponse.json({ error: 'Commande introuvable' }, { status: 404 });
     }
 
     if (order.stripeSubscriptionId) {
       return NextResponse.json({ error: 'Cet abonnement est déjà géré par Stripe' }, { status: 400 });
+    }
+    if (order.status !== 'active') {
+      return NextResponse.json({ error: 'Seul un abonnement actif peut être migré.' }, { status: 409 });
     }
 
     // Calculer la fin de période payée (date + 30 jours)

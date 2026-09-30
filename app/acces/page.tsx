@@ -35,9 +35,6 @@ export default function AccesPage() {
 
   return (
     <div className="admin-login-wrap">
-      <div style={{ position: 'absolute', top: '20%', left: '15%', width: 360, height: 360, borderRadius: '50%', background: 'radial-gradient(circle, hsla(258,90%,66%,0.2), transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none' }} />
-      <div style={{ position: 'absolute', bottom: '15%', right: '12%', width: 280, height: 280, borderRadius: '50%', background: 'radial-gradient(circle, hsla(239,84%,67%,0.14), transparent 70%)', filter: 'blur(80px)', pointerEvents: 'none' }} />
-
       <div className="glass-panel admin-login-card">
         <div className="admin-login-icon">SM</div>
         <h2 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: 6 }}>
@@ -49,9 +46,11 @@ export default function AccesPage() {
 
         <form onSubmit={submit} style={{ textAlign: 'left' }}>
           <div className="form-field">
-            <label className="form-label">Code d&apos;accès</label>
+            <label className="form-label" htmlFor="site-access-code">Code d&apos;accès</label>
             <input
+              id="site-access-code"
               type="password"
+              maxLength={128}
               placeholder="••••••••"
               value={code}
               onChange={e => setCode(e.target.value)}
@@ -62,7 +61,7 @@ export default function AccesPage() {
             />
           </div>
 
-          {error && <div className="error-box">{error}</div>}
+          {error && <div className="error-box" role="alert">{error}</div>}
 
           <button type="submit" className="btn-pay" disabled={loading} style={{ marginTop: 4 }}>
             {loading ? 'Vérification…' : 'Entrer'}

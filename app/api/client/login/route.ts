@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyPassword, setSession } from '@/lib/clientAuth';
 import { enforceRateLimit } from '@/lib/rateLimit';
+import { normalizeEmail } from '@/lib/checkoutValidation';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,7 +26,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Email et mot de passe requis' }, { status: 400 });
     }
 
-    const normalized = email.toLowerCase().trim();
+    const normalized = normalizeEmail(email);
+    if (!normalized || typeof password !== 'string' || password.length > 128) {
+      return NextResponse.json({ error: 'Identifiants invalides' }, { status: 400 });
+    }
     const customer = await prisma.customer.findUnique({ where: { email: normalized } });
 
     if (!customer) {

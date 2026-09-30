@@ -16,7 +16,7 @@ export async function POST(request: Request) {
 
   const { currentPassword, newPassword } = await request.json();
 
-  if (!currentPassword || !newPassword) {
+  if (typeof currentPassword !== 'string' || !currentPassword || currentPassword.length > 128 || !newPassword) {
     return NextResponse.json({ error: 'Mot de passe actuel et nouveau mot de passe requis' }, { status: 400 });
   }
 
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Mot de passe actuel incorrect' }, { status: 401 });
   }
 
-  if (typeof newPassword !== 'string' || newPassword.length < 8 || !/[a-zA-Z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
+  if (typeof newPassword !== 'string' || newPassword.length < 8 || newPassword.length > 128 || !/[a-zA-Z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
     return NextResponse.json(
       { error: 'Le nouveau mot de passe doit contenir au moins 8 caractères, dont une lettre et un chiffre' },
       { status: 400 }

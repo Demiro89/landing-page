@@ -1,4 +1,5 @@
 import { Resend } from 'resend';
+import { escapeHtml } from './html';
 
 // Le fallback évite une erreur au build quand la clé est absente (mode simulation) ;
 // chaque fonction vérifie RESEND_API_KEY avant tout envoi réel.
@@ -16,15 +17,17 @@ export async function sendOrderDetailsEmail(
   meta?: { amount?: number; invoiceId?: string; invoiceNumber?: string }
 ) {
   if (!process.env.RESEND_API_KEY) {
-    console.log('--- [SIMULATION EMAIL] ---');
-    console.log(`To: ${toEmail} | Service: ${serviceName} | Order: ${orderId}${youtubeEmail ? ` | YouTube: ${youtubeEmail}` : ''}`);
-    console.log(details);
-    return { success: true, simulated: true };
+    console.warn('[email] Provider not configured; delivery skipped');
+    return { success: false, simulated: process.env.NODE_ENV !== 'production' };
   }
+  serviceName = escapeHtml(serviceName);
+  details = escapeHtml(details);
+  orderId = escapeHtml(orderId);
+  youtubeEmail = youtubeEmail ? escapeHtml(youtubeEmail) : undefined;
 
   const isYoutube = !!youtubeEmail;
   const credentialsBlock = isYoutube
-    ? `<p>Votre accès à <strong>${serviceName}</strong> fonctionne par <strong style="color:#fff">invitation famille</strong>. Sous quelques minutes, vous recevrez une invitation à rejoindre notre groupe à l'adresse suivante&nbsp;:</p>
+    ? `<p>Votre accès à <strong>${serviceName}</strong> fonctionne par <strong style="color:#fff">invitation famille</strong>. L'invitation sera transmise après traitement de votre commande, selon disponibilité, à l'adresse suivante&nbsp;:</p>
        <div class="creds">📧 ${youtubeEmail}</div>
        <p style="font-size:0.9rem;color:#9ca3af">Vérifiez votre boîte de réception (et vos spams) et acceptez l'invitation depuis votre compte Google. Aucun identifiant à saisir — vous gardez votre propre compte.</p>`
     : `<p>Vos identifiants d'accès :</p>
@@ -39,8 +42,8 @@ export async function sendOrderDetailsEmail(
     </div>`;
 
   const invoiceBlock = meta?.invoiceId
-    ? `<p style="font-size:0.9rem">📄 Votre facture${meta.invoiceNumber ? ` <strong style="color:#fff">${meta.invoiceNumber}</strong>` : ''} est disponible :
-       <a href="${APP_URL}/facture/${meta.invoiceId}" style="color:#a855f7">Consulter / télécharger ma facture</a>.</p>`
+    ? `<p style="font-size:0.9rem">📄 Votre facture${meta.invoiceNumber ? ` <strong style="color:#fff">${escapeHtml(meta.invoiceNumber)}</strong>` : ''} est disponible :
+       <a href="${APP_URL}/facture/${encodeURIComponent(meta.invoiceId)}" style="color:#a855f7">Consulter / télécharger ma facture</a>.</p>`
     : '';
 
   try {
@@ -102,11 +105,11 @@ export async function sendOrderDetailsEmail(
 }
 
 export async function sendResetPasswordEmail(toEmail: string, token: string) {
-  const resetUrl = `${APP_URL}/?reset=${token}`;
+  const resetUrl = `${APP_URL}/?reset=${encodeURIComponent(token)}`;
 
   if (!process.env.RESEND_API_KEY) {
-    console.log(`--- [SIMULATION RESET] ${toEmail} -> ${resetUrl}`);
-    return { success: true, simulated: true };
+    console.warn('[email] Provider not configured; reset delivery skipped');
+    return { success: false, simulated: process.env.NODE_ENV !== 'production' };
   }
 
   try {
@@ -162,10 +165,11 @@ export async function sendCancellationEmail(
   });
 
   if (!process.env.RESEND_API_KEY) {
-    console.log('--- [SIMULATION EMAIL RÉSILIATION] ---');
-    console.log(`To: ${toEmail} | Service: ${serviceName} | Order: ${orderId} | Effective: ${formattedDate}`);
-    return { success: true, simulated: true };
+    console.warn('[email] Provider not configured; cancellation delivery skipped');
+    return { success: false, simulated: process.env.NODE_ENV !== 'production' };
   }
+  serviceName = escapeHtml(serviceName);
+  orderId = escapeHtml(orderId);
 
   try {
     const { data, error } = await resend.emails.send({
@@ -255,22 +259,24 @@ export async function sendUnpaidReminderEmail(
   orderId: string,
   reminderLevel: 1 | 2 | 3
 ) {
+  serviceName = escapeHtml(serviceName);
+  orderId = escapeHtml(orderId);
   const subjects: Record<number, string> = {
     1: `⚠️ Paiement en attente pour ${serviceName} - StreamMalin`,
     2: `🔔 Rappel urgent : régularisez votre abonnement ${serviceName}`,
-    3: `🔴 DERNIER AVERTISSEMENT — résiliation dans 24h (${serviceName})`,
+    3: `🔴 Dernier rappel de paiement (${serviceName})`,
   };
   const colors: Record<number, string> = { 1: '#f59e0b', 2: '#f97316', 3: '#ef4444' };
   const icons: Record<number, string> = { 1: '⚠️', 2: '🔔', 3: '🔴' };
   const bodies: Record<number, string> = {
     1: `Nous n'avons pas encore reçu votre paiement pour <strong>${serviceName}</strong>. Merci de régulariser votre situation dans les meilleurs délais pour conserver votre accès.`,
     2: `Votre paiement pour <strong>${serviceName}</strong> est toujours en attente. Sans régularisation rapide, votre abonnement risque d'être suspendu.`,
-    3: `C'est votre dernier avertissement. Si le paiement pour <strong>${serviceName}</strong> n'est pas régularisé dans les <strong>24 heures</strong>, votre abonnement sera automatiquement <strong>résilié</strong> et votre accès révoqué.`,
+    3: `Votre paiement pour <strong>${serviceName}</strong> reste en attente. Sans régularisation, votre accès pourra être suspendu ou résilié selon les CGV. Contactez le support pour faire le point.`,
   };
 
   if (!process.env.RESEND_API_KEY) {
-    console.log(`--- [SIMULATION RAPPEL ${reminderLevel}] ${toEmail} | ${serviceName}`);
-    return { success: true, simulated: true };
+    console.warn('[email] Provider not configured; reminder delivery skipped');
+    return { success: false, simulated: process.env.NODE_ENV !== 'production' };
   }
 
   try {
@@ -317,11 +323,11 @@ export async function sendUnpaidReminderEmail(
 }
 
 export async function sendVerificationEmail(toEmail: string, token: string) {
-  const verifyUrl = `${APP_URL}/api/client/verify?token=${token}`;
+  const verifyUrl = `${APP_URL}/api/client/verify?token=${encodeURIComponent(token)}`;
 
   if (!process.env.RESEND_API_KEY) {
-    console.log(`--- [SIMULATION VERIFICATION] ${toEmail} -> ${verifyUrl}`);
-    return { success: true, simulated: true };
+    console.warn('[email] Provider not configured; verification delivery skipped');
+    return { success: false, simulated: process.env.NODE_ENV !== 'production' };
   }
 
   try {
@@ -373,9 +379,11 @@ export async function sendRenewalEmail(
   const nextDate = nextBillingAt.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
 
   if (!process.env.RESEND_API_KEY) {
-    console.log(`--- [SIMULATION RENOUVELLEMENT] ${toEmail} | ${serviceName} | ${amount}€ | next: ${nextDate}`);
-    return { success: true, simulated: true };
+    console.warn('[email] Provider not configured; renewal delivery skipped');
+    return { success: false, simulated: process.env.NODE_ENV !== 'production' };
   }
+  serviceName = escapeHtml(serviceName);
+  orderId = escapeHtml(orderId);
 
   try {
     const { data, error } = await resend.emails.send({
@@ -433,11 +441,11 @@ export async function sendRenewalEmail(
 }
 
 export async function sendEmailChangeVerificationEmail(toEmail: string, token: string) {
-  const verifyUrl = `${APP_URL}/api/client/verify-email-change?token=${token}`;
+  const verifyUrl = `${APP_URL}/api/client/verify-email-change?token=${encodeURIComponent(token)}`;
 
   if (!process.env.RESEND_API_KEY) {
-    console.log(`--- [SIMULATION EMAIL CHANGE] ${toEmail} -> ${verifyUrl}`);
-    return { success: true, simulated: true };
+    console.warn('[email] Provider not configured; email change delivery skipped');
+    return { success: false, simulated: process.env.NODE_ENV !== 'production' };
   }
 
   try {

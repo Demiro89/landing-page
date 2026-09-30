@@ -21,16 +21,16 @@ export async function POST() {
     const stocks = await prisma.stockAccount.findMany();
     for (const s of stocks) {
       if (s.details && !isEncrypted(s.details)) {
-        await prisma.stockAccount.update({ where: { id: s.id }, data: { details: encrypt(s.details) } });
-        stocksDone++;
+        const changed = await prisma.stockAccount.updateMany({ where: { id: s.id, details: s.details }, data: { details: encrypt(s.details) } });
+        stocksDone += changed.count;
       }
     }
 
     const orders = await prisma.order.findMany();
     for (const o of orders) {
       if (o.details && !isEncrypted(o.details)) {
-        await prisma.order.update({ where: { id: o.id }, data: { details: encrypt(o.details) } });
-        ordersDone++;
+        const changed = await prisma.order.updateMany({ where: { id: o.id, details: o.details }, data: { details: encrypt(o.details) } });
+        ordersDone += changed.count;
       }
     }
 

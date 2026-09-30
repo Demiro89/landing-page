@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Footer from '@/components/Footer';
+import { Menu, X, UserRound, ArrowRight, Mail, RefreshCw } from 'lucide-react';
 
 interface Service {
   id: string;
@@ -86,6 +87,9 @@ export default function Home() {
   };
   const [services, setServices] = useState<Service[]>([]);
   const [servicesLoaded, setServicesLoaded] = useState(false);
+  const [catalogError, setCatalogError] = useState('');
+  const [stocksLoaded, setStocksLoaded] = useState(false);
+  const [stocksError, setStocksError] = useState('');
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [filter, setFilter] = useState<FilterType>('all');
   const [faqOpen, setFaqOpen] = useState<number | null>(0);
@@ -113,7 +117,7 @@ export default function Home() {
   const [searchedEmail, setSearchedEmail] = useState('');
   const [orders, setOrders] = useState<Order[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
-  const [, setOrdersError] = useState('');
+  const [ordersError, setOrdersError] = useState('');
   const [activeChatOrderId, setActiveChatOrderId] = useState<string | null>(null);
   const [chatMessages, setChatMessages] = useState<Message[]>([]);
   const [chatInput, setChatInput] = useState('');
@@ -127,14 +131,33 @@ export default function Home() {
   const [portalLoading, setPortalLoading] = useState(false);
   const [migratingOrderId, setMigratingOrderId] = useState<string | null>(null);
 
+  const loadCatalog = async () => {
+    try {
+      const response = await fetch('/api/services', { cache: 'no-store' });
+      const data = await response.json();
+      if (!response.ok || !data.success || !Array.isArray(data.services)) throw new Error('Catalogue indisponible');
+      setServices(data.services.filter((s: Service) => Number.isFinite(s.price) && s.price > 0 && Number.isFinite(s.original) && s.original > 0));
+      setCatalogError('');
+    } catch {
+      setCatalogError('Le catalogue est temporairement indisponible. Réessayez dans quelques instants.');
+      setServices([]);
+    } finally { setServicesLoaded(true); }
+  };
+  const loadStocks = async () => {
+    try {
+      const response = await fetch('/api/stocks/public', { cache: 'no-store' });
+      const data = await response.json();
+      if (!response.ok || !data.success || !Array.isArray(data.stocks)) throw new Error('Disponibilités indisponibles');
+      setStocks(data.stocks.filter((s: Stock) => Number.isFinite(s.price) && s.price > 0 && s.filledSlots >= 0 && s.filledSlots < s.maxSlots));
+      setStocksError('');
+    } catch {
+      setStocksError('Les disponibilités n’ont pas pu être chargées. Réessayez dans quelques instants.');
+      setStocks([]);
+    } finally { setStocksLoaded(true); }
+  };
   useEffect(() => {
-    const fetchServices = () => {
-      fetch('/api/services', { cache: 'no-store' }).then(r => r.json()).then(d => { if (d.success) setServices(d.services); }).catch(() => {}).finally(() => setServicesLoaded(true));
-    };
-    fetchServices();
-    const servicesInterval = setInterval(fetchServices, 60000);
-
-    fetch('/api/stocks/public', { cache: 'no-store' }).then(r => r.json()).then(d => { if (d.success) setStocks(d.stocks); });
+    void Promise.resolve().then(() => { void loadCatalog(); void loadStocks(); });
+    const servicesInterval = setInterval(() => { void loadCatalog(); void loadStocks(); }, 60000);
 
     // Vérifier la session client
     fetch('/api/client/me', { cache: 'no-store' }).then(r => r.json()).then(d => {
@@ -145,7 +168,7 @@ export default function Home() {
         if (d.orders?.length > 0 && d.orders[0].chats) setActiveChatOrderId(d.orders[0].id);
       }
       setAuthChecked(true);
-    });
+    }).catch(() => setOrdersError('Votre espace client est temporairement indisponible.')).finally(() => setAuthChecked(true));
 
     void Promise.resolve().then(() => {
       const params = new URLSearchParams(window.location.search);
@@ -552,7 +575,7 @@ export default function Home() {
   ];
 
   const slotDots = (maxSlots: number, filledSlots: number) =>
-    Array.from({ length: maxSlots }, (_, i) => {
+    Array.from({ length: Math.min(maxSlots, 12) }, (_, i) => {
       let cls = 'slot-dot';
       if (i < filledSlots) cls += ' filled';
       else if (i === filledSlots) cls += ' available';
@@ -579,10 +602,10 @@ export default function Home() {
             </button>
           </nav>
 
-          <button className="md:hidden text-white text-2xl" onClick={() => setMenuOpen(!menuOpen)} aria-label={menuOpen ? 'Fermer le menu' : 'Ouvrir le menu'} aria-expanded={menuOpen} aria-haspopup="true">☰</button>
+          <button className="mobile-menu-toggle" onClick={() => setMenuOpen(!menuOpen)} aria-label={menuOpen ? 'Fermer le menu' : 'Ouvrir le menu'} aria-expanded={menuOpen} aria-controls="mobile-navigation">{menuOpen ? <X size={22} /> : <Menu size={22} />}</button>
         </div>
         {menuOpen && (
-          <div className="md:hidden border-t border-white/5 px-6 py-4 flex flex-col gap-3" style={{ background: 'color-mix(in srgb, var(--bg-dark) 96%, transparent)' }}>
+          <div id="mobile-navigation" className="md:hidden border-t border-white/5 px-6 py-4 flex flex-col gap-3" style={{ background: 'color-mix(in srgb, var(--bg-dark) 96%, transparent)' }}>
             <a href="#offres" onClick={() => { goToStorefront(); setMenuOpen(false); }} className="nav-link">Offres</a>
             <a href="#marketplace" onClick={() => { goToStorefront(); setMenuOpen(false); }} className="nav-link">Marketplace</a>
             <a href="#calculateur" onClick={() => { goToStorefront(); setMenuOpen(false); }} className="nav-link">Calculateur</a>
@@ -597,27 +620,23 @@ export default function Home() {
         <main>
           {/* HERO */}
           <section className="hero">
-            <div className="hero-orb hero-orb-1" />
-            <div className="hero-orb hero-orb-2" />
-            <div className="hero-orb hero-orb-3" />
             <div className="hero-content">
               <div className="hero-badge">
                 <span className="hero-badge-dot" />
                 STREAMING PREMIUM · LIVRAISON RAPIDE
               </div>
               <h1>
-                Le streaming premium,<br />
-                <span className="gradient-text">version maline.</span>
+                StreamMalin
               </h1>
               <p className="hero-subtitle">
-                Vos accès favoris à prix malin avec des remises jusqu&apos;à <strong style={{ color: '#fff' }}>75%</strong> selon les offres disponibles.
+                Vos abonnements préférés à prix malin. Comparez les offres disponibles, choisissez votre accès et gardez le contrôle de votre budget.
               </p>
               <div className="hero-cta">
                 <a href="#offres" className="btn btn-primary btn-lg">
-                  Découvrir les Offres <span style={{ fontSize: '1.2em' }}>→</span>
+                  Voir les offres <ArrowRight size={18} aria-hidden="true" />
                 </a>
                 <button onClick={goToDashboard} className="btn btn-outline btn-lg">
-                  👤 Mon Espace Client
+                  <UserRound size={18} aria-hidden="true" /> Mon espace client
                 </button>
               </div>
               <div className="hero-trust">
@@ -713,8 +732,11 @@ export default function Home() {
                     ))}
                   </>
                 )}
-                {servicesLoaded && filteredServices.length === 0 && (
-                  <div className="col-span-4 text-center py-12 text-[#9ca3af] font-light">Aucun service disponible dans cette catégorie.</div>
+                {catalogError && (
+                  <div className="catalog-state" role="alert"><p>{catalogError}</p><button className="btn btn-outline btn-sm" onClick={() => { void loadCatalog(); void loadStocks(); }}><RefreshCw size={16} /> Réessayer</button></div>
+                )}
+                {servicesLoaded && !catalogError && filteredServices.length === 0 && (
+                  <div className="catalog-state" role="status">Aucune offre disponible dans cette catégorie.</div>
                 )}
               </div>
             </div>
@@ -732,8 +754,10 @@ export default function Home() {
               </div>
 
               <div className="shares-list fade-in-up-stagger">
-                {filteredStocks.length === 0 ? (
-                  <div className="glass-panel" style={{ borderRadius: 'var(--radius)', padding: '52px 32px', textAlign: 'center', maxWidth: 520, margin: '0 auto' }}>
+                {!stocksLoaded ? <div className="catalog-state" role="status">Chargement des disponibilités…</div> : stocksError ? (
+                  <div className="catalog-state" role="alert"><p>{stocksError}</p><button className="btn btn-outline btn-sm" onClick={loadStocks}><RefreshCw size={16} /> Réessayer</button></div>
+                ) : filteredStocks.length === 0 ? (
+                  <div className="catalog-state">
                     <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(138,92,247,0.12)', border: '1px solid rgba(138,92,247,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
                       <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
@@ -741,15 +765,14 @@ export default function Home() {
                     </div>
                     <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-white)', marginBottom: 8 }}>Aucune place disponible</h3>
                     <p style={{ fontSize: '0.88rem', color: 'var(--text-gray)', lineHeight: 1.65, marginBottom: 20 }}>
-                      Toutes les places de ce service sont momentanément occupées.<br />
-                      Revenez bientôt ou contactez-nous pour être prévenu des prochaines disponibilités.
+                      Aucune place disponible actuellement. Contactez-nous pour connaître les prochaines disponibilités.
                     </p>
                     <a
                       href="mailto:hello@streammalin.fr"
                       className="btn btn-outline btn-sm"
                       style={{ fontSize: '0.82rem' }}
                     >
-                      💬 Contacter le support
+                      <Mail size={16} aria-hidden="true" /> Contacter le support
                     </a>
                   </div>
                 ) : (
@@ -838,6 +861,7 @@ export default function Home() {
                         key={s.id}
                         onClick={() => setCalcSel(prev => ({ ...prev, [s.id]: !prev[s.id] }))}
                         className={`calc-chip ${calcSel[s.id] ? 'active' : ''}`}
+                        aria-pressed={Boolean(calcSel[s.id])}
                       >
                         <span>{s.icon}</span> {s.name}
                       </button>
@@ -872,7 +896,7 @@ export default function Home() {
                     </>
                   ) : (
                     <div style={{ marginTop: 18, padding: '18px 24px', borderRadius: 'var(--radius)', color: 'var(--text-muted)', textAlign: 'center', background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.08)', fontSize: '0.88rem' }}>
-                      👆 Sélectionnez une ou plusieurs offres ci-dessus pour voir vos économies en temps réel.
+                      Sélectionnez une offre pour calculer vos économies.
                     </div>
                   )}
                 </div>
@@ -1005,8 +1029,6 @@ export default function Home() {
       {view === 'dashboard' && (
         <main style={{ position: 'relative', minHeight: '100vh' }}>
           {/* Ambient glows */}
-          <div className="dash-orb dash-orb-1" />
-          <div className="dash-orb dash-orb-2" />
 
           <div className="dash-wrap">
             {/* Header */}
@@ -1014,7 +1036,7 @@ export default function Home() {
               <div>
                 <div className="dash-status-badge">
                   <span className="dash-status-dot" />
-                  CONNECTÉ · SESSION SÉCURISÉE
+                  {customer ? 'CONNECTÉ · SESSION SÉCURISÉE' : 'ESPACE CLIENT'}
                 </div>
                 <h1 className="dash-title">
                   Mon <span className="gradient-text">Espace Client</span>
@@ -1098,7 +1120,7 @@ export default function Home() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, color: 'var(--text-soft)', fontWeight: 600 }}>
                     🛡️ Sécurité
                   </div>
-                  Vos accès sont chiffrés AES-256. Notre équipe ne stocke jamais vos identifiants en clair.
+                  Les accès sont protégés et consultables depuis votre espace client après validation.
                 </div>
               </aside>
 
@@ -1313,7 +1335,8 @@ export default function Home() {
                 {/* Orders tab */}
                 {customer && dashTab === 'orders' && (
                   <div className="fade-in-up">
-                    {orders.length === 0 && !loadingOrders ? (
+                    {ordersError && <div className="error-box" role="alert">{ordersError}</div>}
+                    {orders.length === 0 && !loadingOrders && !ordersError ? (
                       <div className="glass-panel dash-empty">
                         <div className="dash-empty-icon">📭</div>
                         <h3>Aucun abonnement actif</h3>

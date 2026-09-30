@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     if (!token || !password) {
       return NextResponse.json({ error: 'Token et mot de passe requis' }, { status: 400 });
     }
-    if (typeof password !== 'string' || password.length < 8 || !/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
+    if (typeof password !== 'string' || password.length < 8 || password.length > 128 || !/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
       return NextResponse.json(
         { error: 'Le mot de passe doit contenir au moins 8 caractères, dont une lettre et un chiffre' },
         { status: 400 }

@@ -7,6 +7,9 @@ import { encrypt, decrypt } from '@/lib/crypto';
 import { createInvoiceForOrder } from '@/lib/invoice';
 import { writeAuditLog, clientIpFromRequest } from '@/lib/auditLog';
 import { enforceRateLimit } from '@/lib/rateLimit';
+import Stripe from 'stripe';
+import { activatePendingOrder, cancelOrderAndReleaseStock, OrderConflictError } from '@/lib/orderLifecycle';
+import { normalizeEmail } from '@/lib/checkoutValidation';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,6 +27,7 @@ const errorMessage = (error: unknown) => {
 };
 
 function parseFiniteNumber(v: unknown): number | null {
+  if (typeof v !== 'number' && (typeof v !== 'string' || !v.trim())) return null;
   const n = typeof v === 'number' ? v : Number(String(v).trim());
   return Number.isFinite(n) ? n : null;
 }
@@ -40,7 +44,7 @@ function parseNonNegativeNumber(v: unknown): number | null {
 
 function parseInteger(v: unknown): number | null {
   const n = parseFiniteNumber(v);
-  return n !== null && Number.isInteger(n) ? n : null;
+  return n !== null && Number.isSafeInteger(n) && n <= 100000 ? n : null;
 }
 
 function parseNonNegativeInt(v: unknown): number | null {
@@ -258,16 +262,28 @@ export async function PUT(request: Request) {
 
       // Récupérer l'ancien état pour détecter un changement d'identifiants
       const previous = await prisma.stockAccount.findUnique({ where: { id } });
-
-      const updatedStock = await prisma.stockAccount.update({
-        where: { id },
-        data: {
-          accountsBoughtPrice: parsedAccountsBoughtPrice,
-          price: parsedPrice,
-          maxSlots: parsedMaxSlots,
-          filledSlots: parsedFilled,
-          details: encrypt(details),
-        },
+      if (!previous) return NextResponse.json({ error: 'Stock introuvable' }, { status: 404 });
+      if (body.expectedUpdatedAt !== previous.updatedAt.toISOString()) {
+        return NextResponse.json({ error: 'Ce stock a changé. Rechargez la page avant de modifier.' }, { status: 409 });
+      }
+      const encryptedDetails = encrypt(details);
+      const updatedStock = await prisma.$transaction(async (tx) => {
+        const updated = await tx.stockAccount.updateMany({
+          where: { id, updatedAt: previous.updatedAt },
+          data: {
+            accountsBoughtPrice: parsedAccountsBoughtPrice,
+            price: parsedPrice,
+            maxSlots: parsedMaxSlots,
+            filledSlots: parsedFilled,
+            details: encryptedDetails,
+          },
+        });
+        if (updated.count !== 1) throw new OrderConflictError('Le stock a changé pendant la modification. Rechargez la page.');
+        await tx.order.updateMany({
+          where: { stockAccountId: id, status: { in: ['active', 'unpaid', 'cancelled_pending'] } },
+          data: { details: encryptedDetails },
+        });
+        return tx.stockAccount.findUniqueOrThrow({ where: { id } });
       });
 
       // Notifier les clients actifs si les identifiants ont changé
@@ -305,19 +321,14 @@ export async function PUT(request: Request) {
       if (order.status === 'cancelled') {
         return NextResponse.json({ success: true });
       }
-      await prisma.$transaction(async (tx) => {
-        const cancelled = await tx.order.updateMany({
-          where: { id: orderId, status: { not: 'cancelled' } },
-          data: { status: 'cancelled', cancellationEffectiveAt: order.cancellationEffectiveAt || new Date() },
-        });
-        const consumedStock = ['active', 'unpaid', 'cancelled_pending'].includes(order.status);
-        if (cancelled.count === 1 && consumedStock) {
-          await tx.stockAccount.updateMany({
-            where: { id: order.stockAccountId, filledSlots: { gt: 0 } },
-            data: { filledSlots: { decrement: 1 } },
-          });
-        }
-      });
+      if (order.stripeSubscriptionId) {
+        const key = process.env.STRIPE_SECRET_KEY;
+        if (!key || key === 'sk_test_mock') return NextResponse.json({ error: 'Stripe indisponible : annulation refusée.' }, { status: 503 });
+        const stripe = new Stripe(key, { apiVersion: '2026-04-22.dahlia' });
+        const sub = await stripe.subscriptions.retrieve(order.stripeSubscriptionId);
+        if (sub.status !== 'canceled') await stripe.subscriptions.cancel(sub.id);
+      }
+      await prisma.$transaction((tx) => cancelOrderAndReleaseStock(tx, orderId));
       void writeAuditLog({ action: 'order.cancel', entityType: 'order', entityId: orderId, description: `Commande annulée (client : ${order.clientEmail})`, ip: clientIpFromRequest(request) });
       return NextResponse.json({ success: true });
     }
@@ -327,10 +338,11 @@ export async function PUT(request: Request) {
       const { orderId } = body;
       const order = await prisma.order.findUnique({ where: { id: orderId }, include: { service: true } });
       if (!order) return NextResponse.json({ error: 'Commande introuvable' }, { status: 404 });
-      await prisma.order.update({
-        where: { id: orderId },
+      const changed = await prisma.order.updateMany({
+        where: { id: orderId, status: 'active' },
         data: { status: 'unpaid', unpaidSince: new Date(), reminderCount: 1, lastReminderAt: new Date() },
       });
+      if (changed.count !== 1) return NextResponse.json({ error: 'Seule une commande active peut être marquée impayée.' }, { status: 409 });
       sendUnpaidReminderEmail(order.clientEmail, order.service.name, order.id, 1).catch(() => {});
       sendTelegramNotification(
         `⚠️ <b>Impayé signalé</b>\n👤 ${order.clientEmail}\n📺 ${order.service.name}\n💶 ${order.price.toFixed(2)}€/mois\n\nPremier email de rappel envoyé.`
@@ -345,10 +357,11 @@ export async function PUT(request: Request) {
       const order = await prisma.order.findUnique({ where: { id: orderId }, include: { service: true } });
       if (!order) return NextResponse.json({ error: 'Commande introuvable' }, { status: 404 });
       const nextLevel = Math.min((order.reminderCount || 1) + 1, 3) as 1 | 2 | 3;
-      await prisma.order.update({
-        where: { id: orderId },
+      const reminded = await prisma.order.updateMany({
+        where: { id: orderId, status: 'unpaid' },
         data: { reminderCount: nextLevel, lastReminderAt: new Date() },
       });
+      if (reminded.count !== 1) return NextResponse.json({ error: 'Cette commande n’est plus impayée.' }, { status: 409 });
       sendUnpaidReminderEmail(order.clientEmail, order.service.name, order.id, nextLevel).catch(() => {});
       sendTelegramNotification(
         `🔔 <b>Rappel ${nextLevel}/3 envoyé</b>\n👤 ${order.clientEmail}\n📺 ${order.service.name}`
@@ -363,11 +376,13 @@ export async function PUT(request: Request) {
       if (!orderId) return NextResponse.json({ error: 'orderId requis' }, { status: 400 });
 
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      const data: { clientEmail?: string; youtubeEmail?: string | null } = {};
+      const data: { clientEmail?: string; customerId?: string | null; youtubeEmail?: string | null } = {};
       if (clientEmail !== undefined) {
-        const cleaned = String(clientEmail).trim().toLowerCase();
-        if (!emailRegex.test(cleaned)) return NextResponse.json({ error: 'Adresse email invalide' }, { status: 400 });
+        const cleaned = normalizeEmail(clientEmail);
+        if (!cleaned) return NextResponse.json({ error: 'Adresse email invalide' }, { status: 400 });
         data.clientEmail = cleaned;
+        const owner = await prisma.customer.findUnique({ where: { email: cleaned } });
+        data.customerId = owner?.emailVerified ? owner.id : null;
       }
       if (youtubeEmail !== undefined) {
         const cleaned = String(youtubeEmail).trim().toLowerCase();
@@ -382,10 +397,11 @@ export async function PUT(request: Request) {
     // ── Marquer comme payé (régularisation) ──
     if (action === 'mark_paid') {
       const { orderId } = body;
-      await prisma.order.update({
-        where: { id: orderId },
+      const changed = await prisma.order.updateMany({
+        where: { id: orderId, status: 'unpaid' },
         data: { status: 'active', unpaidSince: null, reminderCount: 0, lastReminderAt: null },
       });
+      if (changed.count !== 1) return NextResponse.json({ error: 'Seule une commande impayée peut être régularisée.' }, { status: 409 });
       void writeAuditLog({ action: 'order.mark_paid', entityType: 'order', entityId: orderId, description: `Commande régularisée (marquée payée)`, ip: clientIpFromRequest(request) });
       return NextResponse.json({ success: true });
     }
@@ -405,24 +421,8 @@ export async function PUT(request: Request) {
         return NextResponse.json({ error: 'Plus de place disponible dans ce compte de stock.' }, { status: 400 });
       }
 
-      const stockDetails = order.stockAccount.details; // déjà chiffré
-      await prisma.$transaction(async (tx) => {
-        // Incrément atomique : n'incrémente que si filledSlots < maxSlots
-        const result = await tx.stockAccount.updateMany({
-          where: { id: order.stockAccountId, filledSlots: { lt: order.stockAccount.maxSlots } },
-          data: { filledSlots: { increment: 1 } },
-        });
-        if (result.count === 0) {
-          throw new Error('Stock indisponible (race condition détectée)');
-        }
-        await tx.order.update({
-          where: { id: orderId },
-          data: {
-            status: 'active',
-            details: stockDetails,
-            nextBillingAt: new Date(Date.now() + 30 * 86400000),
-          },
-        });
+      const stockDetails = await prisma.$transaction(async (tx) => {
+        const details = await activatePendingOrder(tx, orderId);
         const existingThread = await tx.chatThread.findUnique({ where: { orderId } });
         if (!existingThread) {
           await tx.chatThread.create({
@@ -434,6 +434,7 @@ export async function PUT(request: Request) {
             },
           });
         }
+        return details;
       });
 
       const invoice = await createInvoiceForOrder({
@@ -462,10 +463,11 @@ export async function PUT(request: Request) {
       if (order.status !== 'pending') {
         return NextResponse.json({ error: "Cette commande n'est pas en attente." }, { status: 400 });
       }
-      await prisma.order.update({
-        where: { id: orderId },
+      const rejected = await prisma.order.updateMany({
+        where: { id: orderId, status: 'pending' },
         data: { status: 'cancelled', cancellationEffectiveAt: new Date() },
       });
+      if (rejected.count !== 1) return NextResponse.json({ error: "Cette commande n'est plus en attente." }, { status: 409 });
       void writeAuditLog({ action: 'order.reject', entityType: 'order', entityId: orderId, description: `Commande rejetée — ${order.clientEmail}`, ip: clientIpFromRequest(request) });
       return NextResponse.json({ success: true });
     }
@@ -473,6 +475,7 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: 'Action non reconnue' }, { status: 400 });
   } catch (error: unknown) {
     console.error('Erreur PUT stock admin:', error);
+    if (error instanceof OrderConflictError) return NextResponse.json({ error: error.message }, { status: 409 });
     return NextResponse.json({ error: errorMessage(error) }, { status: 500 });
   }
 }

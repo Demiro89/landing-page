@@ -55,17 +55,14 @@ export default async function RootLayout({
     <html lang="fr" className="scroll-smooth">
       {/* Le fond et la couleur de texte sont définis dans globals.css (variables de thème). */}
       <body className="relative min-h-screen font-sans antialiased overflow-x-hidden">
-        {/* Glow ambient background effects */}
-        <div className="ambient-glow-1" />
-        <div className="ambient-glow-2" />
-
         {/* Application Content */}
         {children}
 
         <script
           type="application/ld+json"
           nonce={nonce}
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+          suppressHydrationWarning
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }}
         />
       </body>
     </html>

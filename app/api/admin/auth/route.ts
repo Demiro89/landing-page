@@ -7,6 +7,7 @@ import { createAdminSessionToken, ADMIN_SESSION_TTL_SEC } from '@/lib/adminSessi
 import { enforceRateLimit } from '@/lib/rateLimit';
 import { verifyTotpAndGetCounter } from '@/lib/totp';
 import { decrypt } from '@/lib/crypto';
+import { lockAdminTotp } from '@/lib/adminTotp';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,11 +31,6 @@ export async function POST(request: Request) {
   try {
     const { password, action, totp } = await request.json();
 
-    // Rate limit appliqué avant toute action (inclut logout) pour prévenir
-    // les appels en masse et le délogout forcé par tiers.
-    const limited = await enforceRateLimit(request, 'admin-auth', 8, 900, true);
-    if (limited) return limited;
-
     // Gestion de la déconnexion
     if (action === 'logout') {
       const cookieStore = await cookies();
@@ -48,6 +44,13 @@ export async function POST(request: Request) {
         maxAge: 0, // Détruit le cookie immédiatement
       });
       return NextResponse.json({ success: true, message: 'Déconnexion réussie' });
+    }
+
+    // Logout must remain available when the database or login limiter is unavailable.
+    const limited = await enforceRateLimit(request, 'admin-auth', 8, 900, true);
+    if (limited) return limited;
+    if (typeof password !== 'string' || password.length > 128 || (totp !== undefined && (typeof totp !== 'string' || !/^\d{6}$/.test(totp)))) {
+      return NextResponse.json({ success: false, error: 'Identifiants invalides' }, { status: 400 });
     }
 
     // Gestion de la connexion — aucune valeur par défaut codée en dur.
@@ -64,42 +67,47 @@ export async function POST(request: Request) {
 
     if (typeof password === 'string' && timingSafeEqualStr(password, adminPassword)) {
       // Second facteur (2FA / TOTP) si activé.
-      const totpEnabled =
-        (await prisma.setting.findUnique({ where: { key: 'admin_totp_enabled' } }))?.value === 'true';
-      if (totpEnabled) {
-        if (!totp) {
-          return NextResponse.json({ success: false, needsTotp: true }, { status: 401 });
-        }
-        const secretRow = await prisma.setting.findUnique({ where: { key: 'admin_totp_secret' } });
-        const rawSecret = secretRow?.value ?? '';
-        const secret = rawSecret ? decrypt(rawSecret) : '';
+      const secondFactor = await prisma.$transaction(async (tx) => {
+        await lockAdminTotp(tx);
+        const totpEnabled =
+          (await tx.setting.findUnique({ where: { key: 'admin_totp_enabled' } }))?.value === 'true';
+        if (totpEnabled) {
+          if (!totp) {
+            return NextResponse.json({ success: false, needsTotp: true }, { status: 401 });
+          }
+          const secretRow = await tx.setting.findUnique({ where: { key: 'admin_totp_secret' } });
+          const rawSecret = secretRow?.value ?? '';
+          const secret = rawSecret ? decrypt(rawSecret) : '';
 
-        // Fenêtre ±2 périodes (±60s) pour absorber les décalages d'horloge téléphone/serveur.
-        const usedCounter = secret ? verifyTotpAndGetCounter(secret, String(totp), 2) : null;
+          // Fenêtre ±2 périodes (±60s) pour absorber les décalages d'horloge téléphone/serveur.
+          const usedCounter = secret ? verifyTotpAndGetCounter(secret, String(totp), 2) : null;
 
-        if (!secret || usedCounter === null) {
-          console.error('[admin/auth] TOTP invalide — secret disponible:', !!secret);
-          return NextResponse.json(
-            { success: false, needsTotp: true, error: 'Code incorrect. Vérifiez l\'heure de votre téléphone.' },
-            { status: 401 }
-          );
-        }
+          if (!secret || usedCounter === null) {
+            console.error('[admin/auth] TOTP invalide — secret disponible:', !!secret);
+            return NextResponse.json(
+              { success: false, needsTotp: true, error: 'Code incorrect. Vérifiez l\'heure de votre téléphone.' },
+              { status: 401 }
+            );
+          }
 
-        // Anti-replay : rejeter tout code dont le counter a déjà été consommé.
-        const lastCounterRow = await prisma.setting.findUnique({ where: { key: 'admin_totp_last_counter' } });
-        const lastCounter = lastCounterRow ? parseInt(lastCounterRow.value, 10) : -1;
-        if (!isNaN(lastCounter) && usedCounter <= lastCounter) {
-          return NextResponse.json(
-            { success: false, needsTotp: true, error: 'Code déjà utilisé — attendez le prochain code (30 s).' },
-            { status: 401 }
-          );
+          // Anti-replay : rejeter tout code dont le counter a déjà été consommé.
+          const lastCounterRow = await tx.setting.findUnique({ where: { key: 'admin_totp_last_counter' } });
+          const lastCounter = lastCounterRow ? parseInt(lastCounterRow.value, 10) : -1;
+          if (!isNaN(lastCounter) && usedCounter <= lastCounter) {
+            return NextResponse.json(
+              { success: false, needsTotp: true, error: 'Code déjà utilisé — attendez le prochain code (30 s).' },
+              { status: 401 }
+            );
+          }
+          await tx.setting.upsert({
+            where: { key: 'admin_totp_last_counter' },
+            create: { key: 'admin_totp_last_counter', value: String(usedCounter) },
+            update: { value: String(usedCounter) },
+          });
         }
-        await prisma.setting.upsert({
-          where: { key: 'admin_totp_last_counter' },
-          create: { key: 'admin_totp_last_counter', value: String(usedCounter) },
-          update: { value: String(usedCounter) },
-        });
-      }
+        return null;
+      });
+      if (secondFactor) return secondFactor;
 
       const sessionToken = createAdminSessionToken();
       if (!sessionToken) {

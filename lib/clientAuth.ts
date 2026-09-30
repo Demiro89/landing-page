@@ -54,9 +54,10 @@ function verifyToken(token: string): { customerId: string; version: number } | n
   const sigBuf = Buffer.from(sig, 'hex');
   const expBuf = Buffer.from(sign(payload), 'hex');
   if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) return null;
-  if (Date.now() > parseInt(expStr, 10)) return null;
-  const version = parseInt(versionStr, 10);
-  if (!Number.isFinite(version)) return null;
+  const exp = Number(expStr);
+  const version = Number(versionStr);
+  if (!/^\d+$/.test(expStr) || !Number.isSafeInteger(exp) || Date.now() >= exp) return null;
+  if (!/^\d+$/.test(versionStr) || !Number.isSafeInteger(version)) return null;
   return { customerId, version };
 }
 
@@ -65,7 +66,7 @@ export async function setSession(customerId: string, version: number) {
   const jar = await cookies();
   jar.set(SESSION_COOKIE, token, {
     httpOnly: true,
-    secure: true,
+    secure: process.env.NODE_ENV === 'production',
     sameSite: 'strict',
     path: '/',
     maxAge: SESSION_MAX_AGE,
@@ -84,7 +85,7 @@ export async function getCurrentCustomer() {
   const parsed = verifyToken(token);
   if (!parsed) return null;
   const customer = await prisma.customer.findUnique({ where: { id: parsed.customerId } });
-  if (!customer) return null;
+  if (!customer || !customer.emailVerified) return null;
   // Reject tokens whose version no longer matches (password/email changed, explicit revocation).
   if (customer.sessionVersion !== parsed.version) return null;
   return customer;

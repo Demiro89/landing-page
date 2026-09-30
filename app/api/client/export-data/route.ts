@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { getCurrentCustomer } from '@/lib/clientAuth';
 import { decrypt } from '@/lib/crypto';
 import { enforceRateLimit } from '@/lib/rateLimit';
+import { canReadAccess } from '@/lib/orderAccess';
 
 export const dynamic = 'force-dynamic';
 
@@ -50,7 +51,7 @@ export async function GET(request: Request) {
       price: o.price,
       total: o.total,
       paymentMethod: o.paymentMethod,
-      accessDetails: decrypt(o.details),
+      accessDetails: canReadAccess(o.status) ? decrypt(o.details) : '',
       nextBillingAt: o.nextBillingAt,
       cancellationRequestedAt: o.cancellationRequestedAt,
       cancellationEffectiveAt: o.cancellationEffectiveAt,

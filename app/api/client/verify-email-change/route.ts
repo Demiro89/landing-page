@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { bumpSessionVersion } from '@/lib/clientAuth';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,20 +34,26 @@ export async function GET(request: NextRequest) {
 
   // Consommation atomique du token : empêche un double usage en cas de
   // requêtes parallèles avec le même lien.
-  const consumed = await prisma.customer.updateMany({
-    where: { id: customer.id, emailChangeToken: token },
-    data: {
-      email: newEmail,
-      pendingEmail: null,
-      emailChangeToken: null,
-      emailChangeTokenExp: null,
-    },
+  const consumed = await prisma.$transaction(async tx => {
+    const claimed = await tx.customer.updateMany({
+      where: { id: customer.id, emailChangeToken: token },
+      data: {
+        email: newEmail,
+        pendingEmail: null,
+        emailChangeToken: null,
+        emailChangeTokenExp: null,
+        sessionVersion: { increment: 1 },
+      },
+    });
+    if (claimed.count === 1) {
+      // Preserve the original order email as contractual evidence, while binding ownership.
+      await tx.order.updateMany({ where: { clientEmail: customer.email, customerId: null }, data: { customerId: customer.id } });
+    }
+    return claimed;
   });
   if (consumed.count === 0) {
     return NextResponse.redirect(`${APP_URL}/?emailChange=invalid`);
   }
-
-  await bumpSessionVersion(customer.id);
 
   return NextResponse.redirect(`${APP_URL}/?emailChange=success`);
 }

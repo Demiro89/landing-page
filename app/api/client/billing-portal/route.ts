@@ -28,7 +28,10 @@ export async function POST() {
     let stripeCustomerId = customer.stripeCustomerId;
     if (!stripeCustomerId) {
       const order = await prisma.order.findFirst({
-        where: { clientEmail: customer.email, stripeCustomerId: { not: null } },
+        where: {
+          OR: [{ customerId: customer.id }, { customerId: null, clientEmail: customer.email }],
+          stripeCustomerId: { not: null },
+        },
       });
       stripeCustomerId = order?.stripeCustomerId || null;
       if (stripeCustomerId) {
