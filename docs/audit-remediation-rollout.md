@@ -149,12 +149,15 @@ Resultats locaux : 44 tests passes, lint sans erreur et build complet reussi.
 Le moteur Prisma natif est bloque par la protection Windows locale et le daemon
 Docker n'est pas lance : le test PostgreSQL est execute en CI, pas declare passe
 sur cette machine. Aucune protection Windows n'a ete desactivee.
+La premiere execution GitHub Actions de la PR #80 a valide la baseline,
+le SQL additif exact, la course sur la derniere place et la facture concurrente.
 
 `source-map-js` mis a jour en 1.2.2. Audit des dependances de production :
 aucune vulnerabilite signalee. L'audit complet reste bloquant sur la chaine
 ESLint/fast-glob/micromatch/braces : GHSA-vfj7-8cjw-p6xm, sans correctif officiel
 au moment du controle. Ne pas masquer l'alerte ni retrograder Next/ESLint par force.
 La CI conserve son controle complet et peut donc rester rouge pour cette raison.
+Le build CI est execute meme si l'audit echoue ; cela ne rend pas le controle vert.
 
 Verification visuelle locale : ordinateur environ 1440 px, mobile 390 px,
 catalogue normal/vide/stock epuise/erreur, calculateur, confirmations checkout

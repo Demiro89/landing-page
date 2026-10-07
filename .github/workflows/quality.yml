@@ -25,6 +25,7 @@ jobs:
       - run: npm test
       - run: npm audit --audit-level=high
       - run: npm run build
+        if: ${{ !cancelled() }}
   reservations:
     runs-on: ubuntu-latest
     timeout-minutes: 10
