@@ -78,6 +78,9 @@ endpoints publics ni par la liste blanche des parametres admin.
    Ne pas supprimer les tables ou preuves au retour arriere.
 
 Le build ne pousse jamais le schema et ne doit pas se connecter a la base.
+`vercel.json` impose `npm ci` et `npm run build`, plutot que de reprendre une
+ancienne commande d'installation ou de compilation configuree dans le dashboard.
+Un test protege aussi les scripts et leurs hooks contre une migration implicite.
 La commande `db:push` existante reste un outil manuel ; elle ne doit pas etre
 utilisee contre la production pour cette livraison.
 
@@ -145,7 +148,7 @@ remplace jamais la validite du document du fournisseur. Surfshark reste non veri
 
 `npm test`, `npm run lint`, `npm run build`.
 
-Resultats locaux : 44 tests passes, lint sans erreur et build complet reussi.
+Resultats locaux : 45 tests passes, lint sans erreur et build complet reussi.
 Le moteur Prisma natif est bloque par la protection Windows locale et le daemon
 Docker n'est pas lance : le test PostgreSQL est execute en CI, pas declare passe
 sur cette machine. Aucune protection Windows n'a ete desactivee.

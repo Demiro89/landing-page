@@ -1,6 +1,19 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createLoader } = require('./load-ts.cjs');
+const { readFileSync } = require('node:fs');
+const path = require('node:path');
+
+test('Vercel installation and build never apply a database schema', () => {
+  const root = path.join(__dirname, '..');
+  const vercel = JSON.parse(readFileSync(path.join(root, 'vercel.json'), 'utf8'));
+  const { scripts } = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'));
+  assert.equal(vercel.installCommand, 'npm ci');
+  assert.equal(vercel.buildCommand, 'npm run build');
+  assert.equal(scripts.postinstall, 'prisma generate');
+  assert.equal(scripts.build, 'prisma generate && next build');
+  for (const hook of ['preinstall', 'install', 'prebuild', 'postbuild']) assert.equal(scripts[hook], undefined);
+});
 
 async function withEnv(values, run) {
   const previous = Object.fromEntries(Object.keys(values).map(key => [key, process.env[key]]));
