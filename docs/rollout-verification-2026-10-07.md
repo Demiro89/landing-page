@@ -47,6 +47,18 @@ facturation, renouvellement, paiement echoue, resiliation et liberation de place
 seulement apres confirmation de revocation de l'acces fournisseur. Un paiement
 tardif ne prend pas la place reservee par une autre commande : revue manuelle.
 
+Resultats techniques verifies sur le commit `7912a67` :
+
+- 52 tests unitaires reussis, sans echec ni test ignore.
+- 4 tests d'integration reussis sur PostgreSQL 17 dans GitHub Actions, sans echec
+  ni test ignore. La migration additive est appliquee sur le schema historique
+  avant ces tests ; les appels aux prestataires y restent simules.
+- `npm run lint` et `npm run build` reussis en local ; compilation et verification
+  TypeScript egalement reussies dans GitHub Actions.
+- Execution GitHub Actions : [Quality 37610170703](https://github.com/Demiro89/landing-page/actions/runs/37610170703).
+  Son statut global reste en echec a cause de l'audit des dependances de
+  developpement. Ce n'est pas un echec des tests PostgreSQL ou du build.
+
 La collecte d'adresse est demandee a Stripe. Le nom et l'adresse issus du webhook
 signe sont conserves dans une preuve chiffree immuable, reutilisee pour la facture
 initiale et disponible dans l'export du client proprietaire. Les anciennes factures
@@ -66,6 +78,49 @@ secret partage ou abonnement payant n'a ete cree dans cette intervention.
 Un identifiant Resend prouve l'acceptation par le prestataire, pas la reception
 dans la boite du client ni l'activation effective d'une invitation fournisseur.
 Les essais reels necessitent un destinataire autorise et les acces sandbox.
+
+### Essais de prestataires du 7 octobre 2026
+
+Stripe : essais exclusivement dans le sandbox existant
+`acct_1TJtPRHUYpGBxmnO`, sans utiliser les cles de production ni une carte reelle.
+Le connecteur Stripe ne presentant que le compte live, les essais sandbox ont
+ete effectues avec Stripe Shell dans le tableau de bord authentifie.
+
+- Paiement fictif de 300 centimes EUR : `pi_3UNsYgHUYpGBxmnO1udYy6AE`,
+  `livemode: false`, `status: succeeded`.
+- Carte de refus officielle : `card_declined` / `generic_decline` ; aucun paiement
+  reussi n'est annonce.
+- Client fictif sans adresse e-mail : `cus_VOfy1BbgTBW7Vm`, horloge
+  `clock_1UNsadHUYpGBxmnOf0Ejxfle`, abonnement
+  `sub_1UNse7HUYpGBxmnOzJPF80g5`.
+- Premiere facture `in_1UNse7HUYpGBxmnOYKWGcnEx` : `subscription_create`,
+  `amount_paid: 300`, `status: paid`, numero `2HZEQRVE-0001`.
+- Apres avance de l'horloge, facture `in_1UNsgcHUYpGBxmnOe0nl3fJW` :
+  `subscription_cycle`, `amount_paid: 300`, `status: paid`, numero `2HZEQRVE-0002`.
+- Apres passage a une carte de test qui refuse les prelevements, facture
+  `in_1UNsjfHUYpGBxmnOnjBbCgGd` : `amount_paid: 0`, `amount_remaining: 300`,
+  `status: open`, numero `2HZEQRVE-0003`. Abonnement verifie `past_due`.
+- Abonnement fictif ensuite resilie sans prorata ni nouvelle facturation :
+  `livemode: false`, `status: canceled`. Aucun abonnement reel n'a ete touche.
+- Les lectures d'abonnement/facture avec la version demandee par le site
+  `2026-04-22.dahlia` ont reussi. Les elements d'abonnement exposent bien
+  `current_period_start` et `current_period_end` ; la facture expose `parent`.
+
+Resend : domaine `streammalin.fr` verifie, envoi autorise, region `eu-west-1`,
+suivi des ouvertures et clics desactive. Un message de test sans commande,
+identifiant d'acces ou donnee client a ete envoye depuis `hello@streammalin.fr`
+a une adresse autorisee par le proprietaire. Reference
+`01a11607-f71a-7c18-a8c3-6180a86881ef`, statut fournisseur `delivered`.
+Le proprietaire a confirme sa reception dans la boite principale. Le rejeu exact
+avec la meme cle d'idempotence a retourne cette meme reference, sans second envoi.
+L'adresse personnelle de reception n'est pas conservee dans le depot.
+
+Ces essais de prestataires sont distincts des tests de l'application : aucun
+webhook sandbox n'a ete branche sur une instance isolee du site, et le message
+de test Resend n'a pas ete emis par un job de commande. Ils ne valident donc pas
+encore le parcours reel checkout -> webhook -> reservation -> facture -> acces
+ni les alertes Telegram en exploitation. Aucun compte client ou acces fournisseur
+de production n'a ete utilise. Ne pas reouvrir les ventes sur cette seule preuve.
 
 ## Identite, mediation et comptabilite
 
@@ -115,6 +170,54 @@ n'est disponible dans l'avis au moment du controle. Ne pas appliquer le downgrad
 automatique du lint vers Next 14 ni masquer l'alerte. L'audit complet reste rouge.
 L'audit des seules dependances de production doit etre controle separement.
 Controle du 7 octobre 2026 : audit de production sans vulnerabilite signalee.
+
+## Restant avant ouverture des ventes
+
+1. Brancher une instance isolee du site sur une base de test et le sandbox Stripe,
+   sans partager les connexions de production. Tester le parcours complet et les
+   receptions/rejeux des webhooks, puis les factures et envois issus des vrais jobs.
+2. Configurer et verifier un traitement regulier des livraisons ainsi que la
+   reception des alertes d'exploitation. Les tests unitaires prouvent les gardes
+   et reprises ; aucun ordonnanceur frequent ni canal Telegram n'a ete valide
+   en exploitation dans cette intervention. Les relances d'impayes utilisent
+   encore l'envoi historique sans job durable : leur reprise reste a fiabiliser.
+3. Fournir les justificatifs d'identite/immatriculation, l'attestation CM2C et le
+   regime de TVA. Verifier les factures de renouvellement et les durees de
+   conservation avec les professionnels concernes.
+4. Traiter l'alerte de dependance de developpement des qu'un correctif compatible
+   est disponible, ou faire examiner explicitement une mitigation maintenue.
+   Ne pas masquer le controle en echec pour annoncer une validation complete.
+5. Conserver les offres sans autorisation fournisseur indisponibles. La migration,
+   les essais Stripe et la reception d'un e-mail de test ne prouvent pas que la
+   revente d'un acces tiers est autorisee.
+
+Un export chiffre independant de Neon et un second exercice de restauration
+restent recommandes ; la seule sauvegarde constatee ici est le snapshot Neon
+restaure et controle. La PR reste en brouillon, non mergee, et les interrupteurs
+commerce/livraison restent fermes.
+
+## Fichiers modifies dans la PR
+
+- `.github/workflows/quality.yml`
+- `app/api/checkout/stripe/route.ts`
+- `app/api/client/export-data/route.ts`
+- `app/api/cron/cleanup/route.ts`
+- `app/api/cron/deliveries/route.ts`
+- `app/politique-confidentialite/page.tsx`
+- `docs/rollout-verification-2026-10-07.md`
+- `lib/billingSnapshot.ts`
+- `lib/cronAuth.ts`
+- `lib/deliveryAlerts.ts`
+- `lib/deliveryWorker.ts`
+- `lib/invoice.ts`
+- `lib/legalConfig.ts`
+- `lib/reservedStripeOrder.ts`
+- `lib/telegram.ts`
+- `package.json`
+- `proxy.ts`
+- `tests/postgres-payments.cjs`
+- `tests/rollout-verification.test.cjs`
+- `tests/security.test.cjs`
 
 ## Sources
 
