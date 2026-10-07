@@ -3,7 +3,6 @@ import type { MetadataRoute } from 'next';
 const BASE = process.env.NEXT_PUBLIC_APP_URL || 'https://www.streammalin.fr';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const now = new Date();
   const routes: { path: string; priority: number; changeFrequency: 'daily' | 'monthly' }[] = [
     { path: '', priority: 1, changeFrequency: 'daily' },
     { path: '/cgv', priority: 0.4, changeFrequency: 'monthly' },
@@ -18,7 +17,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
   ];
   return routes.map((r) => ({
     url: `${BASE}${r.path}`,
-    lastModified: now,
     changeFrequency: r.changeFrequency,
     priority: r.priority,
   }));

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { commerceEnabled } from '@/lib/commerce';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,7 +14,7 @@ const PUBLIC_KEYS = [
 
 const DEFAULTS: Record<string, string> = {
   crypto_btc: '', crypto_eth: '', crypto_usdt: '', crypto_ltc: '',
-  gateway_cb: 'true', gateway_paypal: 'true', gateway_crypto: 'true',
+  gateway_cb: 'false', gateway_paypal: 'false', gateway_crypto: 'false',
   paypal_email: '',
 };
 
@@ -26,6 +27,11 @@ export async function GET() {
     const rows = await prisma.setting.findMany({ where: { key: { in: PUBLIC_KEYS } } });
     const settings: Record<string, string> = { ...DEFAULTS };
     rows.forEach((r) => { settings[r.key] = r.value; });
+    if (!commerceEnabled()) {
+      settings.gateway_cb = settings.gateway_paypal = settings.gateway_crypto = 'false';
+    } else if (process.env.MANUAL_PAYMENTS_ENABLED !== 'true') {
+      settings.gateway_paypal = settings.gateway_crypto = 'false';
+    }
     return NextResponse.json({ success: true, settings });
   } catch (error) {
     console.error('Erreur GET settings public:', error);

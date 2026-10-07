@@ -3,7 +3,10 @@ import { prisma } from '@/lib/prisma';
 import { getCurrentCustomer } from '@/lib/clientAuth';
 import { enforceRateLimit } from '@/lib/rateLimit';
 import { sendTelegramNotification } from '@/lib/telegram';
-import { LEGAL_LAST_UPDATED } from '@/lib/legalConfig';
+import { CURRENT_TERMS_VERSION } from '@/lib/termsVersion';
+import { assertOfferSaleAllowed, CommerceUnavailableError } from '@/lib/commerce';
+import { reserveCheckout } from '@/lib/checkoutReservation';
+import { AvailabilityError } from '@/lib/stockReservations';
 import { validateCheckout } from '@/lib/checkoutValidation';
 import { clientIp } from '@/lib/clientIp';
 import { isGatewayEnabled } from '@/lib/paymentSettings';
@@ -30,6 +33,8 @@ export async function POST(request: Request) {
     const input = validateCheckout(body);
     if ('error' in input) return NextResponse.json({ error: input.error }, { status: 400 });
     const { serviceId, stockAccountId, email: cleanedEmail, youtubeEmail } = input;
+    await assertOfferSaleAllowed(serviceId);
+    if (body.termsVersion !== CURRENT_TERMS_VERSION) return NextResponse.json({ error: 'Les CGV ont changé. Rechargez la page.' }, { status: 409 });
     const { paymentMethod } = body;
     if (paymentMethod !== 'paypal' && paymentMethod !== 'crypto') {
       return NextResponse.json({ error: 'Moyen de paiement invalide' }, { status: 400 });
@@ -65,20 +70,11 @@ export async function POST(request: Request) {
     const acceptedAt = new Date();
     const acceptanceUserAgent = (request.headers.get('user-agent') || '').slice(0, 450);
     const acceptanceIp = clientIp(request);
-    const termsVersion = LEGAL_LAST_UPDATED;
+    const termsVersion = CURRENT_TERMS_VERSION;
 
     const customer = await getCurrentCustomer();
     const ownerId = customer?.email === cleanedEmail ? customer.id : null;
-    // Reuse only an authenticated owner's identical order; never overwrite proof.
-    const existing = ownerId ? await prisma.order.findFirst({
-      where: { stockAccountId, clientEmail: cleanedEmail, customerId: ownerId, status: 'pending', paymentMethod: methodLabel, youtubeEmail },
-    }) : null;
-    if (existing && ownerId && existing.price === stock.price) {
-      return NextResponse.json({ success: true, orderId: existing.id, reused: true });
-    }
-
-    const order = await prisma.order.create({
-      data: {
+    const { order, reservation } = await reserveCheckout(body.attemptId, {
         serviceId,
         stockAccountId,
         price: stock.price,
@@ -98,15 +94,16 @@ export async function POST(request: Request) {
         termsVersion,
         acceptanceUserAgent,
         acceptanceIp,
-      },
     });
 
     sendTelegramNotification(
       `🕓 <b>Commande à valider</b>\n💳 ${methodLabel}\n👤 ${cleanedEmail}\n📺 ${service.name}\n💶 ${stock.price.toFixed(2)}€\n🔖 Réf. ${order.id.slice(0, 8).toUpperCase()}`
     ).catch(() => {});
 
-    return NextResponse.json({ success: true, orderId: order.id });
+    return NextResponse.json({ success: true, orderId: order.id, expiresAt: reservation.expiresAt });
   } catch (error) {
+    if (error instanceof CommerceUnavailableError) return NextResponse.json({ error: error.message }, { status: 503 });
+    if (error instanceof AvailabilityError) return NextResponse.json({ error: error.message }, { status: 409 });
     console.error('Erreur POST checkout/manual:', error);
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
   }

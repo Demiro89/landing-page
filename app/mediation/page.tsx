@@ -3,6 +3,7 @@ import LegalPage from '@/components/LegalPage';
 import { MEDIATION } from '@/lib/legalConfig';
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/mediation' },
   title: 'Médiation de la consommation — StreamMalin',
   description: 'Informations sur la médiation de la consommation applicable à StreamMalin.',
 };

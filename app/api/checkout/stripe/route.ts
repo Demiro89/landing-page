@@ -1,196 +1,68 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { prisma } from '@/lib/prisma';
-import { sendOrderDetailsEmail } from '@/lib/nodemailer';
-import { createInvoiceForOrder } from '@/lib/invoice';
-import { decrypt } from '@/lib/crypto';
-import { LEGAL_LAST_UPDATED } from '@/lib/legalConfig';
+import { CURRENT_TERMS_VERSION } from '@/lib/termsVersion';
 import { enforceRateLimit } from '@/lib/rateLimit';
 import { validateCheckout } from '@/lib/checkoutValidation';
 import { clientIp } from '@/lib/clientIp';
 import { isGatewayEnabled } from '@/lib/paymentSettings';
+import { assertOfferSaleAllowed, CommerceUnavailableError } from '@/lib/commerce';
+import { reserveCheckout } from '@/lib/checkoutReservation';
+import { AvailabilityError } from '@/lib/stockReservations';
 
 export const dynamic = 'force-dynamic';
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.streammalin.fr';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_mock', {
-  apiVersion: '2026-04-22.dahlia',
-});
-
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-
-/**
- * POST /api/checkout/stripe : Crée une session Stripe Checkout en mode subscription (prélèvement mensuel auto).
- */
 export async function POST(request: Request) {
   try {
-    // Limite la création de sessions Stripe (anti-abus / anti-spam de checkout).
     const limited = await enforceRateLimit(request, 'checkout-stripe', 15, 600, true);
     if (limited) return limited;
-
-    const input = validateCheckout(await request.json());
+    const body = await request.json();
+    const input = validateCheckout(body);
     if ('error' in input) return NextResponse.json({ error: input.error }, { status: 400 });
-    const { serviceId, stockAccountId, email: cleanedEmail, youtubeEmail } = input;
-    const cleanedYoutubeEmail = youtubeEmail || '';
-    if (!(await isGatewayEnabled('cb'))) {
-      return NextResponse.json({ error: 'Ce moyen de paiement est indisponible.' }, { status: 503 });
-    }
-
-    // Preuve d'acceptation : horodatage serveur + métadonnées techniques
-    const acceptedAt = new Date();
-    const acceptanceUserAgent = (request.headers.get('user-agent') || '').slice(0, 450);
-    // x-real-ip est défini par l'edge Vercel (non falsifiable), contrairement à
-    // x-forwarded-for que le client peut préfixer. Preuve légale d'acceptation.
-    const acceptanceIp = clientIp(request);
-    const termsVersion = LEGAL_LAST_UPDATED;
-
-    const service = await prisma.service.findUnique({ where: { id: serviceId } });
-    const stockAccount = await prisma.stockAccount.findUnique({ where: { id: stockAccountId } });
-
-    if (!service?.active || !stockAccount) {
-      return NextResponse.json({ error: 'Service ou stock introuvable' }, { status: 404 });
-    }
-
-    if (stockAccount.serviceId !== serviceId) {
-      return NextResponse.json({ error: 'Ce stock ne correspond pas au service sélectionné' }, { status: 400 });
-    }
-
-    if (stockAccount.filledSlots >= stockAccount.maxSlots) {
-      return NextResponse.json({ error: 'Plus de places disponibles dans ce compte' }, { status: 400 });
-    }
-    if (!Number.isFinite(stockAccount.price) || Math.round(stockAccount.price * 100) < 1) {
-      return NextResponse.json({ error: 'Cette offre est temporairement indisponible.' }, { status: 409 });
-    }
-
-    const stripeConfigured = !!process.env.STRIPE_SECRET_KEY && process.env.STRIPE_SECRET_KEY !== 'sk_test_mock';
-
-    // Fail-closed : en production, Stripe DOIT être configuré.
-    // Sans clé réelle on ne crée JAMAIS de commande sans paiement.
-    if (!stripeConfigured && process.env.NODE_ENV === 'production') {
-      console.error('[checkout] STRIPE_SECRET_KEY absent en production — paiement refusé');
-      return NextResponse.json({ error: 'Le paiement est temporairement indisponible. Merci de réessayer plus tard.' }, { status: 503 });
-    }
-
-    // Mode simulation : nécessite un opt-in explicite via STRIPE_SIMULATION_ENABLED=true
-    // pour éviter l'activation accidentelle sur les environnements de preview.
-    const simulationEnabled = process.env.STRIPE_SIMULATION_ENABLED === 'true';
-    if (!stripeConfigured && !simulationEnabled) {
-      console.error('[checkout] Stripe non configuré et simulation désactivée');
+    await assertOfferSaleAllowed(input.serviceId);
+    if (body.termsVersion !== CURRENT_TERMS_VERSION) return NextResponse.json({ error: 'Les CGV ont changé. Rechargez la page et relisez-les.' }, { status: 409 });
+    const key = process.env.STRIPE_SECRET_KEY;
+    if (!key || key === 'sk_test_mock' || !(await isGatewayEnabled('cb'))) {
       return NextResponse.json({ error: 'Le paiement est temporairement indisponible.' }, { status: 503 });
     }
-    if (!stripeConfigured && simulationEnabled) {
-      console.log('--- MODE SIMULATION STRIPE (subscription, dev) ---');
-      const order = await prisma.$transaction(async (tx) => {
-        const stockIncrement = await tx.stockAccount.updateMany({
-          where: { id: stockAccountId, filledSlots: { lt: tx.stockAccount.fields.maxSlots }, service: { active: true } },
-          data: { filledSlots: { increment: 1 } },
-        });
-        if (stockIncrement.count === 0) {
-          throw new Error('Plus de places disponibles dans ce compte');
-        }
-        const updatedStock = await tx.stockAccount.findUnique({ where: { id: stockAccountId } });
-        if (!updatedStock) throw new Error('Stock introuvable');
-        const createdOrder = await tx.order.create({
-          data: {
-            serviceId,
-            stockAccountId,
-            price: updatedStock.price,
-            total: updatedStock.price,
-            details: updatedStock.details,
-            clientEmail: cleanedEmail,
-            youtubeEmail: cleanedYoutubeEmail || null,
-            paymentMethod: 'Carte bancaire (Stripe)',
-            status: 'active',
-            nextBillingAt: new Date(Date.now() + 30 * 86400000),
-            acceptedCgv: true,
-            acceptedImmediateExecution: true,
-            acceptedAt,
-            acceptedTermsAt: acceptedAt,
-            acceptedWithdrawalWaiverAt: acceptedAt,
-            acceptedEligibilityAt: acceptedAt,
-            termsVersion,
-            acceptanceUserAgent,
-            acceptanceIp,
-          },
-        });
-        await tx.chatThread.create({
-          data: {
-            id: createdOrder.id,
-            orderId: createdOrder.id,
-            title: `Support ${service.name}`,
-            messages: { create: [{ sender: 'Support StreamMalin', text: `Bonjour ! Merci pour votre abonnement à ${service.name}. Vos identifiants de connexion sont disponibles sur votre commande dans votre espace client et vous ont été envoyés par e-mail. Une question ? Écrivez-nous ici.` }] },
-          },
-        });
-        return createdOrder;
-      });
-      const invoice = await createInvoiceForOrder({
-        orderId: order.id,
-        clientEmail: cleanedEmail,
-        serviceName: service.name,
-        amount: order.total,
-        paymentMethod: 'Carte bancaire (Stripe)',
-      }).catch((err) => { console.error('[invoice] simulation error:', err); return null; });
-      await sendOrderDetailsEmail(cleanedEmail, service.name, decrypt(order.details), order.id, cleanedYoutubeEmail || undefined, {
-        amount: order.total,
-        invoiceId: invoice?.id,
-        invoiceNumber: invoice?.number,
-      });
-      return NextResponse.json({
-        success: true,
-        simulated: true,
-        url: `${APP_URL}/?success=true&email=${encodeURIComponent(cleanedEmail)}&orderId=${order.id}`,
-      });
-    }
-
-    // Stripe Subscription réelle
-    const session = await stripe.checkout.sessions.create({
-      mode: 'subscription',
-      payment_method_types: ['card', 'link'],
-      customer_email: cleanedEmail,
-      line_items: [
-        {
-          price_data: {
-            currency: 'eur',
-            product_data: {
-              name: `StreamMalin - ${service.name}`,
-              description: `Abonnement mensuel à ${service.name} — résiliable à tout moment`,
-            },
-            unit_amount: Math.round(stockAccount.price * 100),
-            recurring: { interval: 'month' },
-          },
-          quantity: 1,
-        },
-      ],
-      success_url: `${APP_URL}/?success=true&email=${encodeURIComponent(cleanedEmail)}&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${APP_URL}/checkout?service=${serviceId}&stock=${stockAccountId}&cancelled=true`,
-      metadata: {
-        serviceId,
-        stockAccountId,
-        clientEmail: cleanedEmail,
-        price: stockAccount.price.toString(),
-        youtubeEmail: cleanedYoutubeEmail,
-        acceptedAt: acceptedAt.toISOString(),
-        acceptedTermsAt: acceptedAt.toISOString(),
-        acceptedWithdrawalWaiverAt: acceptedAt.toISOString(),
-        acceptedEligibilityAt: acceptedAt.toISOString(),
-        termsVersion,
-        acceptanceUserAgent,
-        acceptanceIp,
-      },
-      subscription_data: {
-        metadata: {
-          serviceId,
-          stockAccountId,
-          clientEmail: cleanedEmail,
-          youtubeEmail: cleanedYoutubeEmail,
-        },
-      },
+    // Never create a paid order in a simulation path, even in development.
+    const stripe = new Stripe(key, { apiVersion: '2026-04-22.dahlia' });
+    const acceptedAt = new Date();
+    const { reservation, order, stock } = await reserveCheckout(body.attemptId, {
+      serviceId: input.serviceId, stockAccountId: input.stockAccountId, clientEmail: input.email,
+      youtubeEmail: input.youtubeEmail, paymentMethod: 'Carte bancaire (Stripe)', price: 0, total: 0, details: '',
+      acceptedCgv: true, acceptedImmediateExecution: true, acceptedAt,
+      acceptedTermsAt: acceptedAt, acceptedWithdrawalWaiverAt: acceptedAt, acceptedEligibilityAt: acceptedAt,
+      termsVersion: CURRENT_TERMS_VERSION, acceptanceIp: clientIp(request),
+      acceptanceUserAgent: (request.headers.get('user-agent') || '').slice(0, 450),
     });
-
-    return NextResponse.json({ success: true, url: session.url });
-  } catch (error: unknown) {
-    // On journalise le détail côté serveur mais on n'expose jamais le message
-    // brut au client (peut révéler des détails Stripe / schéma interne).
-    console.error('Erreur Stripe Checkout Route:', error);
-    return NextResponse.json({ error: 'Erreur serveur. Merci de réessayer plus tard.' }, { status: 500 });
+    if (reservation.checkoutSessionId) {
+      const existing = await stripe.checkout.sessions.retrieve(reservation.checkoutSessionId);
+      if (existing.status !== 'open' || !existing.url) return NextResponse.json({ error: 'Cette session est terminée. Consultez votre confirmation ou rechargez la page.' }, { status: 409 });
+      return NextResponse.json({ success: true, url: existing.url, expiresAt: reservation.expiresAt });
+    }
+    if (reservation.expiresAt.getTime() < Date.now() + 30 * 60 * 1000) {
+      return NextResponse.json({ error: 'La réservation a expiré. Rechargez la page.' }, { status: 409 });
+    }
+    const session = await stripe.checkout.sessions.create({
+      mode: 'subscription', payment_method_types: ['card'], customer_email: input.email,
+      expires_at: Math.floor(reservation.expiresAt.getTime() / 1000), client_reference_id: order.id,
+      line_items: [{ price_data: { currency: 'eur', product_data: {
+        name: `StreamMalin - ${stock.service.name}`, description: 'Abonnement avec prélèvement mensuel automatique. Résiliation avant la prochaine échéance depuis l’espace client.',
+      }, unit_amount: Math.round(order.price * 100), recurring: { interval: 'month' } }, quantity: 1 }],
+      success_url: `${APP_URL}/commande/confirmee?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${APP_URL}/checkout?${new URLSearchParams({ service: input.serviceId, stock: input.stockAccountId, cancelled: 'true' })}`,
+      metadata: { orderId: order.id, reservationId: reservation.id },
+      subscription_data: { metadata: { orderId: order.id } },
+    }, { idempotencyKey: `checkout:${reservation.id}` });
+    await prisma.stockReservation.update({ where: { id: reservation.id }, data: { checkoutSessionId: session.id } });
+    return NextResponse.json({ success: true, url: session.url, expiresAt: reservation.expiresAt });
+  } catch (error) {
+    if (error instanceof CommerceUnavailableError) return NextResponse.json({ error: error.message }, { status: 503 });
+    if (error instanceof AvailabilityError) return NextResponse.json({ error: error.message }, { status: 409 });
+    // Keep a hold on an uncertain Stripe response; retry uses the same idempotency key.
+    console.error('[checkout] Session creation failed');
+    return NextResponse.json({ error: 'La réservation n’a pas pu être confirmée. Réessayez sans changer vos informations ou contactez le support.' }, { status: 503 });
   }
 }

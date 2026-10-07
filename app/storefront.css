@@ -1,0 +1,93 @@
+.storefront { --surface-border: #39424a; }
+.storefront .hero { min-height: 0; padding: 104px 24px 32px; text-align: left; }
+.storefront .hero-content { max-width: 1180px; margin: 0 auto; padding: 0; }
+.storefront .hero-category { color: var(--primary); font-size: .75rem; font-weight: 700; margin-bottom: 14px; letter-spacing: 0; }
+.storefront .hero h1 { font-size: 3rem; line-height: 1.1; margin-bottom: 14px; letter-spacing: 0; }
+.storefront .hero-subtitle { max-width: 620px; margin: 0 0 20px; font-size: 1.05rem; line-height: 1.6; }
+.storefront .hero-cta { justify-content: flex-start; gap: 12px; }
+.storefront .hero-trust { justify-content: flex-start; margin-top: 24px; gap: 22px; }
+.storefront .hero-trust a, .storefront .hero-trust span { display: inline-flex; align-items: center; gap: 7px; color: var(--text-gray); font-size: .8rem; }
+.storefront .hero-stock-note { margin-top: 18px; max-width: 620px; font-size: .86rem; color: var(--accent-yellow); line-height: 1.6; }
+.storefront .section { padding: 32px 24px; }
+.storefront .section-inner { max-width: 1180px; }
+.storefront .section-head { text-align: left; margin-bottom: 26px; }
+.storefront .section-title { font-size: 1.65rem; line-height: 1.25; letter-spacing: 0; }
+.storefront .section-subtitle { margin: 8px 0 0; max-width: 680px; font-size: .9rem; line-height: 1.65; }
+.catalog-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+.catalog-stock-link { display: inline-flex; gap: 8px; align-items: center; color: var(--primary); font-size: .84rem; }
+.storefront .filters { justify-content: flex-start; gap: 6px; margin-bottom: 22px; }
+.storefront .filter-btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; border-radius: 6px; min-height: 40px; padding: 9px 13px; box-shadow: none; font-size: .82rem; }
+.storefront .filter-btn.active { background: #20483c; color: #ccf1df; border-color: #5b9b7f; box-shadow: none; }
+.storefront .products-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 285px), 1fr)); gap: 18px; align-items: stretch; }
+.offer-card { display: flex; flex-direction: column; min-width: 0; padding: 22px; border: 1px solid var(--surface-border, #39424a); border-radius: 8px; background: #151b20; overflow-wrap: anywhere; }
+.offer-card-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+.offer-availability { display: inline-flex; align-items: center; gap: 5px; color: #b7bfc7; font-size: .75rem; }
+.offer-availability.available { color: #90d9b5; }
+.offer-card h3 { font-size: 1.18rem; line-height: 1.4; margin: 0 0 8px; color: #f4f6f7; letter-spacing: 0; }
+.offer-tagline { color: #bac3ca; font-size: .85rem; line-height: 1.6; min-height: 42px; margin-bottom: 20px; max-width: 60ch; }
+.offer-price { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin: 0 0 8px; }
+.offer-price strong { font-size: 1.85rem; line-height: 1.15; color: #f4f6f7; letter-spacing: 0; }
+.offer-price span, .offer-public-price { color: #bac3ca; font-size: .8rem; }
+.offer-public-price { margin: 4px 0; }
+.offer-savings { font-size: .8rem; color: #90d9b5; margin-top: 7px; }
+.offer-features { list-style: none; display: grid; gap: 9px; padding: 18px 0; margin: 12px 0 0; border-top: 1px solid #323c43; }
+.offer-features li { display: flex; align-items: flex-start; gap: 9px; color: #c5cdd3; font-size: .83rem; line-height: 1.5; }
+.offer-features svg { flex: 0 0 15px; color: #90d9b5; margin-top: 3px; }
+.offer-conditions { display: flex; gap: 7px; align-items: center; margin: auto 0 18px; padding-top: 14px; font-size: .78rem; color: #b4c8da; }
+.offer-conditions a { text-decoration: underline; text-underline-offset: 3px; }
+.offer-eligibility { color: #c5cdd3; font-size: .8rem; line-height: 1.6; margin-bottom: 8px; }
+.offer-action { width: 100%; min-height: 44px; }
+.offer-action-disabled { background: #293039; color: #aeb8c1; border: 1px solid #4a545e; }
+.offer-contact { display: flex; align-items: center; justify-content: center; gap: 7px; margin-top: 14px; min-height: 36px; color: #acd8c8; font-size: .8rem; }
+.storefront .catalog-state { text-align: left; padding: 24px 0; }
+.storefront .catalog-state p { margin-left: 0; }
+.storefront .share-item { box-shadow: none; padding: 18px; border-radius: 8px; }
+.storefront .comparison { background: none; padding: 0; border: none; border-radius: 0; box-shadow: none; }
+.storefront .comparison-row { grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr)); gap: 16px; padding: 16px 0; border-bottom: 1px solid #323c43; }
+.storefront .comparison-head { font-size: .72rem; letter-spacing: 0; }
+.storefront .comparison-service { min-width: 0; gap: 12px; }
+.comparison-tagline { font-size: .77rem; color: var(--text-muted); line-height: 1.5; overflow-wrap: anywhere; }
+.storefront .comparison-price-new, .storefront .comparison-price-old { font-size: .9rem; min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+.storefront .comparison-badge { background: transparent; border: none; padding: 0; color: var(--accent-green); font-size: .8rem; letter-spacing: 0; }
+.calculator-title { display: flex; align-items: center; gap: 9px; font-size: 1.08rem; margin-bottom: 18px; }
+.storefront .calc-chip { display: inline-flex; align-items: center; gap: 8px; border-radius: 6px; padding: 8px 12px; box-shadow: none; }
+.storefront .calc-chip .service-mark { width: 24px; height: 24px; flex-basis: 24px; font-size: .6rem; }
+.storefront .calc-chip img { width: 16px; height: 16px; }
+.storefront .calc-chip.active { background: #20483c; border-color: #5b9b7f; }
+.storefront .calc-result { gap: 20px; }
+.storefront .calc-tile { text-align: left; padding: 18px 0; }
+.storefront .calc-tile-value { font-size: 1.55rem; overflow-wrap: anywhere; letter-spacing: 0; }
+.comparison-note { color: var(--text-muted); font-size: .83rem; line-height: 1.6; margin-top: 12px; }
+.storefront .step-card, .storefront .guarantee-card { background: none; border: none; box-shadow: none; border-radius: 0; text-align: left; padding: 12px 0; }
+.storefront .step-number { background: none; box-shadow: none; color: var(--primary); justify-content: flex-start; margin-left: 0; width: auto; height: 36px; font-size: 1.6rem; }
+.storefront .guarantee-icon { margin-left: 0; background: none; border: none; }
+.storefront .faq-item { background: none; border-radius: 0; box-shadow: none; border: none; border-bottom: 1px solid #39424a; }
+.storefront .faq-trigger { padding: 18px 0; }
+.storefront .faq-answer { padding: 0 0 20px; }
+.storefront .cta-block { background: none; border: none; border-radius: 0; box-shadow: none; text-align: left; padding: 16px 0; }
+.storefront .cta-block::before, .storefront .cta-block::after { display: none; }
+.storefront .cta-block h2 { font-size: 1.65rem; letter-spacing: 0; }
+.storefront .cta-block p { margin: 12px 0 20px; max-width: 600px; }
+.storefront .cta-buttons { justify-content: flex-start; }
+@media (max-width: 768px) {
+  .storefront .hero { padding: 96px 20px 24px; }
+  .storefront .hero h1 { font-size: 2.25rem; }
+  .storefront .hero-subtitle { font-size: .95rem; }
+  .storefront .hero-trust { gap: 12px; flex-wrap: wrap; }
+  .storefront .section { padding: 24px 20px; }
+  .storefront .section-title { font-size: 1.4rem; }
+  .storefront .products-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 285px), 1fr)); }
+  .offer-card { padding: 20px; }
+  .storefront .comparison-head { display: none; }
+  .storefront .comparison-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+  .storefront .comparison-service { grid-column: 1 / -1; }
+  .storefront .comparison-price-new, .storefront .comparison-price-old { text-align: left; }
+  .storefront .comparison-price-new::before, .storefront .comparison-price-old::before { display: block; content: attr(data-label); font-size: .72rem; color: var(--text-muted); margin-bottom: 5px; }
+  .storefront .comparison-row > div:last-child { display: flex; grid-column: 1 / -1; justify-content: flex-start !important; }
+  .storefront .calc-result { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .storefront .calc-tile { border-bottom: 1px solid #323c43; }
+  .storefront .share-item { display: grid; grid-template-columns: 44px minmax(0, 1fr); }
+  .storefront .share-price { grid-column: 2; width: auto; text-align: left; }
+  .storefront .share-item > .btn { grid-column: 1 / -1; }
+  .storefront .steps-grid, .storefront .guarantees-grid { gap: 14px; }
+}

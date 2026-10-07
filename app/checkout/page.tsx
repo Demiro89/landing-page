@@ -1,9 +1,13 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import Footer from '@/components/Footer';
+import { CURRENT_TERMS_VERSION, CURRENT_TERMS_URL } from '@/lib/termsVersion';
+import { formatEuro, matchesServiceFilter } from '@/lib/offerPresentation';
+import ServiceMark from '@/components/ServiceMark';
+import './checkout.css';
 
 interface ServiceDetails {
   id: string;
@@ -13,6 +17,10 @@ interface ServiceDetails {
   original: number;
   icon: string;
   gradient: string;
+  eligibility: string;
+  accessType: string;
+  privacyNote: string;
+  referenceVerified: boolean;
 }
 
 interface PublicStockSummary {
@@ -31,6 +39,8 @@ const CRYPTO_META: Record<CryptoCoin, { label: string; color: string; symbol: st
   ltc: { label: 'Litecoin (LTC)', color: '#345D9D', symbol: 'Ł' },
 };
 
+const ratesAreFresh = (updatedAt: Date | null) => updatedAt !== null && Date.now() - updatedAt.getTime() <= 300000;
+
 function CheckoutContent() {
   const searchParams = useSearchParams();
   const serviceId = searchParams.get('service');
@@ -40,7 +50,13 @@ function CheckoutContent() {
   const [cryptoAddr, setCryptoAddr] = useState<Record<string, string>>({ btc: '', eth: '', usdt: '', ltc: '' });
   const [paypalEmail, setPaypalEmail] = useState('');
   const [loadingService, setLoadingService] = useState(true);
-  const [email, setEmail] = useState(searchParams.get('email') || '');
+  const [email, setEmail] = useState('');
+  const attempt = useRef<{ identity: string; id: string } | null>(null);
+  const attemptId = (method: string) => {
+    const identity = JSON.stringify([serviceId, stockId, email.trim().toLowerCase(), youtubeEmail.trim().toLowerCase(), method, CURRENT_TERMS_VERSION]);
+    if (!attempt.current || attempt.current.identity !== identity) attempt.current = { identity, id: crypto.randomUUID() };
+    return attempt.current.id;
+  };
   const [youtubeEmail, setYoutubeEmail] = useState('');
   const [payTab, setPayTab] = useState<PayTab>('cb');
   const [activeCoin, setActiveCoin] = useState<CryptoCoin>('btc');
@@ -56,6 +72,8 @@ function CheckoutContent() {
   const [gateways, setGateways] = useState<Record<PayTab, boolean>>({ cb: false, paypal: false, crypto: false });
   const [manualOrderId, setManualOrderId] = useState<string | null>(null);
   const [manualBusy, setManualBusy] = useState(false);
+  const [manualExpiresAt, setManualExpiresAt] = useState<string | null>(null);
+  const [manualExpired, setManualExpired] = useState(false);
   const [cryptoRates, setCryptoRates] = useState<Record<CryptoCoin, number>>({ btc: 0, eth: 0, usdt: 0, ltc: 0 });
   const [ratesLive, setRatesLive] = useState(false);
   const [ratesUpdatedAt, setRatesUpdatedAt] = useState<Date | null>(null);
@@ -63,24 +81,40 @@ function CheckoutContent() {
   const consentOk = acceptedCgv && acceptedImmediate && acceptedEligibility;
 
   useEffect(() => {
+    fetch('/api/client/me', { cache: 'no-store' }).then(response => response.json()).then(data => {
+      if (data.authenticated && data.customer?.email) setEmail(value => value || data.customer.email);
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let cancelled = false;
     if (!serviceId || !stockId) {
       void Promise.resolve().then(() => {
+        if (cancelled) return;
         setLoadingService(false);
         setStockChecked(true);
+        setService(null); setStockAvailable(false);
       });
-      return;
+      return () => { cancelled = true; controller.abort(); };
     }
 
     const loadCheckoutData = async () => {
+      if (cancelled) return;
+      setLoadingService(true); setStockAvailable(false); setService(null); setLoadError(false);
+      setStockChecked(false); setManualOrderId(null); setManualExpiresAt(null); setManualExpired(false);
+      setGateways({ cb: false, paypal: false, crypto: false });
+      setAcceptedCgv(false); setAcceptedImmediate(false); setAcceptedEligibility(false);
       try {
         const [servicesRes, stocksRes] = await Promise.all([
-          fetch('/api/services', { cache: 'no-store' }),
-          fetch('/api/stocks/public', { cache: 'no-store' }),
+          fetch('/api/services', { cache: 'no-store', signal: controller.signal }),
+          fetch('/api/stocks/public', { cache: 'no-store', signal: controller.signal }),
         ]);
         const [servicesData, stocksData] = await Promise.all([
           servicesRes.json() as Promise<{ success?: boolean; services?: ServiceDetails[] }>,
           stocksRes.json() as Promise<{ success?: boolean; stocks?: PublicStockSummary[] }>,
         ]);
+        if (cancelled) return;
         if (!servicesRes.ok || !stocksRes.ok || !servicesData.success || !stocksData.success) throw new Error('Checkout data unavailable');
         const found = servicesData.services?.find((s) => s.id === serviceId);
         const selectedStock = stocksData.stocks?.find((stock) => stock.id === stockId && stock.serviceId === serviceId);
@@ -89,18 +123,18 @@ function CheckoutContent() {
           setStockAvailable(true);
         }
       } catch {
-        setLoadError(true);
+        if (!cancelled) setLoadError(true);
       } finally {
-        setStockChecked(true);
-        setLoadingService(false);
+        if (!cancelled) { setStockChecked(true); setLoadingService(false); }
       }
     };
-    loadCheckoutData();
+    void Promise.resolve().then(loadCheckoutData);
 
     // Récupère les paramètres publics du paiement (adresses crypto, passerelles).
-    fetch('/api/settings/public')
+    fetch('/api/settings/public', { cache: 'no-store', signal: controller.signal })
       .then(r => r.json())
       .then(d => {
+        if (cancelled) return;
         if (d.success) {
           setCryptoAddr({
             btc: d.settings.crypto_btc || '',
@@ -116,9 +150,21 @@ function CheckoutContent() {
           setErrorMsg('Les moyens de paiement sont temporairement indisponibles.');
         }
       })
-      .catch(() => setErrorMsg('Les moyens de paiement sont temporairement indisponibles.'));
+      .catch(() => { if (!cancelled) setErrorMsg('Les moyens de paiement sont temporairement indisponibles.'); });
 
     // Do not display a payment amount if live conversion is unavailable.
+    // Rates are loaded only after a user selects an enabled crypto gateway.
+    return () => { cancelled = true; controller.abort(); };
+  }, [serviceId, stockId]);
+
+  useEffect(() => {
+    if (!manualExpiresAt) return;
+    const timer = setTimeout(() => setManualExpired(true), Math.max(0, new Date(manualExpiresAt).getTime() - Date.now()));
+    return () => clearTimeout(timer);
+  }, [manualExpiresAt]);
+
+  useEffect(() => {
+    if (payTab !== 'crypto' || !gateways.crypto) return;
     fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,litecoin,tether&vs_currencies=eur')
       .then(r => r.json())
       .then((d: Record<string, { eur: number }>) => {
@@ -133,9 +179,9 @@ function CheckoutContent() {
         }
       })
       .catch(() => {});
-  }, [serviceId, stockId]);
+  }, [payTab, gateways.crypto]);
 
-  const isYoutube = serviceId === 'youtube';
+  const isYoutube = Boolean(serviceId && matchesServiceFilter(serviceId, ['youtube']));
 
   const handleStripeCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -167,11 +213,13 @@ function CheckoutContent() {
           acceptedCgv,
           acceptedImmediateExecution: acceptedImmediate,
           acceptedEligibility,
+          termsVersion: CURRENT_TERMS_VERSION,
+          attemptId: attemptId('cb'),
         }),
       });
       const data = await res.json();
       if (data.success && data.url) {
-        window.location.href = data.url;
+        window.location.assign(data.url);
       } else {
         setErrorMsg(data.error || 'Erreur lors du traitement de la transaction.');
         setIsSubmitting(false);
@@ -182,11 +230,13 @@ function CheckoutContent() {
     }
   };
 
-  const copyAddr = (addr: string, coin: string) => {
+  const copyAddr = async (addr: string, coin: string) => {
     if (!addr) return;
-    navigator.clipboard.writeText(addr);
-    setCopied(coin);
-    setTimeout(() => setCopied(''), 2000);
+    try {
+      await navigator.clipboard.writeText(addr);
+      setCopied(coin);
+      setTimeout(() => setCopied(''), 2000);
+    } catch { setErrorMsg('La copie est indisponible. Sélectionnez le texte pour le copier.'); }
   };
 
   // Enregistre une commande « en attente » pour les paiements PayPal / crypto.
@@ -208,7 +258,7 @@ function CheckoutContent() {
       return null;
     }
     if (!gateways[method] || manualBusy) return null;
-    if (method === 'crypto' && (!ratesLive || !ratesUpdatedAt || Date.now() - ratesUpdatedAt.getTime() > 300000)) {
+    if (method === 'crypto' && (!ratesLive || !ratesAreFresh(ratesUpdatedAt))) {
       setErrorMsg('Le taux de conversion doit être actualisé avant de continuer. Rechargez la page ou contactez le support.');
       return null;
     }
@@ -228,11 +278,14 @@ function CheckoutContent() {
           acceptedCgv,
           acceptedImmediateExecution: acceptedImmediate,
           acceptedEligibility,
+          termsVersion: CURRENT_TERMS_VERSION,
+          attemptId: attemptId(method),
         }),
       });
       const data = await res.json();
       if (data.success && data.orderId) {
         setManualOrderId(data.orderId);
+        setManualExpiresAt(data.expiresAt || null);
         return data.orderId;
       }
       setErrorMsg(data.error || 'Erreur lors de l\'enregistrement de la commande.');
@@ -245,7 +298,7 @@ function CheckoutContent() {
     }
   };
 
-  const savings = service ? (service.original - service.price).toFixed(2) : '0.00';
+  const savings = service?.referenceVerified && service.original > service.price ? service.original - service.price : null;
 
   if (loadingService) {
     return (
@@ -279,7 +332,7 @@ function CheckoutContent() {
     : '';
 
   return (
-    <div style={{ minHeight: '100vh', position: 'relative' }}>
+    <div className="checkout-page" style={{ minHeight: '100vh', position: 'relative' }}>
       {/* Navbar */}
       <header className="navbar">
         <div className="nav-inner">
@@ -328,7 +381,7 @@ function CheckoutContent() {
                   key={tab.id}
                   onClick={() => { setPayTab(tab.id); setManualOrderId(null); setErrorMsg(''); }}
                   className={`pay-tab ${payTab === tab.id ? 'active' : ''}`}
-                  disabled={!gateways[tab.id] || manualBusy || isSubmitting}
+                  disabled={!gateways[tab.id] || manualBusy || isSubmitting || Boolean(manualOrderId)}
                   aria-pressed={payTab === tab.id}
                 >
                   <span className="pay-icon">{tab.icon}</span>
@@ -347,6 +400,7 @@ function CheckoutContent() {
                 id="checkout-email"
                 type="email"
                 required
+                disabled={Boolean(manualOrderId)}
                 autoComplete="email"
                 placeholder="vous@exemple.com"
                 value={email}
@@ -384,13 +438,17 @@ function CheckoutContent() {
             )}
 
             {/* Consentements obligatoires — CGV + exécution immédiate + éligibilité */}
+            <div className="checkout-conditions">
+              <h2>Conditions de cette offre</h2>
+              <p><strong>Type d’accès :</strong> {service.accessType}</p>
+              <p><strong>Éligibilité :</strong> {service.eligibility}</p>
+              <p><strong>Confidentialité :</strong> {service.privacyNote}</p>
+              <Link href={`/offres/${encodeURIComponent(service.id)}`}>Consulter les détails de l’offre</Link>
+            </div>
             <div
               style={{
                 margin: '4px 0 18px',
-                padding: '14px 16px',
-                borderRadius: 12,
-                background: 'rgba(168,85,247,0.06)',
-                border: '1px solid rgba(168,85,247,0.22)',
+                padding: '14px 0',
                 display: 'flex',
                 flexDirection: 'column',
                 gap: 12,
@@ -405,7 +463,7 @@ function CheckoutContent() {
                 />
                 <span>
                   J&apos;ai lu et j&apos;accepte les{' '}
-                  <a href="/cgv" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)', fontWeight: 600 }}>
+                  <a href={CURRENT_TERMS_URL} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)', fontWeight: 600 }}>
                     CGV
                   </a>{' '}
                   de StreamMalin.
@@ -419,7 +477,7 @@ function CheckoutContent() {
                   style={{ marginTop: 2, width: 16, height: 16, flexShrink: 0, accentColor: 'var(--primary)' }}
                 />
                 <span>
-                  Je demande l&apos;exécution immédiate du service et reconnais renoncer à mon droit de rétractation une fois l&apos;accès numérique transmis.
+                  Je demande l&apos;exécution immédiate et reconnais que la perte du droit de rétractation n&apos;intervient que si les conditions légales applicables à cette offre sont réunies, comme expliqué dans les CGV.
                 </span>
               </label>
               <label style={{ display: 'flex', gap: 10, cursor: 'pointer', fontSize: '0.82rem', color: 'var(--text-gray)', lineHeight: 1.55 }}>
@@ -441,7 +499,7 @@ function CheckoutContent() {
                 <div className="info-box">
                   <div className="info-box-title">🔒 Redirection sécurisée vers Stripe</div>
                   <div className="info-box-text">
-                    Vous serez redirigé vers la passerelle de paiement <strong style={{ color: 'var(--text-white)' }}>Stripe 3D Secure</strong>. Vos données bancaires sont cryptées et ne transitent jamais par nos serveurs.
+                    Vous serez redirigé vers Stripe. <strong>Prélèvement mensuel automatique de {formatEuro(service.price)}.</strong> Résiliation avant la prochaine échéance depuis votre espace client. Les informations complètes de carte sont traitées par Stripe, pas par StreamMalin.
                   </div>
                 </div>
                 <button
@@ -449,11 +507,10 @@ function CheckoutContent() {
                   disabled={isSubmitting || !gateways.cb || !email || (isYoutube && !youtubeEmail.trim()) || !consentOk || !stockAvailable}
                   className="btn-pay"
                 >
-                  🔒 {isSubmitting ? 'Redirection…' : !consentOk ? 'Cochez les 3 confirmations pour continuer' : !stockAvailable ? 'Offre indisponible' : `Régler ${service.price.toFixed(2)}€ par carte`}
+                  {isSubmitting ? 'Redirection…' : !consentOk ? 'Cochez les 3 confirmations pour continuer' : !stockAvailable ? 'Offre indisponible' : `S’abonner pour ${formatEuro(service.price)}/mois avec obligation de paiement`}
                 </button>
                 <div className="trust-row">
-                  <span>🔐 Cryptage AES-256</span>
-                  <span>✓ 3D Secure</span>
+                  <span>Paiement traité par Stripe</span>
                   <span>⚡ Accès après validation</span>
                 </div>
               </form>
@@ -462,7 +519,8 @@ function CheckoutContent() {
             {/* PayPal */}
             {payTab === 'paypal' && (
               <div>
-                <div className="warn-box">
+                <p>PayPal : paiement manuel pour un mois, sans prélèvement automatique. Attendez l’enregistrement de la commande avant d’effectuer un transfert.</p>
+                {manualOrderId && !manualExpired && <><div className="warn-box">
                   <strong>⚠️ OBLIGATOIRE :</strong> Sélectionnez exclusivement « <strong>Biens et Services</strong> » (Goods &amp; Services) lors de l&apos;envoi. Conservez votre <strong>ID de transaction PayPal</strong>.
                 </div>
 
@@ -486,7 +544,7 @@ function CheckoutContent() {
                     </span>
                     {paypalEmail && (
                       <button
-                        onClick={() => { navigator.clipboard.writeText(paypalEmail); setCopied('paypal'); setTimeout(() => setCopied(''), 2000); }}
+                      onClick={() => copyAddr(paypalEmail, 'paypal')}
                         className={`copy-btn ${copied === 'paypal' ? 'copied' : ''}`}
                       >
                         {copied === 'paypal' ? '✅ Copié' : '📋 Copier'}
@@ -495,25 +553,27 @@ function CheckoutContent() {
                   </div>
                 </div>
 
+                </>}
                 {manualOrderId ? (
                   <div className="info-box" style={{ marginTop: 12, borderColor: 'rgba(16,185,129,0.3)', background: 'rgba(16,185,129,0.06)' }}>
                     <div className="info-box-title" style={{ color: 'var(--accent-green)' }}>
                       ✅ Commande enregistrée — référence {orderRef}
                     </div>
                     <div className="info-box-text">
-                      Effectuez le paiement PayPal en indiquant la référence{' '}
+                      {manualExpired ? 'Ne payez pas cette réservation expirée. Contactez le support avec la référence ' : 'Avant l’expiration, effectuez le paiement PayPal en indiquant la référence '}
                       <strong style={{ color: 'var(--text-white)' }}>{orderRef}</strong> dans la note.
                       Vos accès seront traités après vérification du paiement reçu et selon disponibilité.
+                      {manualExpiresAt && <> Réservation jusqu’au {new Date(manualExpiresAt).toLocaleString('fr-FR')}. Après cette heure, contactez le support avant de payer.</>}
                     </div>
-                    <a
+                    {!manualExpired && <a
                       href={paypalUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="btn btn-primary"
                       style={{ display: 'block', textAlign: 'center', marginTop: 10, background: '#0070ba' }}
                     >
-                      🅿️ Rouvrir PayPal →
-                    </a>
+                      🅿️ Ouvrir PayPal →
+                    </a>}
                   </div>
                 ) : (
                   <button
@@ -561,7 +621,7 @@ function CheckoutContent() {
                   ))}
                 </div>
 
-                <div className="crypto-addr-box">
+                {manualOrderId && !manualExpired && <div className="crypto-addr-box">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                     <div>
                       <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
@@ -596,7 +656,7 @@ function CheckoutContent() {
                       {copied === activeCoin ? '✅ Adresse copiée' : '📋 Copier l\'adresse'}
                     </button>
                   )}
-                </div>
+                </div>}
 
                 {manualOrderId ? (
                   <div className="info-box" style={{ marginTop: 14, borderColor: 'rgba(16,185,129,0.3)', background: 'rgba(16,185,129,0.06)' }}>
@@ -604,7 +664,7 @@ function CheckoutContent() {
                       ✅ Commande enregistrée — référence {orderRef}
                     </div>
                     <div className="info-box-text">
-                      Envoyez le paiement à l&apos;adresse ci-dessus, puis transmettez votre TXID à{' '}
+                      {manualExpired ? 'La réservation a expiré : n’envoyez aucun paiement. Contactez ' : 'Avant l’expiration de la réservation, envoyez le paiement à l’adresse ci-dessus, puis transmettez votre TXID à '}
                       <strong style={{ color: 'var(--text-white)' }}>hello@streammalin.fr</strong> en précisant la
                       référence <strong style={{ color: 'var(--text-white)' }}>{orderRef}</strong>.
                     </div>
@@ -631,6 +691,7 @@ function CheckoutContent() {
                 </div>
               </div>
             )}
+            {manualExpired && <p role="alert" className="warn-box">Réservation expirée. N’effectuez aucun transfert ; contactez le support pour vérifier la disponibilité.</p>}
           </div>
 
           {/* ── Récapitulatif ── */}
@@ -643,12 +704,12 @@ function CheckoutContent() {
             </div>
 
             <div className="recap-service">
-              <div className="recap-service-icon" style={{ background: service.gradient }}>
-                {service.icon}
+              <div className="recap-service-icon">
+                <ServiceMark id={service.id} name={service.name} />
               </div>
               <div className="recap-service-info">
                 <div className="name">{service.name}</div>
-                <div className="sub">Accès numérique · Mensuel · Sans engagement</div>
+                <div className="sub">Accès numérique · Un mois</div>
               </div>
               <div className="recap-service-price">{service.price.toFixed(2)}€</div>
             </div>
@@ -662,14 +723,14 @@ function CheckoutContent() {
                 <span>Frais d&apos;activation</span>
                 <strong style={{ color: 'var(--accent-green)' }}>Gratuit</strong>
               </div>
-              <div className="recap-line savings">
+              {savings !== null && <div className="recap-line savings">
                 <span>💰 Économie estimée</span>
-                <strong>{savings}€/mois</strong>
-              </div>
+                <strong>{formatEuro(savings)}/mois</strong>
+              </div>}
               <div className="recap-divider" />
               <div className="recap-line" style={{ fontSize: '0.78rem' }}>
                 <span>Fréquence</span>
-                <strong>Mensuelle · Sans engagement</strong>
+                <strong>{payTab === 'cb' ? 'Prélèvement mensuel automatique' : 'Paiement manuel pour un mois'}</strong>
               </div>
             </div>
 

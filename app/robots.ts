@@ -8,7 +8,7 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: '*',
       allow: '/',
       // Espaces privés / transactionnels non destinés à l'indexation.
-      disallow: ['/admin', '/checkout', '/facture/', '/api/'],
+      disallow: ['/admin', '/checkout', '/facture/', '/api/', '/commande/', '/espace-client', '/cgv/versions/'],
     },
     sitemap: `${BASE}/sitemap.xml`,
   };

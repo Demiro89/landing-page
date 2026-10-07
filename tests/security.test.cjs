@@ -7,7 +7,8 @@ const { createLoader } = require('./load-ts.cjs');
 process.env.ADMIN_SECRET_TOKEN = 'test-admin-secret-with-more-than-32-characters';
 process.env.CLIENT_SESSION_SECRET = 'test-client-secret-with-more-than-32-characters';
 process.env.ENCRYPTION_KEY = 'test-encryption-key-with-more-than-32-characters';
-const body = { serviceId: 'youtube', stockAccountId: 'test-stock', email: 'client@example.test', youtubeEmail: 'google@example.test', acceptedCgv: true, acceptedImmediateExecution: true, acceptedEligibility: true };
+const body = { serviceId: 'youtube', stockAccountId: 'test-stock', email: 'client@example.test', youtubeEmail: 'google@example.test', acceptedCgv: true, acceptedImmediateExecution: true, acceptedEligibility: true, termsVersion: '2026-10-07.1', attemptId: '12345678-1234-4234-8234-123456789012' };
+const allowedCommerce = { assertOfferSaleAllowed: async () => {}, CommerceUnavailableError: class extends Error {} };
 const request = (payload) => new Request('http://localhost/api/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
 
 test('checkout requires real booleans for every consent', () => {
@@ -82,22 +83,22 @@ test('IP evidence ignores spoofable headers outside trusted deployments', () => 
   delete process.env.VERCEL;
 });
 
-test('the access gate allows only authenticated machine endpoints to reach handlers', () => {
+test('the access gate allows authenticated machine endpoints and public legal pages', async () => {
   process.env.SITE_ACCESS_CODE = 'test-gate';
   const { proxy } = createLoader()('proxy.ts');
-  for (const pathname of ['/api/stripe/webhook', '/api/cron/cleanup']) assert.equal(proxy(new NextRequest(`http://localhost${pathname}`, { method: 'GET' })).status, 200);
-  for (const pathname of ['/api/services', '/api/stripe/webhook/other', '/api/acces/other']) assert.equal(proxy(new NextRequest(`http://localhost${pathname}`, { headers: { purpose: 'prefetch' } })).status, 403);
-  assert.equal(proxy(new NextRequest('http://localhost/', { headers: { purpose: 'prefetch' } })).status, 307);
+  for (const pathname of ['/api/stripe/webhook', '/api/cron/cleanup', '/cgv', '/retractation']) assert.equal((await proxy(new NextRequest(`http://localhost${pathname}`, { method: 'GET' }))).status, 200);
+  for (const pathname of ['/api/services', '/api/stripe/webhook/other', '/api/acces/other']) assert.equal((await proxy(new NextRequest(`http://localhost${pathname}`, { headers: { purpose: 'prefetch' } }))).status, 403);
+  assert.equal((await proxy(new NextRequest('http://localhost/', { headers: { purpose: 'prefetch' } }))).status, 307);
   delete process.env.SITE_ACCESS_CODE;
 });
 
-test('CSRF rejects missing, cross-site and downgrade origins; sensitive responses are not cached', () => {
+test('CSRF rejects missing, cross-site and downgrade origins; sensitive responses are not cached', async () => {
   const { proxy } = createLoader()('proxy.ts');
   for (const origin of [undefined, 'https://attacker.test', 'http://localhost']) {
     const headers = origin ? { origin } : {};
-    assert.equal(proxy(new NextRequest('https://localhost/api/client/logout', { method: 'POST', headers })).status, 403);
+    assert.equal((await proxy(new NextRequest('https://localhost/api/client/logout', { method: 'POST', headers }))).status, 403);
   }
-  const safe = proxy(new NextRequest('https://localhost/api/client/logout', { method: 'POST', headers: { origin: 'https://localhost' } }));
+  const safe = await proxy(new NextRequest('https://localhost/api/client/logout', { method: 'POST', headers: { origin: 'https://localhost' } }));
   assert.equal(safe.status, 200);
   assert.match(safe.headers.get('cache-control'), /no-store/);
   assert.match(safe.headers.get('content-security-policy'), /api.coingecko.com/);
@@ -146,15 +147,21 @@ test('checkout blocks string consents before any business query', async () => {
 
 test('gateway and inactive-service checks fail closed', async () => {
   let enabled = false;
+  const oldKey = process.env.STRIPE_SECRET_KEY;
+  process.env.STRIPE_SECRET_KEY = 'sk_test_fixture';
+  const tx = { $queryRaw: async () => [], stockAccount: { findUniqueOrThrow: async () => ({ id: body.stockAccountId, serviceId: body.serviceId, price: 3, filledSlots: 0, maxSlots: 2, service: { active: false } }) }, stockReservation: { findUnique: async () => null } };
   const load = createLoader({
-    '@/lib/prisma': { prisma: { service: { findUnique: async () => ({ active: false }) }, stockAccount: { findUnique: async () => ({ price: 3 }) } } },
+    '@/lib/prisma': { prisma: {} },
+    './prisma': { prisma: { $transaction: callback => callback(tx) } },
+    '@/lib/commerce': allowedCommerce,
     '@/lib/rateLimit': { enforceRateLimit: async () => null },
     '@/lib/paymentSettings': { isGatewayEnabled: async () => enabled },
   });
   const { POST } = load('app/api/checkout/stripe/route.ts');
   assert.equal((await POST(request(body))).status, 503);
   enabled = true;
-  assert.equal((await POST(request(body))).status, 404);
+  assert.equal((await POST(request(body))).status, 409);
+  if (oldKey === undefined) delete process.env.STRIPE_SECRET_KEY; else process.env.STRIPE_SECRET_KEY = oldKey;
 });
 
 test('a guest checkout never borrows the logged-in customer for a different email', async () => {
@@ -170,6 +177,8 @@ test('a guest checkout never borrows the logged-in customer for a different emai
     '@/lib/rateLimit': { enforceRateLimit: async () => null },
     '@/lib/paymentSettings': { isGatewayEnabled: async () => true },
     '@/lib/telegram': { sendTelegramNotification: async () => {} },
+    '@/lib/commerce': allowedCommerce,
+    '@/lib/checkoutReservation': { reserveCheckout: async (_id, data) => { created = data; return { order: { id: 'order' }, reservation: { expiresAt: new Date() } }; } },
   });
   assert.equal((await load('app/api/checkout/manual/route.ts').POST(request({ ...body, paymentMethod: 'paypal' }))).status, 200);
   assert.equal(created.customerId, null);
@@ -178,18 +187,24 @@ test('a guest checkout never borrows the logged-in customer for a different emai
 
 test('checkout refuses exhausted stock and non-positive prices before any payment', async () => {
   let stock = { serviceId: body.serviceId, maxSlots: 1, filledSlots: 1, price: 3 };
+  const oldKey = process.env.STRIPE_SECRET_KEY;
+  process.env.STRIPE_SECRET_KEY = 'sk_test_fixture';
+  const tx = { $queryRaw: async () => [], stockAccount: { findUniqueOrThrow: async () => ({ ...stock, id: body.stockAccountId, service: { active: true } }) }, stockReservation: { findUnique: async () => null, count: async () => 0 } };
   const load = createLoader({
     '@/lib/prisma': { prisma: { service: { findUnique: async () => ({ active: true }) }, stockAccount: { findUnique: async () => stock }, setting: { findUnique: async () => ({ value: 'fixture@example.test' }) } } },
     '@/lib/rateLimit': { enforceRateLimit: async () => null },
     '@/lib/paymentSettings': { isGatewayEnabled: async () => true },
+    '@/lib/commerce': allowedCommerce,
+    './prisma': { prisma: { $transaction: callback => callback(tx) } },
   });
   for (const path of ['manual', 'stripe']) {
-    assert.equal((await load(`app/api/checkout/${path}/route.ts`).POST(request({ ...body, paymentMethod: 'paypal' }))).status, 400);
+    assert.equal((await load(`app/api/checkout/${path}/route.ts`).POST(request({ ...body, paymentMethod: 'paypal' }))).status, path === 'manual' ? 400 : 409);
   }
   stock = { ...stock, filledSlots: 0, price: 0 };
   for (const path of ['manual', 'stripe']) {
     assert.equal((await load(`app/api/checkout/${path}/route.ts`).POST(request({ ...body, paymentMethod: 'paypal' }))).status, 409);
   }
+  if (oldKey === undefined) delete process.env.STRIPE_SECRET_KEY; else process.env.STRIPE_SECRET_KEY = oldKey;
 });
 
 test('client support responses omit access details and reject another explicit owner', async () => {

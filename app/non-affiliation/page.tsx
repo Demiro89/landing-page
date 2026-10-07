@@ -3,6 +3,7 @@ import LegalPage from '@/components/LegalPage';
 import { NON_AFFILIATION_LONG } from '@/lib/legalConfig';
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/non-affiliation' },
   title: 'Non-affiliation — StreamMalin',
   description: 'Mention de non-affiliation de StreamMalin aux plateformes citées.',
 };

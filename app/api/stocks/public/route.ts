@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { commerceEnabled, getCommercialReviews } from '@/lib/commerce';
+import { prudentCommercialCopy } from '@/lib/offerPresentation';
+import { publicReservations } from '@/lib/stockReservations';
 
 export const dynamic = 'force-dynamic';
 const errorMessage = (error: unknown) => {
@@ -15,6 +18,7 @@ const errorMessage = (error: unknown) => {
  */
 export async function GET() {
   try {
+    if (!commerceEnabled()) return NextResponse.json({ success: true, stocks: [] });
     const stocks = await prisma.stockAccount.findMany({
       where: {
         filledSlots: { lt: prisma.stockAccount.fields.maxSlots },
@@ -39,7 +43,11 @@ export async function GET() {
       orderBy: { createdAt: 'asc' },
     });
 
-    return NextResponse.json({ success: true, stocks });
+    const reviews = await getCommercialReviews([...new Set(stocks.map(stock => stock.serviceId))]);
+    const held = await publicReservations(stocks.map(stock => stock.id));
+    return NextResponse.json({ success: true, stocks: stocks.filter(stock => reviews.get(stock.serviceId)?.status === 'approved' && stock.price > 0 && stock.filledSlots + (held.get(stock.id) || 0) < stock.maxSlots).map(stock => ({
+      ...stock, filledSlots: stock.filledSlots + (held.get(stock.id) || 0), service: { ...stock.service, tagline: prudentCommercialCopy(stock.service.tagline) },
+    })) });
   } catch (error: unknown) {
     console.error('Erreur GET stocks/public:', error);
     return NextResponse.json({ error: errorMessage(error) }, { status: 500 });

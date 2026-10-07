@@ -10,6 +10,9 @@ import { enforceRateLimit } from '@/lib/rateLimit';
 import Stripe from 'stripe';
 import { activatePendingOrder, cancelOrderAndReleaseStock, OrderConflictError } from '@/lib/orderLifecycle';
 import { normalizeEmail } from '@/lib/checkoutValidation';
+import { remediationSchemaEnabled } from '@/lib/commerce';
+import { lockStock, heldPlaces } from '@/lib/stockReservations';
+import { recordOrderPayment, enqueueOrderJob } from '@/lib/durableOrders';
 
 export const dynamic = 'force-dynamic';
 
@@ -90,15 +93,15 @@ export async function GET() {
     let totalCogs = 0; // Coût d'achat global des slots consommés
 
     orders.forEach((order) => {
+      if (['pending', 'payment_review', 'cancelled'].includes(order.status)) return;
       totalRevenue += order.total;
       // On calcule le coût unitaire de ce slot dans le compte de stock associé
       // COGS d'un slot = Coût d'achat total du compte divisé par le nombre maximal de slots
       if (order.stockAccount) {
-        // Dans une vraie db Prisma on a les relations. Si absente, fallback sur coût de revient estimé à 25% du prix
-        const unitCogs = order.price * 0.25; 
+        const unitCogs = order.stockAccount.maxSlots > 0 ? order.stockAccount.accountsBoughtPrice / order.stockAccount.maxSlots : 0;
         totalCogs += unitCogs;
       } else {
-        totalCogs += order.price * 0.25; 
+        totalCogs += 0;
       }
     });
 
@@ -120,6 +123,7 @@ export async function GET() {
       success: true,
       services: safeServices,
       orders: safeOrders,
+      schemaEnabled: remediationSchemaEnabled(),
       kpis: {
         totalRevenue: parseFloat(totalRevenue.toFixed(2)),
         totalCogs: parseFloat(totalCogs.toFixed(2)),
@@ -268,6 +272,11 @@ export async function PUT(request: Request) {
       }
       const encryptedDetails = encrypt(details);
       const updatedStock = await prisma.$transaction(async (tx) => {
+        if (remediationSchemaEnabled()) {
+          const current = await lockStock(tx, id);
+          const held = await heldPlaces(tx, id);
+          if (parsedMaxSlots < current.filledSlots + held || parsedFilled !== current.filledSlots) throw new OrderConflictError('Des places sont attribuées ou réservées. Le compteur occupé ne peut pas être modifié manuellement.');
+        }
         const updated = await tx.stockAccount.updateMany({
           where: { id, updatedAt: previous.updatedAt },
           data: {
@@ -283,11 +292,15 @@ export async function PUT(request: Request) {
           where: { stockAccountId: id, status: { in: ['active', 'unpaid', 'cancelled_pending'] } },
           data: { details: encryptedDetails },
         });
+        if (remediationSchemaEnabled() && decrypt(previous.details) !== details) {
+          const affected = await tx.order.findMany({ where: { stockAccountId: id, status: 'active' } });
+          for (const order of affected) await enqueueOrderJob(tx, order.id, 'credentials', `credentials:${order.id}:${previous.updatedAt.toISOString()}`);
+        }
         return tx.stockAccount.findUniqueOrThrow({ where: { id } });
       });
 
       // Notifier les clients actifs si les identifiants ont changé
-      if (previous && decrypt(previous.details) !== details) {
+      if (!remediationSchemaEnabled() && previous && decrypt(previous.details) !== details) {
         const activeOrders = await prisma.order.findMany({
           where: { stockAccountId: id, status: 'active' },
           include: { service: true },
@@ -397,6 +410,8 @@ export async function PUT(request: Request) {
     // ── Marquer comme payé (régularisation) ──
     if (action === 'mark_paid') {
       const { orderId } = body;
+      const before = await prisma.order.findUnique({ where: { id: orderId } });
+      if (before?.stripeSubscriptionId) return NextResponse.json({ error: 'Un paiement Stripe doit être régularisé et confirmé chez Stripe.' }, { status: 409 });
       const changed = await prisma.order.updateMany({
         where: { id: orderId, status: 'unpaid' },
         data: { status: 'active', unpaidSince: null, reminderCount: 0, lastReminderAt: null },
@@ -409,6 +424,7 @@ export async function PUT(request: Request) {
     // ── Valider une commande manuelle en attente (PayPal / crypto) ──
     if (action === 'validate_order') {
       const { orderId } = body;
+      if (remediationSchemaEnabled() && (typeof body.paymentReference !== 'string' || !/^[A-Za-z0-9_-]{6,120}$/.test(body.paymentReference))) return NextResponse.json({ error: 'La référence vérifiée du paiement est requise.' }, { status: 400 });
       const order = await prisma.order.findUnique({
         where: { id: orderId },
         include: { service: true, stockAccount: true },
@@ -423,6 +439,8 @@ export async function PUT(request: Request) {
 
       const stockDetails = await prisma.$transaction(async (tx) => {
         const details = await activatePendingOrder(tx, orderId);
+        if (remediationSchemaEnabled()) await recordOrderPayment(tx, { orderId, provider: order.paymentMethod === 'PayPal' ? 'paypal_manual' : 'crypto_manual', providerPaymentId: body.paymentReference,
+          amountMinor: Math.round(order.total * 100), currency: 'eur', clientEmail: order.clientEmail, serviceName: order.service.name, termsVersion: order.termsVersion, paidAt: new Date() });
         const existingThread = await tx.chatThread.findUnique({ where: { orderId } });
         if (!existingThread) {
           await tx.chatThread.create({
@@ -437,6 +455,11 @@ export async function PUT(request: Request) {
         return details;
       });
 
+      if (remediationSchemaEnabled()) {
+        void writeAuditLog({ action: 'order.validate', entityType: 'order', entityId: orderId, description: 'Paiement manuel vérifié ; transmission enregistrée dans la file de suivi.', ip: clientIpFromRequest(request) });
+        return NextResponse.json({ success: true, deliveryQueued: true });
+      }
+      if (order.paymentMethod === 'Carte bancaire (Stripe)') return NextResponse.json({ error: 'Un paiement Stripe doit être confirmé par Stripe.' }, { status: 409 });
       const invoice = await createInvoiceForOrder({
         orderId: order.id,
         clientEmail: order.clientEmail,
@@ -463,11 +486,7 @@ export async function PUT(request: Request) {
       if (order.status !== 'pending') {
         return NextResponse.json({ error: "Cette commande n'est pas en attente." }, { status: 400 });
       }
-      const rejected = await prisma.order.updateMany({
-        where: { id: orderId, status: 'pending' },
-        data: { status: 'cancelled', cancellationEffectiveAt: new Date() },
-      });
-      if (rejected.count !== 1) return NextResponse.json({ error: "Cette commande n'est plus en attente." }, { status: 409 });
+      await prisma.$transaction(tx => cancelOrderAndReleaseStock(tx, orderId));
       void writeAuditLog({ action: 'order.reject', entityType: 'order', entityId: orderId, description: `Commande rejetée — ${order.clientEmail}`, ip: clientIpFromRequest(request) });
       return NextResponse.json({ success: true });
     }

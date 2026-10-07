@@ -7,6 +7,9 @@ import { createInvoiceForOrder } from '@/lib/invoice';
 import { decrypt } from '@/lib/crypto';
 import { processWebhookEvent } from '@/lib/webhookTransaction';
 import { cancelOrderAndReleaseStock } from '@/lib/orderLifecycle';
+import { remediationSchemaEnabled } from '@/lib/commerce';
+import { fulfillReservedStripeOrder } from '@/lib/reservedStripeOrder';
+import { enqueueOrderJob, recordOrderPayment } from '@/lib/durableOrders';
 
 export const dynamic = 'force-dynamic';
 
@@ -52,6 +55,11 @@ export async function POST(request: Request) {
         const session = event.data.object as Stripe.Checkout.Session;
         const metadata = session.metadata;
         if (!metadata) break;
+        if (metadata.orderId && metadata.reservationId) {
+          if (!remediationSchemaEnabled()) throw new Error('Reservation schema not enabled');
+          await fulfillReservedStripeOrder(event, session, stripe);
+          break;
+        }
 
         const {
           serviceId,
@@ -238,7 +246,8 @@ export async function POST(request: Request) {
         const sub = await stripe.subscriptions.retrieve(typeof subscriptionId === 'string' ? subscriptionId : subscriptionId.id, { expand: ['default_payment_method'] });
         const pm = sub.default_payment_method as Stripe.PaymentMethod | null;
         const nextBillingAt = new Date((sub.items.data[0]?.current_period_end || 0) * 1000);
-        const renewed = await processWebhookEvent(event, (tx) => tx.order.updateMany({
+        const renewed = await processWebhookEvent(event, async (tx) => {
+          const result = await tx.order.updateMany({
           where: { stripeSubscriptionId: sub.id, status: { in: ['active', 'unpaid'] } },
           data: {
             status: 'active',
@@ -251,9 +260,23 @@ export async function POST(request: Request) {
             cardExpMonth: pm?.card?.exp_month || undefined,
             cardExpYear: pm?.card?.exp_year || undefined,
           },
-        }));
+          });
+          if (remediationSchemaEnabled() && inv.amount_paid > 0) {
+            const order = await tx.order.findFirst({ where: { stripeSubscriptionId: sub.id }, include: { service: true } });
+            if (order) {
+              const payment = await recordOrderPayment(tx, { orderId: order.id, provider: 'stripe', providerPaymentId: inv.id,
+                amountMinor: inv.amount_paid, currency: inv.currency, clientEmail: order.clientEmail, serviceName: order.service.name,
+                termsVersion: order.termsVersion, providerInvoiceId: inv.id, paidAt: new Date((inv.status_transitions.paid_at || event.created) * 1000), periodEnd: nextBillingAt,
+                status: ['active', 'unpaid', 'cancelled_pending'].includes(order.status) ? 'paid' : 'refund_needed',
+              });
+              if (payment.status === 'refund_needed') await enqueueOrderJob(tx, order.id, 'payment_review', `payment_review:${inv.id}`);
+              else if (result.count > 0 && inv.billing_reason === 'subscription_cycle') await enqueueOrderJob(tx, order.id, 'renewal', `renewal:${inv.id}`);
+            }
+          }
+          return result;
+        });
         // Envoyer un email de confirmation uniquement pour les renouvellements (pas le premier paiement)
-        if (renewed.count > 0 && inv.billing_reason === 'subscription_cycle') {
+        if (!remediationSchemaEnabled() && renewed.count > 0 && inv.billing_reason === 'subscription_cycle') {
           const order = await prisma.order.findFirst({
             where: { stripeSubscriptionId: sub.id },
             include: { service: true },
@@ -336,6 +359,15 @@ export async function POST(request: Request) {
             cardExpYear: pm.card?.exp_year || undefined,
           },
         }));
+        break;
+      }
+      case 'checkout.session.expired': {
+        const session = event.data.object as Stripe.Checkout.Session;
+        if (remediationSchemaEnabled() && session.metadata?.reservationId) {
+          await processWebhookEvent(event, async tx => {
+            await tx.stockReservation.updateMany({ where: { id: session.metadata!.reservationId, status: 'held' }, data: { status: 'released' } });
+          });
+        }
         break;
       }
     }

@@ -18,10 +18,10 @@ function getSecret(): string | null {
   return token;
 }
 
-export function createAdminSessionToken(): string | null {
+export function createAdminSessionToken(sessionId?: string): string | null {
   const secret = getSecret();
   if (!secret) return null;
-  const payload = String(Date.now() + ADMIN_SESSION_TTL_SEC * 1000);
+  const payload = `${Date.now() + ADMIN_SESSION_TTL_SEC * 1000}${sessionId ? `.${sessionId}` : ''}`;
   const sig = crypto.createHmac('sha256', secret).update(payload).digest('hex');
   return `${payload}.${sig}`;
 }
@@ -35,13 +35,19 @@ export function verifyAdminSessionToken(token: string | undefined | null): boole
   if (idx <= 0) return false;
   const payload = token.slice(0, idx);
   const sig = token.slice(idx + 1);
+  if (!/^\d{13}(?:\.[a-f0-9]{64})?$/.test(payload) || !/^[a-f0-9]{64}$/.test(sig)) return false;
 
   const expected = crypto.createHmac('sha256', secret).update(payload).digest('hex');
   const sigBuf = Buffer.from(sig, 'hex');
   const expBuf = Buffer.from(expected, 'hex');
   if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) return false;
 
-  const exp = parseInt(payload, 10);
+  const exp = Number(payload.split('.')[0]);
   if (!Number.isFinite(exp) || Date.now() > exp) return false;
   return true;
+}
+
+export function adminSessionId(token: string): string | null {
+  if (!verifyAdminSessionToken(token)) return null;
+  return token.split('.').length === 3 ? token.split('.')[1] : null;
 }

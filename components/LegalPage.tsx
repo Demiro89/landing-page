@@ -8,11 +8,13 @@ export default function LegalPage({
   intro,
   toc,
   children,
+  updatedAt = LEGAL_LAST_UPDATED,
 }: {
   title: string;
   intro?: string;
   toc?: { id: string; label: string }[];
   children: React.ReactNode;
+  updatedAt?: string | null;
 }) {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -27,19 +29,10 @@ export default function LegalPage({
         </div>
       </header>
 
-      {/* Ambient glow */}
-      <div
-        style={{
-          position: 'absolute', top: 60, left: '-15%', width: 480, height: 480, borderRadius: '50%',
-          background: 'radial-gradient(circle, hsla(262,88%,64%,0.14), transparent 70%)', filter: 'blur(80px)',
-          pointerEvents: 'none', zIndex: 0,
-        }}
-      />
-
       <main style={{ flex: 1 }}>
         <article className="legal-wrap">
           <h1>{title}</h1>
-          <div className="legal-updated">Dernière mise à jour : {LEGAL_LAST_UPDATED}</div>
+          {updatedAt && <div className="legal-updated">Dernière mise à jour : {updatedAt}</div>}
           {intro && <p style={{ marginBottom: 24 }}>{intro}</p>}
           {toc && toc.length > 0 && (
             <nav className="legal-toc" aria-label="Sommaire">

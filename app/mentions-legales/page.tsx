@@ -3,6 +3,7 @@ import LegalPage from '@/components/LegalPage';
 import { COMPANY, HOST, NON_AFFILIATION_LONG } from '@/lib/legalConfig';
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/mentions-legales' },
   title: 'Mentions légales — StreamMalin',
   description: 'Mentions légales du site StreamMalin.',
 };

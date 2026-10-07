@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { commerceEnabled, getCommercialReviews, hasVerifiedReference, EMPTY_COMMERCIAL_REVIEW } from '@/lib/commerce';
+import { prudentCommercialCopy } from '@/lib/offerPresentation';
+import { publicReservations } from '@/lib/stockReservations';
 
 export const dynamic = 'force-dynamic';
 
@@ -73,7 +76,7 @@ export async function GET() {
   try {
     // Seeder uniquement si la table est totalement vide (même les inactifs)
     const totalServices = await prisma.service.count();
-    if (totalServices === 0) {
+    if (totalServices === 0 && process.env.NODE_ENV !== 'production' && process.env.CATALOG_SEED_ENABLED === 'true') {
       console.log('--- BASE DE DONNÉES VIDE : SEEDING DES SERVICES PAR DÉFAUT ---');
       for (const service of DEFAULT_SERVICES) {
         await prisma.service.upsert({
@@ -98,24 +101,35 @@ export async function GET() {
     });
 
     // Calculer le stock disponible réel pour chaque service
+    const reviews = await getCommercialReviews(services.map(service => service.id));
+    const held = commerceEnabled() ? await publicReservations(services.flatMap(service => service.stocks.map(stock => stock.id))) : new Map<string, number>();
     const formattedServices = services.map(service => {
+      const review = reviews.get(service.id) || EMPTY_COMMERCIAL_REVIEW;
       // On retire le tableau `stocks` brut de la réponse publique : seules les
       // valeurs agrégées ci-dessous sont exposées au storefront.
       const { stocks, ...publicService } = service;
 
       // Trouver les comptes de stock liés qui ont encore des places
       const availableStocks = stocks.filter(
-        stock => stock.filledSlots < stock.maxSlots
+        stock => commerceEnabled() && review.status === 'approved' && Number.isFinite(stock.price) && stock.price > 0 && stock.filledSlots + (held.get(stock.id) || 0) < stock.maxSlots
       );
 
       // Stock total restant = somme des slots disponibles (maxSlots - filledSlots)
       const availableSlotsCount = availableStocks.reduce(
-        (acc, curr) => acc + (curr.maxSlots - curr.filledSlots),
+        (acc, curr) => acc + (curr.maxSlots - curr.filledSlots - (held.get(curr.id) || 0)),
         0
       );
 
       return {
         ...publicService,
+        tagline: prudentCommercialCopy(publicService.tagline),
+        features: publicService.features.map(prudentCommercialCopy),
+        eligibility: review.eligibility || 'Les conditions d’accès sont en cours de vérification. Cette offre est indisponible.',
+        accessType: review.accessType,
+        privacyNote: review.privacyNote,
+        referenceVerified: hasVerifiedReference(review, service.original),
+        referenceUrl: hasVerifiedReference(review, service.original) ? review.referenceUrl : null,
+        referenceCheckedAt: hasVerifiedReference(review, service.original) ? review.referenceCheckedAt : null,
         availableSlots: availableSlotsCount,
         // On retourne l'id du premier compte de stock disponible pour le checkout
         availableStockId: availableStocks[0]?.id || null,
