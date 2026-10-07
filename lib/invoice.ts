@@ -27,6 +27,7 @@ export async function createInvoiceForOrder(params: {
   orderId: string;
   clientEmail: string;
   clientName?: string | null;
+  clientAddress?: string | null;
   serviceName: string;
   amount: number;
   paymentMethod: string;
@@ -49,6 +50,7 @@ export async function createInvoiceForOrder(params: {
         paidAt: params.paidAt || new Date(),
         clientEmail: params.clientEmail,
         clientName: params.clientName || null,
+        clientAddress: params.clientAddress || null,
         serviceName: params.serviceName,
         description: invoiceLineLabel(params.serviceName, durationLabel),
         durationLabel,

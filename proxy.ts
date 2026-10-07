@@ -6,7 +6,7 @@ const ADMIN_COOKIE = 'ADMIN_SECRET_TOKEN';
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 const CSRF_EXEMPT = ['/api/stripe/webhook'];
 // These endpoints authenticate the provider themselves, without browser cookies.
-const GATE_EXEMPT = new Set(['/api/stripe/webhook', '/api/cron/cleanup']);
+const GATE_EXEMPT = new Set(['/api/stripe/webhook', '/api/cron/cleanup', '/api/cron/deliveries']);
 const PUBLIC_LEGAL_PATHS = new Set(['/cgv', '/mentions-legales', '/politique-confidentialite', '/cookies', '/reclamation', '/mediation', '/non-affiliation', '/retractation', '/remboursements', '/api/retractation']);
 
 function forbidden() {

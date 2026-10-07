@@ -2,6 +2,7 @@ import type Stripe from 'stripe';
 import { processWebhookEvent } from './webhookTransaction';
 import { consumePlace, AvailabilityError } from './stockReservations';
 import { enqueueOrderJob, recordOrderPayment } from './durableOrders';
+import { saveBillingSnapshot } from './billingSnapshot';
 
 export async function fulfillReservedStripeOrder(event: Stripe.Event, session: Stripe.Checkout.Session, stripe: Stripe) {
   if (session.payment_status !== 'paid') return;
@@ -23,6 +24,7 @@ export async function fulfillReservedStripeOrder(event: Stripe.Event, session: S
     if (order.stripeSubscriptionId === subId && order.status !== 'pending') return;
     // A different paid subscription must never overwrite this order.
     if (order.stripeSubscriptionId && order.stripeSubscriptionId !== subId) throw new Error('Subscription mismatch');
+    await saveBillingSnapshot(tx, order.id, session.customer_details);
     let details = '';
     let canFulfill = order.status === 'pending';
     if (canFulfill) {

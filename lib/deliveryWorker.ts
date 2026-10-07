@@ -7,6 +7,7 @@ import { createInvoiceForOrder } from './invoice';
 import { remediationSchemaEnabled } from './commerce';
 import { CURRENT_TERMS_VERSION, CURRENT_TERMS_URL } from './termsVersion';
 import { TERMS_TEXT } from './legal/terms-2026-10-07.1';
+import { readBillingSnapshot } from './billingSnapshot';
 
 export async function runDeliveryJobs(limit = 10) {
   if (!remediationSchemaEnabled() || process.env.DELIVERY_WORKER_ENABLED !== 'true') return { enabled: false, completed: 0, failed: 0 };
@@ -37,7 +38,9 @@ export async function runDeliveryJobs(limit = 10) {
         provider_providerPaymentId: { provider: 'stripe', providerPaymentId: job.dedupeKey.slice('renewal:'.length) },
       } }) : job.kind === 'delivery' ? await prisma.paymentRecord.findFirst({ where: { orderId: order.id, status: 'paid' }, orderBy: { paidAt: 'asc' } }) : null;
       if (job.kind !== 'credentials' && (!payment || payment.orderId !== order.id || payment.status !== 'paid')) throw new Error('review_required');
+      const billing = job.kind === 'delivery' ? readBillingSnapshot((await prisma.setting.findUnique({ where: { key: `billing:${order.id}` } }))?.value) : null;
       const invoice = job.kind === 'delivery' ? await createInvoiceForOrder({ orderId: order.id, clientEmail: order.clientEmail,
+        clientName: billing?.name, clientAddress: billing?.address,
         serviceName: payment!.serviceName, amount: payment!.amountMinor / 100, paidAt: payment!.paidAt, paymentMethod: order.paymentMethod || 'Paiement vérifié' }) : null;
       const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.streammalin.fr';
       const amount = (payment ? payment.amountMinor / 100 : order.total).toFixed(2);
