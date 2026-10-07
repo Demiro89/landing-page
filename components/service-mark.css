@@ -1,0 +1,2 @@
+.service-mark { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; flex: 0 0 44px; border-radius: 7px; border: 1px solid #434d56; background: #222a31; color: #f4f6f7; font-size: .9rem; font-weight: 700; letter-spacing: 0; }
+.service-mark img { object-fit: contain; filter: invert(1); }

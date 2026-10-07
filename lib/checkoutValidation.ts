@@ -13,7 +13,7 @@ export function validateCheckout(body: unknown) {
   const email = normalizeEmail(input.email);
   const youtubeEmail = input.youtubeEmail === undefined || input.youtubeEmail === '' ? null : normalizeEmail(input.youtubeEmail);
   if (!email) return { error: 'Adresse email invalide' } as const;
-  if ((input.youtubeEmail && !youtubeEmail) || (input.serviceId === 'youtube' && !youtubeEmail)) {
+  if ((input.youtubeEmail && !youtubeEmail) || ((input.serviceId === 'youtube' || input.serviceId.startsWith('youtube-')) && !youtubeEmail)) {
     return { error: 'Adresse e-mail YouTube valide requise' } as const;
   }
   if (input.acceptedCgv !== true || input.acceptedImmediateExecution !== true || input.acceptedEligibility !== true) {

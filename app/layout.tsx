@@ -3,9 +3,9 @@ import { headers } from 'next/headers';
 import './globals.css';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.streammalin.fr';
-const TITLE = 'StreamMalin - Abonnements Streaming Premium à Prix Malin';
+const TITLE = 'StreamMalin | Offres d’accès numériques';
 const DESCRIPTION =
-  "Économisez jusqu'à 75% sur vos abonnements Netflix, YouTube Premium, Spotify, Disney+ et plus. Accès transmis après validation et support client réactif.";
+  'Consultez les offres numériques disponibles, leurs conditions d’accès et leur prix. Service indépendant des plateformes citées, avec un support client en français.';
 
 export const metadata: Metadata = {
   metadataBase: new URL(APP_URL),

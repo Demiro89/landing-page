@@ -2,7 +2,11 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Footer from '@/components/Footer';
-import { Menu, X, UserRound, ArrowRight, Mail, RefreshCw } from 'lucide-react';
+import OfferCard from '@/components/OfferCard';
+import ServiceMark from '@/components/ServiceMark';
+import { formatEuro, hasAvailableOffer, matchesServiceFilter, prudentCommercialCopy } from '@/lib/offerPresentation';
+import { Menu, X, UserRound, ArrowRight, Mail, RefreshCw, LayoutGrid, Tv, Music2, ShieldCheck, Headphones, Clock3, FileText, Calculator } from 'lucide-react';
+import './storefront.css';
 
 interface Service {
   id: string;
@@ -17,6 +21,8 @@ interface Service {
   features: string[];
   availableSlots: number;
   availableStockId: string | null;
+  referenceVerified?: boolean;
+  eligibility?: string;
 }
 
 interface Stock {
@@ -96,9 +102,7 @@ export default function Home() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   // Calculator
-  const [calcSel, setCalcSel] = useState<Record<string, boolean>>({
-    netflix: false, youtube: true, spotify: false, disney: true, surfshark: true,
-  });
+  const [calcSel, setCalcSel] = useState<Record<string, boolean>>({});
 
   // Espace client (auth)
   const [authChecked, setAuthChecked] = useState(false);
@@ -177,9 +181,8 @@ export default function Home() {
         setView('dashboard');
         window.history.replaceState({}, '', '/espace-client');
       }
-      if (params.get('success') && params.get('email')) {
-        setView('dashboard');
-        window.history.replaceState({}, '', '/espace-client');
+      if (params.get('success') && params.get('session_id')) {
+        window.location.replace(`/commande/confirmee?session_id=${encodeURIComponent(params.get('session_id')!)}`);
       }
       if (params.get('verify') === 'success') {
         setView('dashboard');
@@ -227,7 +230,8 @@ export default function Home() {
       } else {
         setAuthError(d.error || 'Erreur');
       }
-    } finally { setAuthLoading(false); }
+    } catch { setAuthError('Le serveur est temporairement indisponible. Réessayez dans quelques instants.'); }
+    finally { setAuthLoading(false); }
   };
 
   const doReset = async (e: React.FormEvent) => {
@@ -247,7 +251,8 @@ export default function Home() {
       } else {
         setAuthError(d.error || 'Lien invalide ou expiré.');
       }
-    } finally { setAuthLoading(false); }
+    } catch { setAuthError('Le serveur est temporairement indisponible. Réessayez dans quelques instants.'); }
+    finally { setAuthLoading(false); }
   };
 
   const reloadMe = async () => {
@@ -280,7 +285,8 @@ export default function Home() {
       } else {
         setAuthError(d.error || 'Erreur');
       }
-    } finally { setAuthLoading(false); }
+    } catch { setAuthError('Le serveur est temporairement indisponible. Réessayez dans quelques instants.'); }
+    finally { setAuthLoading(false); }
   };
 
   const doLogin = async (e: React.FormEvent) => {
@@ -298,7 +304,8 @@ export default function Home() {
       } else {
         setAuthError(d.error || 'Identifiants incorrects');
       }
-    } finally { setAuthLoading(false); }
+    } catch { setAuthError('Le serveur est temporairement indisponible. Réessayez dans quelques instants.'); }
+    finally { setAuthLoading(false); }
   };
 
   const doLogout = async () => {
@@ -531,42 +538,45 @@ export default function Home() {
   };
 
   const filteredServices = services.filter(s =>
-    filter === 'all' || SERVICE_FILTERS[filter].includes(s.id)
+    filter === 'all' || matchesServiceFilter(s.id, SERVICE_FILTERS[filter])
   );
 
   const filteredStocks = stocks.filter(s =>
-    filter === 'all' || SERVICE_FILTERS[filter].includes(s.serviceId)
+    filter === 'all' || matchesServiceFilter(s.serviceId, SERVICE_FILTERS[filter])
   );
+
+  const availableServices = services.filter(hasAvailableOffer);
+  const comparableServices = availableServices.filter(s => s.referenceVerified === true && s.original >= s.price);
 
   const calcTotal = Object.entries(calcSel).reduce((sum, [id, on]) => {
     if (!on) return sum;
-    const svc = services.find(s => s.id === id);
+    const svc = comparableServices.find(s => s.id === id);
     return sum + (svc?.price || 0);
   }, 0);
 
   const calcOriginal = Object.entries(calcSel).reduce((sum, [id, on]) => {
     if (!on) return sum;
-    const svc = services.find(s => s.id === id);
+    const svc = comparableServices.find(s => s.id === id);
     return sum + (svc?.original || 0);
   }, 0);
 
   const calcSavings = calcOriginal - calcTotal;
   const calcHasValidSelection = Object.entries(calcSel).some(([id, on]) =>
-    on && services.some(s => s.id === id)
+    on && comparableServices.some(s => s.id === id)
   );
 
   const faqItems = [
     {
       q: 'Comment fonctionne StreamMalin ?',
-      a: 'StreamMalin souscrit des offres familiales ou multi-utilisateurs et met à votre disposition, pour une durée déterminée, un accès numérique temporaire (une place de profil ou une invitation famille). Nous gérons la configuration technique et le support. Vous bénéficiez ainsi d\'un accès à prix malin, avec des économies variables selon l\'offre disponible.',
+      a: 'StreamMalin propose des accès numériques temporaires selon les offres disponibles. Le type d’accès, les fonctionnalités et les conditions d’éligibilité sont précisés sur la fiche de l’offre. Les accès sont transmis après validation du paiement et selon disponibilité. StreamMalin est indépendant des plateformes citées.',
     },
     {
-      q: 'Le partage de place est-il sécurisé ?',
-      a: 'Les offres familiales et multi-profils sont conçues par les éditeurs pour un usage sur plusieurs profils distincts. StreamMalin met à votre disposition un accès temporaire et personnel à l\'une de ces places : vous disposez de votre propre profil privé ou de votre invitation individuelle, et vos données restent privées. StreamMalin est un service indépendant, non affilié aux plateformes citées.',
+      q: 'Quelles sont les conditions et les limites de confidentialité ?',
+      a: 'Elles dépendent de l’offre et du fournisseur : pays, foyer, groupe familial, appareils et historique du compte peuvent conditionner l’accès. Un profil distinct ne garantit pas que toutes les informations sont invisibles à l’administrateur du compte. Consultez la fiche de l’offre et contactez le support avant de payer en cas de doute.',
     },
     {
       q: 'Y a-t-il un engagement sur mes abonnements ?',
-      a: 'Aucun engagement de durée. Vous payez au mois le mois et pouvez résilier votre location à tout moment d\'un simple clic depuis votre Espace Client. L\'abonnement s\'arrête simplement à la fin de votre période mensuelle payée.',
+      a: 'Le paiement par carte correspond à un abonnement mensuel renouvelé automatiquement jusqu’à résiliation, sans durée minimale d’engagement. La résiliation est demandée depuis l’espace client et prend effet à la fin de la période payée indiquée. Les paiements manuels, lorsqu’ils sont proposés, sont traités après vérification du paiement reçu.',
     },
     {
       q: 'Que se passe-t-il si un compte cesse de fonctionner ?',
@@ -598,7 +608,7 @@ export default function Home() {
             <a href="#calculateur" onClick={goToStorefront} className="nav-link">Calculateur</a>
             <a href="#faq" onClick={goToStorefront} className="nav-link">FAQ</a>
             <button onClick={goToDashboard} className="btn btn-outline btn-sm" style={{ marginLeft: 8 }}>
-              👤 Espace Client
+              <UserRound size={16} aria-hidden="true" /> Espace client
             </button>
           </nav>
 
@@ -610,40 +620,37 @@ export default function Home() {
             <a href="#marketplace" onClick={() => { goToStorefront(); setMenuOpen(false); }} className="nav-link">Marketplace</a>
             <a href="#calculateur" onClick={() => { goToStorefront(); setMenuOpen(false); }} className="nav-link">Calculateur</a>
             <a href="#faq" onClick={() => { goToStorefront(); setMenuOpen(false); }} className="nav-link">FAQ</a>
-            <button onClick={() => { goToDashboard(); setMenuOpen(false); }} className="btn btn-outline btn-sm">👤 Espace Client</button>
+            <button onClick={() => { goToDashboard(); setMenuOpen(false); }} className="btn btn-outline btn-sm"><UserRound size={16} aria-hidden="true" /> Espace client</button>
           </div>
         )}
       </header>
 
       {/* ======================== STOREFRONT ======================== */}
       {view === 'storefront' && (
-        <main>
+        <main className="storefront">
           {/* HERO */}
           <section className="hero">
             <div className="hero-content">
-              <div className="hero-badge">
-                <span className="hero-badge-dot" />
-                STREAMING PREMIUM · LIVRAISON RAPIDE
-              </div>
+              <p className="hero-category">ABONNEMENTS & ACCÈS NUMÉRIQUES</p>
               <h1>
                 StreamMalin
               </h1>
               <p className="hero-subtitle">
-                Vos abonnements préférés à prix malin. Comparez les offres disponibles, choisissez votre accès et gardez le contrôle de votre budget.
+                Vos abonnements à prix malin. Comparez les accès disponibles et choisissez l’offre adaptée à votre compte.
               </p>
               <div className="hero-cta">
-                <a href="#offres" className="btn btn-primary btn-lg">
-                  Voir les offres <ArrowRight size={18} aria-hidden="true" />
+                <a href={servicesLoaded && !catalogError && availableServices.length === 0 ? 'mailto:hello@streammalin.fr' : '#offres'} className="btn btn-primary">
+                  {servicesLoaded && !catalogError && availableServices.length === 0 ? 'Connaître les disponibilités' : 'Voir les offres'} <ArrowRight size={18} aria-hidden="true" />
                 </a>
-                <button onClick={goToDashboard} className="btn btn-outline btn-lg">
-                  <UserRound size={18} aria-hidden="true" /> Mon espace client
+                <button onClick={goToDashboard} className="btn btn-outline">
+                  <UserRound size={18} aria-hidden="true" /> Espace client
                 </button>
               </div>
+              {servicesLoaded && !catalogError && availableServices.length === 0 && <p className="hero-stock-note" role="status">Aucune place disponible actuellement. Contactez-nous pour connaître les prochaines disponibilités.</p>}
               <div className="hero-trust">
-                <span><span className="check">✓</span> Support client réactif en français</span>
-                <span><span className="check">✓</span> Livraison rapide après validation</span>
-                <span><span className="check">✓</span> Sans engagement</span>
-                <span><span className="check">✓</span> Paiement via prestataires spécialisés</span>
+                <a href="mailto:hello@streammalin.fr"><Headphones size={16} aria-hidden="true" /> Support en français</a>
+                <span><Clock3 size={16} aria-hidden="true" /> Accès après validation</span>
+                <a href="/cgv"><FileText size={16} aria-hidden="true" /> Conditions transparentes</a>
               </div>
             </div>
           </section>
@@ -651,72 +658,29 @@ export default function Home() {
           {/* CATALOGUE */}
           <section id="offres" className="section">
             <div className="section-inner">
-              <div className="section-head">
-                <div className="section-eyebrow">— Catalogue —</div>
-                <h2 className="section-title">
-                  Tous vos <span className="gradient-text">abonnements préférés</span>
-                </h2>
-                <p className="section-subtitle">Sélectionnez votre service. Les accès sont transmis après validation de la commande, selon disponibilité.</p>
+              <div className="catalog-heading">
+                <div>
+                  <h2 className="section-title">Choisissez votre abonnement</h2>
+                  <p className="section-subtitle">Tarifs mensuels. Disponibilités actualisées selon le stock.</p>
+                </div>
+                <a href="#marketplace" className="catalog-stock-link">Voir les places <ArrowRight size={16} aria-hidden="true" /></a>
               </div>
 
               <div className="filters">
-                {([['all', '✨ Tous'], ['streaming', '📺 Streaming Vidéo'], ['musique', '🎵 Musique'], ['securite', '🛡️ Sécurité & VPN']] as [FilterType, string][]).map(([key, label]) => (
+                {([{ key: 'all', label: 'Toutes les offres', Icon: LayoutGrid }, { key: 'streaming', label: 'Vidéo', Icon: Tv }, { key: 'musique', label: 'Musique', Icon: Music2 }, { key: 'securite', label: 'VPN & sécurité', Icon: ShieldCheck }] as const).filter(({ key }) => key === 'all' || services.some(s => matchesServiceFilter(s.id, SERVICE_FILTERS[key]))).map(({ key, label, Icon }) => (
                   <button
                     key={key}
                     onClick={() => setFilter(key)}
                     className={`filter-btn ${filter === key ? 'active' : ''}`}
                     aria-pressed={filter === key}
                   >
-                    {label}
+                    <Icon size={16} aria-hidden="true" /> {label}
                   </button>
                 ))}
               </div>
 
-              <div className="products-grid fade-in-up-stagger">
-                {filteredServices.map((s) => {
-                  const discount = Math.round((1 - s.price / s.original) * 100);
-                  const savings = (s.original - s.price).toFixed(2);
-                  const hasStock = s.availableSlots > 0;
-                  return (
-                    <div key={s.id} className="product-card glass-panel">
-                      {/* Banner */}
-                      <div className="product-banner" style={{ background: s.gradient }}>
-                        <span className="badge-discount">-{discount}%</span>
-                        <div className="product-logo">{s.icon}</div>
-                      </div>
-                      {/* Body */}
-                      <div className="product-body">
-                        <h3>{s.name}</h3>
-                        <p className="tagline">{s.tagline}</p>
-                        <ul className="features">
-                          {s.features.map((f, i) => (
-                            <li key={i}>{f}</li>
-                          ))}
-                        </ul>
-                        <div className="pricing">
-                          <div>
-                            <span className="price-main">{s.price.toFixed(2)}€</span>
-                            <span className="price-original">{s.original.toFixed(2)}€</span>
-                            <span className="price-period">/ mois</span>
-                          </div>
-                          <p className="price-savings">Économie : {savings}€/mois</p>
-                        </div>
-                        {hasStock ? (
-                          <a
-                            href={`/checkout?service=${s.id}&stock=${s.availableStockId}`}
-                            className="product-cta"
-                          >
-                            Louer un accès →
-                          </a>
-                        ) : (
-                          <button disabled className="product-cta disabled">
-                            Aucune place disponible
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+              <div className="products-grid">
+                {filteredServices.map(offer => <OfferCard key={offer.id} offer={offer} />)}
                 {!servicesLoaded && (
                   <>
                     {Array.from({ length: 6 }).map((_, i) => (
@@ -780,12 +744,10 @@ export default function Home() {
                     const avSlots = stock.maxSlots - stock.filledSlots;
                     return (
                       <div key={stock.id} className="share-item glass-panel">
-                        <div className="share-logo-wrap" style={{ background: stock.service.gradient }}>
-                          {stock.service.icon}
-                        </div>
+                        <ServiceMark id={stock.serviceId} name={stock.service.name} />
                         <div className="share-details">
                           <div className="share-name">{stock.service.name}</div>
-                          <div className="share-tag">🛡️ Accès suivi · Assistance incluse</div>
+                          <div className="share-tag">Accès après validation · Support en français</div>
                           <div className="share-slots">
                             <span className="slots-label">{avSlots} place{avSlots > 1 ? 's' : ''} libre{avSlots > 1 ? 's' : ''}</span>
                             <div className="share-dots">
@@ -794,14 +756,14 @@ export default function Home() {
                           </div>
                         </div>
                         <div className="share-price">
-                          <span className="price-val">{stock.price.toFixed(2)}€</span>
-                          <span className="price-sub">/mois selon offre</span>
+                          <span className="price-val">{formatEuro(stock.price)}</span>
+                          <span className="price-sub">par mois</span>
                         </div>
                         <a
                           href={`/checkout?service=${stock.serviceId}&stock=${stock.id}`}
                           className="btn btn-primary btn-sm shrink-0"
                         >
-                          Louer →
+                          Choisir <ArrowRight size={16} aria-hidden="true" />
                         </a>
                       </div>
                     );
@@ -817,12 +779,12 @@ export default function Home() {
               <div className="section-head">
                 <div className="section-eyebrow">— Comparateur de prix —</div>
                 <h2 className="section-title">
-                  Pourquoi payer le <span className="gradient-text">tarif plein</span> ?
+                  Comparez votre <span className="gradient-text">budget mensuel</span>
                 </h2>
                 <p className="section-subtitle">Comparez les tarifs publics indicatifs avec les prix proposés par StreamMalin selon les offres disponibles.</p>
               </div>
 
-              <div className="glass-panel comparison">
+              <div className="comparison">
                 <div className="comparison-row comparison-head">
                   <div>Service</div>
                   <div style={{ textAlign: 'center' }}>Tarif Public</div>
@@ -830,40 +792,40 @@ export default function Home() {
                   <div style={{ textAlign: 'center' }}>Économie</div>
                 </div>
 
-                {services.map((s) => {
+                {comparableServices.map((s) => {
                   const savings = (s.original - s.price).toFixed(2);
                   const pct = Math.round((1 - s.price / s.original) * 100);
                   return (
                     <div key={s.id} className="comparison-row">
                       <div className="comparison-service">
-                        <div className="comparison-icon" style={{ background: s.gradient }}>{s.icon}</div>
+                        <ServiceMark id={s.id} name={s.name} />
                         <div>
                           <div style={{ fontWeight: 700, color: 'var(--text-white)', fontSize: '0.92rem' }}>{s.name}</div>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200 }}>{s.tagline}</div>
+                          <div className="comparison-tagline">{prudentCommercialCopy(s.tagline)}</div>
                         </div>
                       </div>
-                      <div className="comparison-price-old">{s.original.toFixed(2)}€/m</div>
-                      <div className="comparison-price-new">{s.price.toFixed(2)}€/m</div>
+                      <div className="comparison-price-old" data-label="Tarif public">{formatEuro(s.original)} / mois</div>
+                      <div className="comparison-price-new" data-label="StreamMalin">{formatEuro(s.price)} / mois</div>
                       <div style={{ display: 'flex', justifyContent: 'center' }}>
-                        <span className="comparison-badge">-{pct}% · {savings}€/m</span>
+                        <span className="comparison-badge">{pct}% · {formatEuro(Number(savings))} / mois</span>
                       </div>
                     </div>
                   );
                 })}
 
                 <div style={{ marginTop: 36, paddingTop: 28, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-                  <h3 style={{ fontSize: '1.1rem', marginBottom: 16, fontFamily: "'Outfit',sans-serif" }}>
-                    🧮 <span className="gradient-text">Calculateur d&apos;économies</span> personnalisé
+                  <h3 className="calculator-title">
+                    <Calculator size={20} aria-hidden="true" /> Calculateur d&apos;économies
                   </h3>
                   <div className="calc-chips">
-                    {services.map((s) => (
+                    {comparableServices.map((s) => (
                       <button
                         key={s.id}
                         onClick={() => setCalcSel(prev => ({ ...prev, [s.id]: !prev[s.id] }))}
                         className={`calc-chip ${calcSel[s.id] ? 'active' : ''}`}
                         aria-pressed={Boolean(calcSel[s.id])}
                       >
-                        <span>{s.icon}</span> {s.name}
+                        <ServiceMark id={s.id} name={s.name} /> {s.name}
                       </button>
                     ))}
                   </div>
@@ -872,22 +834,22 @@ export default function Home() {
                       <div className="calc-result">
                         <div className="calc-tile">
                           <div className="calc-tile-label">Tarif public</div>
-                          <div className="calc-tile-value" style={{ textDecoration: 'line-through', color: 'var(--text-muted)' }}>{calcOriginal.toFixed(2)}€</div>
+                          <div className="calc-tile-value">{formatEuro(calcOriginal)}</div>
                         </div>
-                        <div className="calc-tile" style={{ background: 'linear-gradient(135deg, rgba(138,92,247,0.1), rgba(99,102,241,0.05))', borderColor: 'rgba(138,92,247,0.25)' }}>
+                        <div className="calc-tile">
                           <div className="calc-tile-label">Avec StreamMalin</div>
-                          <div className="calc-tile-value gradient-text">{calcTotal.toFixed(2)}€</div>
+                          <div className="calc-tile-value gradient-text">{formatEuro(calcTotal)}</div>
                         </div>
                         <div className="calc-tile">
                           <div className="calc-tile-label">Vous économisez</div>
-                          <div className="calc-tile-value" style={{ color: 'var(--accent-green)' }}>{calcSavings.toFixed(2)}€/m</div>
+                          <div className="calc-tile-value" style={{ color: 'var(--accent-green)' }}>{formatEuro(calcSavings)} / mois</div>
                         </div>
                       </div>
 
                       <div style={{ marginTop: 24, display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'center', justifyContent: 'space-between' }}>
                         <p style={{ fontSize: '0.88rem', color: 'var(--text-gray)' }}>
-                          Sur l&apos;année, vous économisez{' '}
-                          <strong className="gradient-text" style={{ fontSize: '1.05rem' }}>{(calcSavings * 12).toFixed(0)}€</strong>.
+                          Économie annuelle estimée :{' '}
+                          <strong className="gradient-text">{formatEuro(calcSavings * 12)}</strong>, si les offres et tarifs restent identiques pendant douze mois.
                         </p>
                         <a href="#offres" className="btn btn-primary btn-sm">
                           Choisir mes abonnements
@@ -899,6 +861,7 @@ export default function Home() {
                       Sélectionnez une offre pour calculer vos économies.
                     </div>
                   )}
+                  {comparableServices.length === 0 && <p className="comparison-note">La comparaison sera disponible avec une offre en stock et un tarif de référence vérifié.</p>}
                 </div>
               </div>
             </div>
@@ -912,12 +875,12 @@ export default function Home() {
                 <h2 className="section-title">
                   Comment ça <span className="gradient-text">marche</span> ?
                 </h2>
-                <p className="section-subtitle">Le partage d&apos;abonnement en 3 étapes simples.</p>
+                <p className="section-subtitle">De la sélection au suivi de votre accès.</p>
               </div>
               <div className="steps-grid fade-in-up-stagger">
                 {[
                   { n: '1', title: 'Sélectionnez une offre', text: 'Parcourez notre catalogue et choisissez l\'offre qui correspond à vos besoins parmi nos services premium.' },
-                  { n: '2', title: 'Réglez en sécurité', text: 'Payez chaque mois par carte bancaire, PayPal (Biens & Services) ou cryptomonnaies via les moyens proposés.' },
+                  { n: '2', title: 'Vérifiez et réglez', text: 'Vérifiez votre éligibilité et les conditions de renouvellement, puis utilisez l’un des moyens effectivement proposés au paiement.' },
                   { n: '3', title: 'Recevez votre accès', text: 'Les informations d\'accès ou le lien d\'invitation sont transmis après validation du paiement et selon disponibilité.' },
                 ].map((step) => (
                   <div key={step.n} className="step-card glass-panel">
@@ -1005,16 +968,11 @@ export default function Home() {
           {/* CTA */}
           <section className="section">
             <div className="section-inner" style={{ maxWidth: 900 }}>
-              <div className="cta-block glass-panel">
-                <div className="section-eyebrow">— Dernier appel —</div>
-                <h2>Prêt à réduire vos factures <span className="gradient-text">dès aujourd&apos;hui&nbsp;?</span></h2>
-                <p>Rejoignez nos clients économes. Accès transmis après validation, résiliable à tout moment, sans engagement.</p>
+              <div className="cta-block">
+                <h2>{availableServices.length > 0 ? 'Une offre vous intéresse ?' : 'Besoin d’un accès numérique ?'}</h2>
+                <p>{availableServices.length > 0 ? 'Consultez ses conditions d’éligibilité avant de commander. Notre support répond à vos questions.' : 'Contactez-nous pour connaître les prochaines disponibilités et les conditions d’accès.'}</p>
                 <div className="cta-buttons">
-                  {services.slice(0, 3).map((s, i) => (
-                    <a key={s.id} href="#offres" className={`btn ${i === 0 ? 'btn-primary' : 'btn-outline'}`}>
-                      {s.icon} {s.name} — dès {s.price.toFixed(2)}€
-                    </a>
-                  ))}
+                  <a href={availableServices.length > 0 ? '#offres' : 'mailto:hello@streammalin.fr'} className="btn btn-primary">{availableServices.length > 0 ? 'Consulter les offres' : 'Contacter le support'} <ArrowRight size={18} aria-hidden="true" /></a>
                 </div>
               </div>
             </div>
@@ -1166,8 +1124,9 @@ export default function Home() {
                     {(authMode === 'login' || authMode === 'register') && (
                       <form onSubmit={authMode === 'login' ? doLogin : doRegister} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                         <div className="form-field" style={{ marginBottom: 0 }}>
-                          <label className="form-label">Adresse email</label>
+                          <label className="form-label" htmlFor="client-auth-email">Adresse email</label>
                           <input
+                            id="client-auth-email"
                             type="email"
                             placeholder="vous@exemple.com"
                             value={authEmail}
@@ -1178,9 +1137,10 @@ export default function Home() {
                           />
                         </div>
                         <div className="form-field" style={{ marginBottom: 0 }}>
-                          <label className="form-label">Mot de passe</label>
+                          <label className="form-label" htmlFor="client-auth-password">Mot de passe</label>
                           <div style={{ position: 'relative' }}>
                             <input
+                              id="client-auth-password"
                               type={showPassword ? 'text' : 'password'}
                               placeholder="8 caractères min., une lettre et un chiffre"
                               value={authPassword}
@@ -1204,15 +1164,16 @@ export default function Home() {
                         </div>
                         {authMode === 'register' && (
                           <div className="form-field" style={{ marginBottom: 0 }}>
-                            <label className="form-label">Confirmer le mot de passe</label>
+                            <label className="form-label" htmlFor="client-auth-confirm">Confirmer le mot de passe</label>
                             <input
+                              id="client-auth-confirm"
                               type={showPassword ? 'text' : 'password'}
                               placeholder="Répétez votre mot de passe"
                               value={authPasswordConfirm}
                               onChange={(e) => setAuthPasswordConfirm(e.target.value)}
                               className="dash-input"
                               autoComplete="new-password"
-                              minLength={6}
+                              minLength={8}
                               required
                             />
                           </div>
@@ -1234,12 +1195,15 @@ export default function Home() {
 
                     {authMode === 'forgot' && (
                       <form onSubmit={doForgot} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        <label htmlFor="client-forgot-email" className="form-label">Adresse email</label>
                         <input
+                          id="client-forgot-email"
                           type="email"
                           placeholder="vous@exemple.com"
                           value={authEmail}
                           onChange={(e) => setAuthEmail(e.target.value)}
                           className="dash-input"
+                          autoComplete="email"
                           required
                         />
                         <button type="submit" disabled={authLoading} className="btn btn-primary">
@@ -1257,12 +1221,15 @@ export default function Home() {
 
                     {authMode === 'reset' && (
                       <form onSubmit={doReset} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        <label htmlFor="client-reset-password" className="form-label">Nouveau mot de passe</label>
                         <input
+                          id="client-reset-password"
                           type="password"
                           placeholder="Nouveau mot de passe (8 car. min., lettre + chiffre)"
                           value={authPassword}
                           onChange={(e) => setAuthPassword(e.target.value)}
                           className="dash-input"
+                          autoComplete="new-password"
                           minLength={8}
                           required
                         />
@@ -1450,8 +1417,7 @@ export default function Home() {
                         {cancelOrderId && (() => {
                           const order = orders.find(o => o.id === cancelOrderId);
                           if (!order) return null;
-                          const effectiveAt = new Date(order.date);
-                          effectiveAt.setDate(effectiveAt.getDate() + 30);
+                          const effectiveAt = order.cancellationEffectiveAt || order.nextBillingAt;
                           return (
                             <div
                               role="dialog"
@@ -1467,7 +1433,7 @@ export default function Home() {
                                   Vous êtes sur le point de résilier votre abonnement <strong style={{ color: 'var(--text-white)' }}>{order.service.name}</strong>.
                                 </p>
                                 <div style={{ padding: 14, borderRadius: 10, background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)', marginBottom: 16, fontSize: '0.85rem', lineHeight: 1.7 }}>
-                                  ⚠️ <strong>Sans engagement</strong> — votre accès reste <strong>actif jusqu&apos;au {effectiveAt.toLocaleDateString('fr-FR')}</strong> (30 jours après souscription). Un email de confirmation vous sera envoyé.
+                                  Votre accès reste actif jusqu’à la fin de la période payée{effectiveAt && Number.isFinite(Date.parse(effectiveAt)) ? <> : <strong>{new Date(effectiveAt).toLocaleDateString('fr-FR')}</strong></> : '. La date effective sera précisée après confirmation'}. Aucun nouveau prélèvement ne doit intervenir après la date de résiliation confirmée.
                                 </div>
                                 {cancelError && (
                                   <div style={{ marginBottom: 12, padding: 10, borderRadius: 8, background: 'rgba(239,68,68,0.1)', color: '#f87171', fontSize: '0.82rem' }}>

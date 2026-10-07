@@ -4,6 +4,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { SERVICE_CATALOG, CATALOG_CATEGORIES, type ServicePreset } from '@/lib/serviceCatalog';
+import { Menu, X, LogOut, Keyboard, ArrowLeft } from 'lucide-react';
+import './admin.css';
+import OperationsPanel from '@/components/admin/OperationsPanel';
 
 /* ─── Types ─────────────────────────────────────────────────────────────── */
 interface Service {
@@ -36,7 +39,7 @@ interface Order {
   cardLast4?: string | null;
   cardBrand?: string | null;
   service: { name: string; icon: string; gradient?: string };
-  stockAccount: { accountsBoughtPrice: number };
+  stockAccount: { accountsBoughtPrice: number; maxSlots: number };
 }
 interface Kpis {
   totalRevenue: number; totalCogs: number; totalInvestment: number;
@@ -56,7 +59,7 @@ interface Client {
 }
 interface Settings { [key: string]: string }
 
-type AdminPage = 'dashboard' | 'pending' | 'stocks' | 'services' | 'subscribers' | 'clients' | 'unpaid' | 'cancellations' | 'support' | 'settings' | 'audit';
+type AdminPage = 'dashboard' | 'pending' | 'stocks' | 'services' | 'subscribers' | 'clients' | 'unpaid' | 'cancellations' | 'support' | 'settings' | 'audit' | 'operations';
 
 // Ordre stable des pages pour les raccourcis clavier (touches 1-9 puis 0).
 const ADMIN_PAGE_ORDER: AdminPage[] = ['dashboard', 'pending', 'stocks', 'services', 'subscribers', 'clients', 'unpaid', 'cancellations', 'support', 'settings', 'audit'];
@@ -94,6 +97,7 @@ function toast(msg: string, duration = 5000) {
 export default function AdminPage() {
   const router = useRouter();
   const [activePage, setActivePage] = useState<AdminPage>('dashboard');
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   // Double authentification (2FA / TOTP)
   const [twoFaEnabled, setTwoFaEnabled] = useState(false);
@@ -116,6 +120,7 @@ export default function AdminPage() {
 
   const [services, setServices] = useState<Service[]>([]);
   const [loadError, setLoadError] = useState('');
+  const [schemaEnabled, setSchemaEnabled] = useState(false);
   const [orders, setOrders] = useState<Order[]>([]);
   const [kpis, setKpis] = useState<Kpis>({ totalRevenue: 0, totalCogs: 0, totalInvestment: 0, netProfit: 0, marginPercentage: 0 });
   const [clients, setClients] = useState<Client[]>([]);
@@ -169,6 +174,7 @@ export default function AdminPage() {
         }),
       );
       setServices(stockRes.services); setOrders(stockRes.orders); setKpis(stockRes.kpis);
+      setSchemaEnabled(stockRes.schemaEnabled === true);
       setClients(clientRes.clients);
       setSettings(settRes.settings);
       setTwoFaEnabled(twoFaRes.enabled);
@@ -188,6 +194,7 @@ export default function AdminPage() {
     const onKey = (e: KeyboardEvent) => {
       // Échap : ferme l'aide et tout modal ouvert.
       if (e.key === 'Escape') {
+        setMobileNavOpen(false);
         setShowShortcuts(false);
         setEditStock(null);
         setEditOrder(null);
@@ -278,16 +285,19 @@ export default function AdminPage() {
   /* ─── Validation des commandes manuelles (PayPal / crypto) ────────────── */
   const validateOrder = async (orderId: string) => {
     if (busyOrderId) return;
-    if (!confirm('Valider cette commande ? Les identifiants seront livrés au client par email.')) return;
+    const paymentReference = schemaEnabled ? prompt('Référence du paiement dont la réception a été vérifiée chez PayPal ou sur le réseau concerné :') : '';
+    if (schemaEnabled && !paymentReference) return;
+    if (!confirm('Le paiement reçu a-t-il été vérifié ? La transmission de l’accès sera suivie après validation.')) return;
     setBusyOrderId(orderId);
     try {
       const r = await fetch('/api/admin/stock', {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'validate_order', orderId }),
+        body: JSON.stringify({ action: 'validate_order', orderId, paymentReference }),
       });
       const d = await r.json();
-      if (d.success) { toast('Commande validée et livrée !'); loadAll(); }
+      if (d.success) { toast(d.deliveryQueued ? 'Paiement validé ; transmission à suivre dans Vérifications et suivi.' : 'Commande validée ; vérifiez la transmission de l’accès.'); loadAll(); }
       else toast(d.error || 'Erreur');
+    } catch { toast('Connexion impossible. Rechargez avant de réessayer.');
     } finally {
       setBusyOrderId(null);
     }
@@ -413,9 +423,10 @@ export default function AdminPage() {
     else if (kpiRange === 'quarter') cutoff.setMonth(now.getMonth() - 3);
     else if (kpiRange === 'year') cutoff.setFullYear(now.getFullYear() - 1);
 
-    const subset = kpiRange === 'all' ? orders : orders.filter((o: Order) => new Date(o.date) >= cutoff);
+    const paidOrders = orders.filter(order => !['pending', 'payment_review', 'cancelled'].includes(order.status));
+    const subset = kpiRange === 'all' ? paidOrders : paidOrders.filter((o: Order) => new Date(o.date) >= cutoff);
     const totalRevenue = subset.reduce((s: number, o: Order) => s + o.total, 0);
-    const totalCogs = subset.reduce((s: number, o: Order) => s + o.price * 0.25, 0);
+    const totalCogs = subset.reduce((s: number, o: Order) => s + (o.stockAccount?.maxSlots > 0 ? o.stockAccount.accountsBoughtPrice / o.stockAccount.maxSlots : 0), 0);
     const netProfit = totalRevenue - totalCogs;
     const marginPercentage = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
     return {
@@ -434,7 +445,7 @@ export default function AdminPage() {
       const d = new Date(); d.setDate(d.getDate() - i);
       const label = d.toLocaleDateString('fr-FR', { weekday: 'short' });
       const dayOrders = orders.filter(o => new Date(o.date).toDateString() === d.toDateString());
-      const profit = dayOrders.reduce((acc, o) => acc + o.total - (o.stockAccount?.accountsBoughtPrice || 0), 0);
+      const profit = dayOrders.filter(order => !['pending', 'cancelled', 'payment_review'].includes(order.status)).reduce((acc, o) => acc + o.total - (o.stockAccount?.maxSlots > 0 ? o.stockAccount.accountsBoughtPrice / o.stockAccount.maxSlots : 0), 0);
       days.push({ label: label.charAt(0).toUpperCase() + label.slice(1), profit });
     }
     return days;
@@ -600,6 +611,7 @@ export default function AdminPage() {
   const unpaidCount = orders.filter(o => o.status === 'unpaid').length;
 
   const navItems: [AdminPage, string, string, number?][] = [
+    ['operations', '', 'Vérifications et suivi'],
     ['dashboard', '📊', 'Tableau de bord'],
     ['pending', '🕓', 'Commandes à valider', pendingCount],
     ['stocks', '📦', 'Gestion des Stocks'],
@@ -614,7 +626,7 @@ export default function AdminPage() {
   ];
 
   return (
-    <div>
+    <div className="admin-page">
       <div id="sm-toast" className="toast-box" role="status" aria-live="polite" style={{ display: 'none' }} />
 
       {/* Topbar */}
@@ -624,7 +636,10 @@ export default function AdminPage() {
             <div className="nav-logo-icon">SM</div>
             <span className="gradient-text">StreamMalin</span>
           </Link>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div className="admin-topbar-actions">
+            <button type="button" className="admin-mobile-toggle" onClick={() => setMobileNavOpen(open => !open)} aria-label={mobileNavOpen ? 'Fermer la navigation' : 'Ouvrir la navigation'} aria-expanded={mobileNavOpen} aria-controls="admin-mobile-navigation" title="Navigation">
+              {mobileNavOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
             <div className="admin-topbar-status">
               <span className="hero-badge-dot" style={{ width: 6, height: 6 }} />
               MODE SUPER-ADMIN
@@ -635,13 +650,19 @@ export default function AdminPage() {
               aria-label="Afficher les raccourcis clavier"
               title="Raccourcis clavier (?)"
             >
-              ⌨ ?
+              <Keyboard size={18} aria-hidden="true" />
             </button>
-            <button onClick={doLogout} className="btn btn-danger btn-sm">
-              Déconnexion ↩
+            <button onClick={doLogout} className="btn btn-danger btn-sm admin-logout" aria-label="Déconnexion" title="Déconnexion">
+              <LogOut size={18} aria-hidden="true" /><span>Déconnexion</span>
             </button>
           </div>
         </div>
+        {mobileNavOpen && <nav id="admin-mobile-navigation" className="admin-mobile-navigation" aria-label="Administration">
+          {navItems.map(([page, , label, count]) => <button key={page} type="button" onClick={() => { setActivePage(page); setMobileNavOpen(false); }} aria-current={activePage === page ? 'page' : undefined}>
+            <span>{label}</span>{!!count && <span className="admin-nav-count">{count}</span>}
+          </button>)}
+          <Link href="/"><ArrowLeft size={16} aria-hidden="true" /> Retour au site</Link>
+        </nav>}
       </header>
 
       <div className="admin-shell">
@@ -677,6 +698,8 @@ export default function AdminPage() {
 
         {/* Main */}
         <main className="admin-main">
+          <div className="admin-mobile-location">{navItems.find(([page]) => page === activePage)?.[2]}</div>
+          {activePage === 'operations' && <OperationsPanel />}
           {loadError && <div className="admin-load-error error-box" role="alert">{loadError}<button className="btn btn-ghost btn-sm" onClick={loadAll}>Réessayer</button></div>}
 
           {/* ── DASHBOARD ── */}
@@ -709,7 +732,7 @@ export default function AdminPage() {
                 <div className="glass-panel kpi-card" style={accentStyle('linear-gradient(90deg, hsl(145,80%,48%), hsl(170,80%,50%))')}>
                   <div className="kpi-label">Montant des commandes</div>
                   <div className="kpi-value" style={{ color: 'var(--accent-green)' }}>{fmt(filteredKpis.totalRevenue)}</div>
-                  <div className="kpi-sub">Tous statuts · pas un relevé d&apos;encaissements</div>
+                  <div className="kpi-sub">Montants initiaux · hors attente et annulations</div>
                 </div>
                 <div className="glass-panel kpi-card" style={accentStyle('linear-gradient(90deg, hsl(355,85%,58%), hsl(20,85%,58%))')}>
                   <div className="kpi-label">Achats de comptes</div>
@@ -860,7 +883,7 @@ export default function AdminPage() {
 
           {/* ── COMMANDES À VALIDER ── */}
           {activePage === 'pending' && (() => {
-            const pending = orders.filter(o => o.status === 'pending');
+            const pending = orders.filter(o => o.status === 'pending' && o.paymentMethod !== 'Carte bancaire (Stripe)');
             const selectedIds = pending.filter(o => selectedOrders.has(o.id)).map(o => o.id);
             const allSelected = pending.length > 0 && selectedIds.length === pending.length;
             const someSelected = selectedIds.length > 0 && !allSelected;
@@ -895,7 +918,7 @@ export default function AdminPage() {
                       <div style={{ flex: 1 }} />
                       <button
                         onClick={() => validateSelected(selectedIds)}
-                        disabled={bulkBusy || selectedIds.length === 0}
+                        disabled={schemaEnabled || bulkBusy || selectedIds.length === 0}
                         aria-busy={bulkBusy}
                         className="btn btn-primary btn-sm"
                       >

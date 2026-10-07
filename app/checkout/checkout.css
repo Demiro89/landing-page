@@ -1,0 +1,21 @@
+.checkout-page .checkout-head { padding-top: 20px; }
+.checkout-page .checkout-head h1 { font-size: 2rem; letter-spacing: 0; }
+.checkout-page .checkout-card { border-radius: 8px; box-shadow: none; }
+.checkout-page .info-box, .checkout-page .trust-box { background: none !important; border: none !important; border-radius: 0; padding-inline: 0; }
+.checkout-page .form-label { letter-spacing: 0; }
+.checkout-page .checkout-conditions { padding: 18px 0; border-block: 1px solid var(--border-subtle); margin-bottom: 18px; }
+.checkout-page .checkout-conditions h2 { font-size: 1rem; margin-bottom: 12px; }
+.checkout-page .checkout-conditions p { font-size: .84rem; line-height: 1.6; margin-bottom: 10px; }
+.checkout-page .btn-pay { white-space: normal; min-height: 54px; line-height: 1.4; }
+.checkout-page .recap-line { gap: 12px; }
+.checkout-page .recap-line strong { text-align: right; }
+.checkout-page .recap-service-icon { background: none; flex-shrink: 0; }
+.checkout-page .crypto-addr { overflow-wrap: anywhere; }
+@media (max-width: 600px) {
+  .checkout-page .checkout-wrap { padding-inline: 16px; }
+  .checkout-page .checkout-head h1 { font-size: 1.7rem; }
+  .checkout-page .checkout-card { padding: 18px; min-width: 0; }
+  .checkout-page .pay-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .checkout-page .pay-tab { padding: 10px 5px; font-size: .75rem; }
+  .checkout-page .recap-service { flex-wrap: wrap; }
+}

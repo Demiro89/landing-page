@@ -7,14 +7,11 @@ const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 jours
 
 // Le secret de session est obligatoire : aucune valeur par défaut.
 // Sans lui, n'importe qui pourrait forger un cookie de session valide.
-const RAW_SECRET = process.env.CLIENT_SESSION_SECRET;
-if (!RAW_SECRET || RAW_SECRET.length < 16) {
-  throw new Error(
-    'CLIENT_SESSION_SECRET manquant ou trop court : définissez une valeur secrète aléatoire ' +
-    "d'au moins 16 caractères dans vos variables d'environnement."
-  );
+function sessionSecret(): string {
+  const secret = process.env.CLIENT_SESSION_SECRET;
+  if (!secret || secret.length < 16) throw new Error('CLIENT_SESSION_SECRET absent ou trop court : authentification désactivée.');
+  return secret;
 }
-const SECRET: string = RAW_SECRET;
 
 /* ─── Mots de passe (scrypt) ─────────────────────────────────────────────── */
 export function hashPassword(password: string): string {
@@ -34,7 +31,7 @@ export function verifyPassword(password: string, stored: string): boolean {
 
 /* ─── Sessions (HMAC cookie) ──────────────────────────────────────────────── */
 function sign(payload: string): string {
-  return crypto.createHmac('sha256', SECRET).update(payload).digest('hex');
+  return crypto.createHmac('sha256', sessionSecret()).update(payload).digest('hex');
 }
 
 // Token format: ${customerId}.${sessionVersion}.${exp}.${hmac}
@@ -79,6 +76,7 @@ export async function clearSession() {
 }
 
 export async function getCurrentCustomer() {
+  if (!process.env.CLIENT_SESSION_SECRET || process.env.CLIENT_SESSION_SECRET.length < 16) return null;
   const jar = await cookies();
   const token = jar.get(SESSION_COOKIE)?.value;
   if (!token) return null;

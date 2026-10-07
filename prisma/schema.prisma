@@ -37,6 +37,7 @@ model StockAccount {
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
   orders               Order[]
+  reservations         StockReservation[]
 }
 
 // 3. Commandes / Abonnements loués par les clients
@@ -82,6 +83,74 @@ model Order {
   acceptanceIp               String?
   chats          ChatThread?
   invoice        Invoice?
+  reservation    StockReservation?
+  deliveryJobs   DeliveryJob[]
+  payments       PaymentRecord[]
+}
+
+// Additive remediation. Enable only after the reviewed migration has been applied.
+model StockReservation {
+  id                String   @id @default(uuid())
+  orderId           String   @unique
+  order             Order    @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  stockAccountId    String
+  stockAccount      StockAccount @relation(fields: [stockAccountId], references: [id], onDelete: Restrict)
+  checkoutSessionId String?  @unique
+  status            String   @default("held")
+  expiresAt         DateTime
+  createdAt         DateTime @default(now())
+  consumedAt        DateTime?
+
+  @@index([stockAccountId, status, expiresAt])
+}
+
+model PaymentRecord {
+  id                String   @id @default(uuid())
+  orderId           String
+  order             Order    @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  provider          String
+  providerPaymentId String
+  amountMinor       Int
+  currency          String   @default("eur")
+  status            String   @default("paid")
+  clientEmail       String
+  serviceName       String
+  termsVersion      String?
+  providerInvoiceId String?
+  paidAt            DateTime
+  periodEnd         DateTime?
+  createdAt         DateTime @default(now())
+
+  @@unique([provider, providerPaymentId])
+  @@index([orderId, paidAt])
+}
+
+model DeliveryJob {
+  id                String   @id @default(uuid())
+  orderId           String
+  order             Order    @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  dedupeKey         String   @unique
+  kind              String
+  status            String   @default("pending")
+  attempts          Int      @default(0)
+  nextAttemptAt     DateTime @default(now())
+  lockedUntil       DateTime?
+  leaseToken        String?
+  lastError         String?
+  providerMessageId String?
+  createdAt         DateTime @default(now())
+  completedAt       DateTime?
+
+  @@index([status, nextAttemptAt])
+}
+
+model AdminSession {
+  id        String   @id
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  revokedAt DateTime?
+
+  @@index([expiresAt, revokedAt])
 }
 
 // 5. Factures émises (facturation micro-entreprise)

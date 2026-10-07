@@ -3,6 +3,7 @@ import LegalPage from '@/components/LegalPage';
 import { COMPANY } from '@/lib/legalConfig';
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/reclamation' },
   title: 'Réclamation — StreamMalin',
   description: 'Modalités de réclamation auprès du support StreamMalin.',
 };

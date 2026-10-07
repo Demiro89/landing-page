@@ -16,7 +16,9 @@ function createLoader(mocks = {}) {
     const nativeRequire = mod.require.bind(mod);
     mod.require = (name) => {
       if (Object.hasOwn(mocks, name)) return mocks[name];
+      if (name === 'server-only') return {}; // Next's build-time boundary is not a Node runtime module.
       const target = name.startsWith('@/') ? path.resolve(__dirname, '..', name.slice(2)) : name.startsWith('.') ? path.resolve(path.dirname(filename), name) : null;
+      if (target === path.resolve(__dirname, '..', 'lib/prisma')) return { prisma: new Proxy({}, { get() { throw new Error('A unit test attempted an unmocked database operation'); } }) };
       if (target && fs.existsSync(`${target}.ts`)) return load(path.relative(path.resolve(__dirname, '..'), `${target}.ts`));
       return nativeRequire(name);
     };

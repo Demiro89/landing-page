@@ -3,7 +3,8 @@ import { cookies } from 'next/headers';
 import crypto from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { ADMIN_COOKIE_NAME, readAdminSecret, isAdminAuthenticated } from '@/lib/adminAuth';
-import { createAdminSessionToken, ADMIN_SESSION_TTL_SEC } from '@/lib/adminSession';
+import { ADMIN_SESSION_TTL_SEC } from '@/lib/adminSession';
+import { issueAdminSession, revokeAdminToken } from '@/lib/revocableAdminSession';
 import { enforceRateLimit } from '@/lib/rateLimit';
 import { verifyTotpAndGetCounter } from '@/lib/totp';
 import { decrypt } from '@/lib/crypto';
@@ -34,6 +35,9 @@ export async function POST(request: Request) {
     // Gestion de la déconnexion
     if (action === 'logout') {
       const cookieStore = await cookies();
+      let revocationFailed = false;
+      try { if (process.env.REMEDIATION_SCHEMA_ENABLED === 'true') await revokeAdminToken(cookieStore.get(ADMIN_COOKIE_NAME)?.value); }
+      catch { revocationFailed = true; }
       cookieStore.set({
         name: ADMIN_COOKIE_NAME,
         value: '',
@@ -43,7 +47,7 @@ export async function POST(request: Request) {
         sameSite: 'strict',
         maxAge: 0, // Détruit le cookie immédiatement
       });
-      return NextResponse.json({ success: true, message: 'Déconnexion réussie' });
+      return NextResponse.json({ success: !revocationFailed, message: revocationFailed ? 'Cookie effacé, mais révocation serveur indisponible. Contactez l’exploitant.' : 'Déconnexion réussie' }, { status: revocationFailed ? 503 : 200 });
     }
 
     // Logout must remain available when the database or login limiter is unavailable.
@@ -109,7 +113,7 @@ export async function POST(request: Request) {
       });
       if (secondFactor) return secondFactor;
 
-      const sessionToken = createAdminSessionToken();
+      const sessionToken = await issueAdminSession();
       if (!sessionToken) {
         return NextResponse.json(
           { success: false, error: 'Configuration serveur incomplète.' },

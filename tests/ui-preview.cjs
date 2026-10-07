@@ -5,7 +5,7 @@ const services = [
   { id: 'netflix', name: 'Netflix Premium', icon: 'N', tagline: 'Films et series', price: 5.49, original: 19.99, maxSlots: 4, active: true, gradient: 'linear-gradient(135deg, #b32232, #721923)', features: ['Profil personnel', 'Qualite selon offre'] },
   { id: 'youtube', name: 'YouTube Premium', icon: 'YT', tagline: 'Videos et musique', price: 3.49, original: 12.99, maxSlots: 6, active: true, gradient: 'linear-gradient(135deg, #c43940, #942027)', features: ['Videos selon offre', 'Invitation par email'] },
   { id: 'spotify', name: 'Spotify Premium', icon: 'S', tagline: 'Musique et podcasts', price: 3.99, original: 11.99, maxSlots: 6, active: true, gradient: 'linear-gradient(135deg, #207c54, #175536)', features: ['Compte personnel', 'Musique selon offre'] },
-];
+].map(service => ({ ...service, eligibility: 'Fixture : compte et pays compatibles, sans restriction récente de groupe.', accessType: 'Invitation sur le compte personnel du client (démonstration).', privacyNote: 'Fixture : les autres membres peuvent voir le nom et l’adresse de profil.', referenceVerified: true, referenceUrl: 'https://example.test/tarifs', referenceCheckedAt: '2026-10-07' }));
 const now = new Date().toISOString();
 const stocks = [
   { id: 'fixture-netflix', serviceId: 'netflix', price: 5.49, maxSlots: 4, filledSlots: 2 },
@@ -16,15 +16,15 @@ const settings = { gateway_cb: 'true', gateway_paypal: 'true', gateway_crypto: '
 const server = http.createServer((req, res) => {
   if (process.env.FIXTURE_DEBUG === 'true') console.log(req.method, req.url);
   const url = new URL(req.url, 'http://127.0.0.1:3101');
-  const mode = url.searchParams.get('fixture') || /fixture-mode=(empty|error)/.exec(req.headers.cookie || '')?.[1] || 'normal';
+  const mode = url.searchParams.get('fixture') || /fixture-mode=(empty|error|soldout)/.exec(req.headers.cookie || '')?.[1] || 'normal';
   const json = (data, status = 200) => { res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(data)); };
   if (url.pathname.startsWith('/api/')) {
     if (req.method !== 'GET') return json({ error: 'Demonstration locale : aucune operation effectuee.' }, 503);
     const empty = mode === 'empty';
     if (mode === 'error') return json({ error: 'Erreur simulee' }, 503);
     const endpoints = {
-      '/api/services': { success: true, services: empty ? [] : services.map(s => ({ ...s, availableStockId: stocks.find(v => v.serviceId === s.id)?.id || null, availableSlots: stocks.filter(v => v.serviceId === s.id).reduce((n, v) => n + v.maxSlots - v.filledSlots, 0) })) },
-      '/api/stocks/public': { success: true, stocks: empty ? [] : stocks.map(s => ({ id: s.id, serviceId: s.serviceId, price: s.price, maxSlots: s.maxSlots, filledSlots: s.filledSlots, service: s.service })) },
+      '/api/services': { success: true, services: empty ? [] : services.map(s => ({ ...s, availableStockId: mode === 'soldout' ? null : stocks.find(v => v.serviceId === s.id)?.id || null, availableSlots: mode === 'soldout' ? 0 : stocks.filter(v => v.serviceId === s.id).reduce((n, v) => n + v.maxSlots - v.filledSlots, 0) })) },
+      '/api/stocks/public': { success: true, stocks: empty || mode === 'soldout' ? [] : stocks.map(s => ({ id: s.id, serviceId: s.serviceId, price: s.price, maxSlots: s.maxSlots, filledSlots: s.filledSlots, service: s.service })) },
       '/api/settings/public': { success: true, settings },
       '/api/client/me': { authenticated: false },
       '/api/admin/auth': { authenticated: true },
@@ -32,6 +32,8 @@ const server = http.createServer((req, res) => {
       '/api/admin/settings': { success: true, settings },
       '/api/admin/clients': { success: true, clients: [] },
       '/api/admin/2fa': { success: true, enabled: false },
+      '/api/admin/commercial-review': { success: true, commerceEnabled: false, schemaEnabled: false, services: services.map(service => ({ id: service.id, name: service.name, active: service.active, review: { status: 'unverified', authorizationReference: '', eligibility: service.eligibility, accessType: service.accessType, privacyNote: service.privacyNote, referenceUrl: '', referenceCheckedAt: '', referencePrice: null, comparableReference: false } })) },
+      '/api/admin/operations': { success: true, schemaEnabled: false, jobs: [], payments: [], sessions: [], withdrawals: [] },
       '/api/chat': { success: true, threads: [] },
     };
     return json(endpoints[url.pathname] || { error: 'API non simulee' }, endpoints[url.pathname] ? 200 : 404);

@@ -3,6 +3,7 @@ import Stripe from 'stripe';
 import { prisma } from '@/lib/prisma';
 import { getCurrentCustomer } from '@/lib/clientAuth';
 import { ownsOrder } from '@/lib/orderAccess';
+import { commerceEnabled } from '@/lib/commerce';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,6 +25,8 @@ const errorMessage = (error: unknown) => {
  * pour ne pas refacturer le client avant la fin de sa période payée.
  */
 export async function POST(request: Request) {
+  // This legacy migration flow requires a separate verified recurring-payment rollout.
+  if (!commerceEnabled() || process.env.LEGACY_SUBSCRIPTION_MIGRATION_ENABLED !== 'true') return NextResponse.json({ error: 'Le passage au prélèvement automatique est temporairement indisponible.' }, { status: 503 });
   try {
     const customer = await getCurrentCustomer();
     if (!customer) {

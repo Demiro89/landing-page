@@ -1,28 +1,22 @@
 import { prisma } from './prisma';
 import { invoiceLineLabel } from './legalConfig';
+import type { Prisma } from '@prisma/client';
 
 /**
  * Génère le prochain numéro de facture au format SM-YYYY-0001.
  * La numérotation est unique, chronologique et continue (sans réutilisation),
  * via un compteur atomique par année stocké en base.
  */
-export async function nextInvoiceNumber(): Promise<string> {
+async function nextInvoiceNumber(tx: Prisma.TransactionClient): Promise<string> {
   const year = new Date().getFullYear();
   const counterId = `invoice-${year}`;
 
-  for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      const counter = await prisma.counter.upsert({
-        where: { id: counterId },
-        create: { id: counterId, value: 1 },
-        update: { value: { increment: 1 } },
-      });
-      return `SM-${year}-${String(counter.value).padStart(4, '0')}`;
-    } catch (err) {
-      if (attempt === 2) throw err;
-    }
-  }
-  throw new Error('Impossible de générer le numéro de facture');
+  const counter = await tx.counter.upsert({
+    where: { id: counterId },
+    create: { id: counterId, value: 1 },
+    update: { value: { increment: 1 } },
+  });
+  return `SM-${year}-${String(counter.value).padStart(4, '0')}`;
 }
 
 /**
@@ -37,30 +31,35 @@ export async function createInvoiceForOrder(params: {
   amount: number;
   paymentMethod: string;
   durationLabel?: string;
+  paidAt?: Date;
 }) {
-  const existing = await prisma.invoice.findUnique({ where: { orderId: params.orderId } });
-  if (existing) return existing;
+  return prisma.$transaction(async tx => {
+    // The order lock serializes duplicate jobs; rollback also restores the counter.
+    await tx.$queryRaw`SELECT "id" FROM "Order" WHERE "id" = ${params.orderId} FOR UPDATE`;
+    const existing = await tx.invoice.findUnique({ where: { orderId: params.orderId } });
+    if (existing) return existing;
 
-  const number = await nextInvoiceNumber();
-  const durationLabel = params.durationLabel || '1 mois';
+    const number = await nextInvoiceNumber(tx);
+    const durationLabel = params.durationLabel || '1 mois';
 
-  return prisma.invoice.create({
-    data: {
-      number,
-      orderId: params.orderId,
-      paidAt: new Date(),
-      clientEmail: params.clientEmail,
-      clientName: params.clientName || null,
-      serviceName: params.serviceName,
-      description: invoiceLineLabel(params.serviceName, durationLabel),
-      durationLabel,
-      quantity: 1,
-      unitPriceHT: params.amount,
-      totalHT: params.amount,
-      vatAmount: 0,
-      totalTTC: params.amount,
-      paymentMethod: params.paymentMethod,
-      status: 'Payée',
-    },
+    return tx.invoice.create({
+      data: {
+        number,
+        orderId: params.orderId,
+        paidAt: params.paidAt || new Date(),
+        clientEmail: params.clientEmail,
+        clientName: params.clientName || null,
+        serviceName: params.serviceName,
+        description: invoiceLineLabel(params.serviceName, durationLabel),
+        durationLabel,
+        quantity: 1,
+        unitPriceHT: params.amount,
+        totalHT: params.amount,
+        vatAmount: 0,
+        totalTTC: params.amount,
+        paymentMethod: params.paymentMethod,
+        status: 'Payée',
+      },
+    });
   });
 }

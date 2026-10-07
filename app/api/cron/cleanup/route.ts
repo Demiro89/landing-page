@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { prisma } from '@/lib/prisma';
+import { runDeliveryJobs } from '@/lib/deliveryWorker';
+import { remediationSchemaEnabled } from '@/lib/commerce';
+import { enqueueOrderJob } from '@/lib/durableOrders';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,6 +27,13 @@ export async function GET(request: NextRequest) {
 
   const now = new Date();
   const results: Record<string, number> = {};
+  const delivery = await runDeliveryJobs();
+  if (remediationSchemaEnabled()) {
+    const expired = await prisma.stockReservation.updateMany({ where: { status: 'held', expiresAt: { lte: now } }, data: { status: 'released' } });
+    results.expiredReservations = expired.count;
+    const due = await prisma.order.findMany({ where: { status: 'cancelled_pending', stripeSubscriptionId: null, cancellationEffectiveAt: { lte: now } }, take: 100 });
+    for (const order of due) await prisma.$transaction(tx => enqueueOrderJob(tx, order.id, 'access_revocation', `access_revocation:${order.id}`));
+  }
 
   // 1. Tokens de réinitialisation de mot de passe expirés
   const expiredResetTokens = await prisma.customer.updateMany({
@@ -73,5 +83,5 @@ export async function GET(request: NextRequest) {
   });
   results.oldAuditLogs = oldAuditLogs.count;
 
-  return NextResponse.json({ success: true, cleaned: results, at: now.toISOString() });
+  return NextResponse.json({ success: true, cleaned: results, delivery, at: now.toISOString() });
 }

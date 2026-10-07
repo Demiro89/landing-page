@@ -3,6 +3,7 @@ import LegalPage from '@/components/LegalPage';
 import { COMPANY } from '@/lib/legalConfig';
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/politique-confidentialite' },
   title: 'Politique de confidentialité — StreamMalin',
   description: 'Politique de confidentialité et de protection des données personnelles de StreamMalin.',
 };
@@ -21,6 +22,7 @@ export default function PolitiqueConfidentialitePage() {
   return (
     <LegalPage
       title="Politique de confidentialité"
+      updatedAt="7 octobre 2026"
       intro="StreamMalin attache une grande importance à la protection de vos données personnelles. La présente politique décrit les données collectées, leurs finalités, leur durée de conservation et les droits dont vous disposez, conformément au Règlement Général sur la Protection des Données (RGPD) et à la loi Informatique et Libertés."
       toc={TOC}
     >
@@ -41,6 +43,9 @@ export default function PolitiqueConfidentialitePage() {
         <li><strong>Preuves contractuelles</strong> — date d&apos;acceptation des CGV, date d&apos;acceptation de la renonciation au droit de rétractation, date de confirmation d&apos;éligibilité et version des CGV acceptée&nbsp;;</li>
         <li><strong>Données techniques et journaux</strong> — adresse IP, type de navigateur (user-agent), horodatage, notamment afin de conserver la preuve de l&apos;acceptation des conditions de vente, de sécuriser le service et de prévenir la fraude&nbsp;;</li>
         <li><strong>Messages de support</strong> — échanges transmis via l&apos;espace client, par e-mail ou, lorsque le service l&apos;utilise, via Telegram pour les notifications internes de support et de suivi des commandes.</li>
+        <li><strong>Suivi opérationnel</strong> — réservation temporaire de place, références et historique des paiements et renouvellements, état et tentatives de transmission des e-mails. Ces journaux ne contiennent pas de mot de passe en clair.</li>
+        <li><strong>Rétractation</strong> — nom, e-mail, référence de commande, déclaration et date de réception, pour enregistrer la demande, fournir un accusé et suivre les droits applicables.</li>
+        <li><strong>Sessions administrateur</strong> — identifiant aléatoire, création, expiration et révocation, afin de sécuriser l&apos;accès à l&apos;administration.</li>
       </ul>
 
       <h2 id="finalites">3. Finalités et bases légales</h2>

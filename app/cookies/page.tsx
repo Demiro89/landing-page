@@ -3,6 +3,7 @@ import LegalPage from '@/components/LegalPage';
 import { COMPANY } from '@/lib/legalConfig';
 
 export const metadata: Metadata = {
+  alternates: { canonical: '/cookies' },
   title: 'Gestion des cookies — StreamMalin',
   description: 'Informations sur les cookies utilisés par StreamMalin et la gestion de vos préférences.',
 };

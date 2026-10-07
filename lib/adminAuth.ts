@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers';
-import { verifyAdminSessionToken } from './adminSession';
+import { authenticateAdminToken } from './revocableAdminSession';
 
 export const ADMIN_COOKIE_NAME = 'ADMIN_SECRET_TOKEN';
 
@@ -26,5 +26,5 @@ export function readAdminSecret(): string | null {
 export async function isAdminAuthenticated(): Promise<boolean> {
   const jar = await cookies();
   const token = jar.get(ADMIN_COOKIE_NAME)?.value;
-  return verifyAdminSessionToken(token);
+  return authenticateAdminToken(token);
 }
