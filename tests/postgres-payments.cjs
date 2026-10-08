@@ -33,7 +33,7 @@ class IsolatedStripe extends Stripe {
 class IsolatedResend {
   emails = { send: async (message, options) => {
     transport.calls.push({ message, options });
-    return transport.rejected ? { data: null, error: { message: 'Simulated provider failure' } } : { data: { id: 'simulated-message-id' }, error: null };
+    return transport.rejected ? { data: null, error: { statusCode: 500, message: 'Simulated provider failure' } } : { data: { id: 'simulated-message-id' }, error: null };
   } };
 }
 const load = createLoader({ './prisma': { prisma: db }, '@/lib/prisma': { prisma: db }, stripe: IsolatedStripe, resend: { Resend: IsolatedResend },
@@ -119,7 +119,7 @@ test('PostgreSQL: duplicate signed checkouts create one payment, one slot and on
   assert.equal(await db.paymentRecord.count({ where: { orderId: f.order.id } }), 2);
   assert.equal(await db.deliveryJob.count({ where: { orderId: f.order.id, kind: 'renewal' } }), 1);
   await runDeliveryJobs();
-  const failed = event('invoice.payment_failed', { parent: renewalInvoice.parent });
+  const failed = event('invoice.payment_failed', { id: `in_${crypto.randomUUID()}`, parent: renewalInvoice.parent });
   assert.equal((await signed(failed)).status, 200);
   assert.equal((await db.order.findUniqueOrThrow({ where: { id: f.order.id } })).status, 'unpaid');
   assert.equal((await signed(event('invoice.payment_succeeded', { ...renewalInvoice, id: `in_${crypto.randomUUID()}` }))).status, 200);
@@ -150,6 +150,64 @@ test('PostgreSQL: a late payment cannot steal another live hold and is queued fo
   assert.equal((await db.paymentRecord.findFirstOrThrow({ where: { orderId: order.id } })).status, 'refund_needed');
   assert.equal(await db.deliveryJob.count({ where: { orderId: order.id, kind: 'delivery' } }), 0);
   assert.equal((await db.stockAccount.findUniqueOrThrow({ where: { id: f.stock.id } })).filledSlots, 0);
+});
+
+test('PostgreSQL: unpaid reminders commit with order state, retry once, and become obsolete after recovery or cancellation', async () => {
+  const f = await fixture();
+  transport.rejected = false; transport.calls = [];
+  assert.equal((await signed(event('checkout.session.completed', f.session))).status, 200);
+  await runDeliveryJobs();
+  const invoice = { id: `in_${crypto.randomUUID()}`, amount_paid: 300, currency: 'eur', billing_reason: 'subscription_cycle',
+    parent: { subscription_details: { subscription: f.subId } }, status_transitions: { paid_at: Math.floor(Date.now() / 1000) } };
+  const failed = event('invoice.payment_failed', { ...invoice, amount_paid: 0 });
+  const responses = await Promise.all([signed(failed), signed(failed)]);
+  assert.ok(responses.every(response => response.status === 200));
+  assert.equal((await db.order.findUniqueOrThrow({ where: { id: f.order.id } })).reminderCount, 1);
+  const reminder = await db.deliveryJob.findFirstOrThrow({ where: { orderId: f.order.id, kind: 'unpaid_reminder_1' } });
+  assert.equal(await db.deliveryJob.count({ where: { orderId: f.order.id, kind: 'unpaid_reminder_1' } }), 1);
+
+  transport.rejected = true; transport.calls = [];
+  await runDeliveryJobs();
+  assert.equal((await db.deliveryJob.findUniqueOrThrow({ where: { id: reminder.id } })).status, 'pending');
+  const key = transport.calls[0].options.idempotencyKey;
+  await db.deliveryJob.update({ where: { id: reminder.id }, data: { nextAttemptAt: new Date(0) } });
+  transport.rejected = false; transport.calls = [];
+  await Promise.all([runDeliveryJobs(), runDeliveryJobs()]);
+  assert.equal(transport.calls.length, 1);
+  assert.equal(transport.calls[0].options.idempotencyKey, key);
+  assert.doesNotMatch(transport.calls[0].message.html, /fictional-access|paypal|gmail\.com/i);
+  assert.match(transport.calls[0].message.text, /espace-client/);
+  assert.equal((await db.deliveryJob.findUniqueOrThrow({ where: { id: reminder.id } })).status, 'completed');
+
+  assert.equal((await signed(event('invoice.payment_succeeded', invoice))).status, 200);
+  assert.equal((await signed(event('invoice.payment_failed', invoice))).status, 200);
+  assert.equal((await db.order.findUniqueOrThrow({ where: { id: f.order.id } })).status, 'active', 'A late failure for a paid invoice must not downgrade the order');
+  await runDeliveryJobs();
+
+  const admin = load('app/api/admin/stock/route.ts');
+  const action = name => admin.PUT(new Request('http://localhost/api/admin/stock', { method: 'PUT',
+    headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: name, orderId: f.order.id }) }));
+  assert.equal((await action('mark_unpaid')).status, 200);
+  const secondEpisode = await db.deliveryJob.findFirstOrThrow({ where: { orderId: f.order.id, kind: 'unpaid_reminder_1', status: 'pending' } });
+  assert.notEqual(secondEpisode.dedupeKey, reminder.dedupeKey);
+  const simultaneous = await Promise.all([action('send_reminder'), action('send_reminder')]);
+  assert.ok(simultaneous.every(response => [200, 409].includes(response.status)));
+  let current = await db.order.findUniqueOrThrow({ where: { id: f.order.id } });
+  assert.ok([2, 3].includes(current.reminderCount));
+  if (current.reminderCount < 3) assert.equal((await action('send_reminder')).status, 200);
+  assert.equal((await action('send_reminder')).status, 409);
+  assert.equal((await action('mark_paid')).status, 409, 'A Stripe subscription cannot be marked paid manually');
+  current = await db.order.findUniqueOrThrow({ where: { id: f.order.id } });
+  assert.equal(current.reminderCount, 3);
+  const pending = await db.deliveryJob.findMany({ where: { orderId: f.order.id, status: 'pending', kind: { startsWith: 'unpaid_reminder_' } } });
+  assert.equal(pending.length, 3);
+  assert.equal(new Set(pending.map(job => job.kind)).size, 3);
+
+  assert.equal((await signed(event('customer.subscription.deleted', { id: f.subId }))).status, 200);
+  transport.calls = [];
+  await runDeliveryJobs();
+  assert.equal(transport.calls.length, 0);
+  assert.equal(await db.deliveryJob.count({ where: { id: { in: pending.map(job => job.id) }, status: 'skipped', lastError: 'reminder_obsolete' } }), 3);
 });
 
 test.after(async () => {

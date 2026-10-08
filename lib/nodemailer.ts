@@ -1,5 +1,6 @@
 import { Resend } from 'resend';
 import { escapeHtml } from './html';
+import { unpaidReminderMessage } from './unpaidReminders';
 
 // Le fallback évite une erreur au build quand la clé est absente (mode simulation) ;
 // chaque fonction vérifie RESEND_API_KEY avant tout envoi réel.
@@ -259,65 +260,21 @@ export async function sendUnpaidReminderEmail(
   orderId: string,
   reminderLevel: 1 | 2 | 3
 ) {
-  serviceName = escapeHtml(serviceName);
-  orderId = escapeHtml(orderId);
-  const subjects: Record<number, string> = {
-    1: `⚠️ Paiement en attente pour ${serviceName} - StreamMalin`,
-    2: `🔔 Rappel urgent : régularisez votre abonnement ${serviceName}`,
-    3: `🔴 Dernier rappel de paiement (${serviceName})`,
-  };
-  const colors: Record<number, string> = { 1: '#f59e0b', 2: '#f97316', 3: '#ef4444' };
-  const icons: Record<number, string> = { 1: '⚠️', 2: '🔔', 3: '🔴' };
-  const bodies: Record<number, string> = {
-    1: `Nous n'avons pas encore reçu votre paiement pour <strong>${serviceName}</strong>. Merci de régulariser votre situation dans les meilleurs délais pour conserver votre accès.`,
-    2: `Votre paiement pour <strong>${serviceName}</strong> est toujours en attente. Sans régularisation rapide, votre abonnement risque d'être suspendu.`,
-    3: `Votre paiement pour <strong>${serviceName}</strong> reste en attente. Sans régularisation, votre accès pourra être suspendu ou résilié selon les CGV. Contactez le support pour faire le point.`,
-  };
-
   if (!process.env.RESEND_API_KEY) {
     console.warn('[email] Provider not configured; reminder delivery skipped');
     return { success: false, simulated: process.env.NODE_ENV !== 'production' };
   }
 
   try {
-    const color = colors[reminderLevel];
-    const icon = icons[reminderLevel];
     const { data, error } = await resend.emails.send({
       from: FROM_EMAIL,
       to: toEmail,
-      subject: subjects[reminderLevel],
-      html: `<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8">
-<style>
-  body{font-family:'Outfit','Inter',sans-serif;background:#0b0c10;color:#e5e7eb;margin:0;padding:20px}
-  .container{max-width:600px;margin:0 auto;background:linear-gradient(135deg,rgba(20,24,33,.95),rgba(10,12,16,.95));border:1px solid ${color}44;border-radius:16px;padding:30px}
-  .logo{font-size:28px;font-weight:800;background:linear-gradient(135deg,#a855f7,#3b82f6);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-  .alert{background:${color}18;border:1px solid ${color}55;border-radius:12px;padding:18px 20px;margin:20px 0;font-size:15px;line-height:1.7}
-  .btn{display:inline-block;background:${color};color:#fff!important;text-decoration:none;padding:14px 28px;border-radius:8px;font-weight:700;margin-top:8px}
-  .footer{margin-top:28px;border-top:1px solid rgba(255,255,255,.05);padding-top:18px;text-align:center;font-size:12px;color:#6b7280}
-</style></head>
-<body>
-  <div class="container">
-    <div style="text-align:center;margin-bottom:22px"><div class="logo">StreamMalin</div></div>
-    <h2 style="color:#fff;font-size:20px">${icon} ${reminderLevel === 3 ? 'Dernier avertissement' : 'Paiement en attente'}</h2>
-    <div class="alert">${bodies[reminderLevel]}</div>
-    <p style="font-size:0.88rem;color:#9ca3af">Commande : <code style="color:#e5e7eb">${orderId}</code></p>
-    <p style="font-size:0.9rem;line-height:1.7">Pour régulariser, effectuez votre paiement via PayPal (Biens et Services) à l'adresse <strong style="color:#e5e7eb">novateurlabeille@gmail.com</strong> en indiquant votre numéro de commande.</p>
-    <div style="text-align:center;margin-top:22px">
-      <a href="${APP_URL}" class="btn">Accéder à mon Espace Client</a>
-    </div>
-    <div class="footer">
-      <p>&copy; ${new Date().getFullYear()} StreamMalin. Tous droits réservés.</p>
-    </div>
-  </div>
-</body>
-</html>`,
+      ...unpaidReminderMessage(serviceName, orderId, reminderLevel, APP_URL),
     });
     if (error) return { success: false, error };
-    return { success: true, messageId: data?.id };
+    return { success: !!data?.id, messageId: data?.id };
   } catch (err) {
-    console.error('Erreur envoi email rappel impayé:', err);
+    console.error('[email] Unpaid reminder delivery failed');
     return { success: false, error: err };
   }
 }

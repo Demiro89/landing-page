@@ -13,6 +13,7 @@ import { normalizeEmail } from '@/lib/checkoutValidation';
 import { remediationSchemaEnabled } from '@/lib/commerce';
 import { lockStock, heldPlaces } from '@/lib/stockReservations';
 import { recordOrderPayment, enqueueOrderJob } from '@/lib/durableOrders';
+import { queueUnpaidReminder } from '@/lib/unpaidReminders';
 
 export const dynamic = 'force-dynamic';
 
@@ -351,14 +352,20 @@ export async function PUT(request: Request) {
       const { orderId } = body;
       const order = await prisma.order.findUnique({ where: { id: orderId }, include: { service: true } });
       if (!order) return NextResponse.json({ error: 'Commande introuvable' }, { status: 404 });
-      const changed = await prisma.order.updateMany({
-        where: { id: orderId, status: 'active' },
-        data: { status: 'unpaid', unpaidSince: new Date(), reminderCount: 1, lastReminderAt: new Date() },
+      const unpaidSince = new Date();
+      const durable = remediationSchemaEnabled();
+      const changed = await prisma.$transaction(async tx => {
+        const result = await tx.order.updateMany({
+          where: { id: orderId, status: 'active' },
+          data: { status: 'unpaid', unpaidSince, reminderCount: 1, lastReminderAt: unpaidSince },
+        });
+        if (result.count === 1 && durable) await queueUnpaidReminder(tx, order.id, unpaidSince, 1);
+        return result;
       });
       if (changed.count !== 1) return NextResponse.json({ error: 'Seule une commande active peut être marquée impayée.' }, { status: 409 });
-      sendUnpaidReminderEmail(order.clientEmail, order.service.name, order.id, 1).catch(() => {});
+      if (!durable) await sendUnpaidReminderEmail(order.clientEmail, order.service.name, order.id, 1);
       sendTelegramNotification(
-        `⚠️ <b>Impayé signalé</b>\n👤 ${order.clientEmail}\n📺 ${order.service.name}\n💶 ${order.price.toFixed(2)}€/mois\n\nPremier email de rappel envoyé.`
+        `⚠️ <b>Impayé signalé</b>\n👤 ${order.clientEmail}\n📺 ${order.service.name}\n💶 ${order.price.toFixed(2)}€/mois\n\nPremière relance enregistrée.`
       ).catch(() => {});
       void writeAuditLog({ action: 'order.mark_unpaid', entityType: 'order', entityId: orderId, description: `Commande marquée impayée — ${order.clientEmail} / ${order.service.name}`, ip: clientIpFromRequest(request) });
       return NextResponse.json({ success: true });
@@ -369,17 +376,24 @@ export async function PUT(request: Request) {
       const { orderId } = body;
       const order = await prisma.order.findUnique({ where: { id: orderId }, include: { service: true } });
       if (!order) return NextResponse.json({ error: 'Commande introuvable' }, { status: 404 });
-      const nextLevel = Math.min((order.reminderCount || 1) + 1, 3) as 1 | 2 | 3;
-      const reminded = await prisma.order.updateMany({
-        where: { id: orderId, status: 'unpaid' },
-        data: { reminderCount: nextLevel, lastReminderAt: new Date() },
+      if (order.reminderCount >= 3) return NextResponse.json({ error: 'Trois relances ont déjà été enregistrées. Vérifiez le suivi et contactez le client avant une nouvelle action.' }, { status: 409 });
+      const nextLevel = Math.min(order.reminderCount + 1, 3) as 1 | 2 | 3;
+      const unpaidSince = order.unpaidSince || new Date();
+      const durable = remediationSchemaEnabled();
+      const reminded = await prisma.$transaction(async tx => {
+        const result = await tx.order.updateMany({
+          where: { id: orderId, status: 'unpaid', reminderCount: order.reminderCount, lastReminderAt: order.lastReminderAt, unpaidSince: order.unpaidSince },
+          data: { reminderCount: nextLevel, unpaidSince, lastReminderAt: new Date() },
+        });
+        if (result.count === 1 && durable) await queueUnpaidReminder(tx, order.id, unpaidSince, nextLevel);
+        return result;
       });
-      if (reminded.count !== 1) return NextResponse.json({ error: 'Cette commande n’est plus impayée.' }, { status: 409 });
-      sendUnpaidReminderEmail(order.clientEmail, order.service.name, order.id, nextLevel).catch(() => {});
+      if (reminded.count !== 1) return NextResponse.json({ error: 'La commande a changé entre-temps. Actualisez son suivi.' }, { status: 409 });
+      if (!durable) await sendUnpaidReminderEmail(order.clientEmail, order.service.name, order.id, nextLevel);
       sendTelegramNotification(
-        `🔔 <b>Rappel ${nextLevel}/3 envoyé</b>\n👤 ${order.clientEmail}\n📺 ${order.service.name}`
+        `🔔 <b>Relance ${nextLevel}/3 enregistrée</b>\n👤 ${order.clientEmail}\n📺 ${order.service.name}`
       ).catch(() => {});
-      void writeAuditLog({ action: 'order.send_reminder', entityType: 'order', entityId: orderId, description: `Relance ${nextLevel}/3 envoyée — ${order.clientEmail} / ${order.service.name}`, ip: clientIpFromRequest(request) });
+      void writeAuditLog({ action: 'order.send_reminder', entityType: 'order', entityId: orderId, description: `Relance ${nextLevel}/3 enregistrée — ${order.clientEmail} / ${order.service.name}`, ip: clientIpFromRequest(request) });
       return NextResponse.json({ success: true, reminderLevel: nextLevel });
     }
 

@@ -1402,14 +1402,14 @@ export default function AdminPage() {
               const d = await r.json();
               if (!d.success) { toast('Erreur : ' + (d.error || 'action échouée')); return; }
               await loadAll();
-              toast('Commande marquée impayée — rappel envoyé');
+              toast('Commande marquée impayée, relance enregistrée');
             };
             const sendReminder = async (orderId: string) => {
               const r = await fetch('/api/admin/stock', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'send_reminder', orderId }) });
               const d = await r.json();
               if (!d.success) { toast('Erreur : ' + (d.error || 'action échouée')); return; }
               await loadAll();
-              toast(`Rappel ${d.reminderLevel}/3 envoyé`);
+              toast(`Relance ${d.reminderLevel}/3 enregistrée`);
             };
             const markPaid = async (orderId: string) => {
               const r = await fetch('/api/admin/stock', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'mark_paid', orderId }) });
@@ -1426,7 +1426,7 @@ export default function AdminPage() {
               await loadAll();
               toast('Abonnement résilié pour impayé');
             };
-            const reminderLabels: Record<number, string> = { 1: 'Rappel 1/3 envoyé', 2: 'Rappel 2/3 envoyé', 3: '⚠️ Dernier rappel envoyé' };
+            const reminderLabels: Record<number, string> = { 0: 'Aucune relance', 1: 'Relance 1/3 enregistrée', 2: 'Relance 2/3 enregistrée', 3: 'Relance 3/3 enregistrée' };
             return (
               <div style={{ position: 'relative', zIndex: 1 }}>
                 <div className="admin-section-head fade-in-up">
@@ -1440,7 +1440,6 @@ export default function AdminPage() {
                     <div className="icon-bubble">🔍</div>
                     Signaler un impayé
                   </div>
-                  <p className="admin-card-sub">Sélectionnez la commande active concernée. Un premier email de rappel sera automatiquement envoyé au client.</p>
                   <div style={{ overflowX: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
                       <thead>
@@ -1490,7 +1489,7 @@ export default function AdminPage() {
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                       {unpaidOrders.map(o => {
-                        const level = o.reminderCount || 1;
+                        const level = o.reminderCount || 0;
                         const daysSince = o.unpaidSince ? Math.floor((Date.now() - new Date(o.unpaidSince).getTime()) / 86400000) : 0;
                         return (
                           <div key={o.id} style={{ padding: 18, borderRadius: 12, background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)' }}>
@@ -1504,7 +1503,7 @@ export default function AdminPage() {
                                 </div>
                                 {o.lastReminderAt && (
                                   <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 2 }}>
-                                    Dernier rappel : {new Date(o.lastReminderAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                    Dernière relance enregistrée : {new Date(o.lastReminderAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
                                   </div>
                                 )}
                               </div>
@@ -1546,7 +1545,7 @@ export default function AdminPage() {
             const pending = orders.filter(o => o.status === 'cancelled_pending');
             const cancelled = orders.filter(o => o.status === 'cancelled');
             const confirmCancel = async (orderId: string) => {
-              if (!confirm('Confirmer la résiliation définitive de cette commande ? Le slot sera libéré.')) return;
+              if (!confirm('Confirmer la résiliation définitive de cette commande ?')) return;
               const r = await fetch('/api/admin/stock', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },

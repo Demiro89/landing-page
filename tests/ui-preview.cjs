@@ -1,6 +1,8 @@
 // Isolated UI fixtures. All API requests terminate here, never at a real provider.
 const http = require('node:http');
 const crypto = require('node:crypto');
+const previewPort = Number(process.env.PREVIEW_PORT || 3101);
+const nextPort = Number(process.env.PREVIEW_NEXT_PORT || 3100);
 const services = [
   { id: 'netflix', name: 'Netflix Premium', icon: 'N', tagline: 'Films et series', price: 5.49, original: 19.99, maxSlots: 4, active: true, gradient: 'linear-gradient(135deg, #b32232, #721923)', features: ['Profil personnel', 'Qualite selon offre'] },
   { id: 'youtube', name: 'YouTube Premium', icon: 'YT', tagline: 'Videos et musique', price: 3.49, original: 12.99, maxSlots: 6, active: true, gradient: 'linear-gradient(135deg, #c43940, #942027)', features: ['Videos selon offre', 'Invitation par email'] },
@@ -13,10 +15,17 @@ const stocks = [
   { id: 'fixture-youtube', serviceId: 'youtube', price: 3.49, maxSlots: 6, filledSlots: 4 },
 ].map(s => ({ ...s, service: services.find(v => v.id === s.serviceId), details: 'DEMONSTRATION - aucun acces reel', accountsBoughtPrice: 12, createdAt: now, updatedAt: now }));
 const settings = { gateway_cb: 'true', gateway_paypal: 'true', gateway_crypto: 'false', paypal_email: 'fixture@example.test', crypto_btc: '', crypto_eth: '', crypto_usdt: '', crypto_ltc: '' };
+const unpaidOrders = [1, 3].map(level => ({
+  id: `readonly-reminder-${level}`, status: 'unpaid', clientEmail: `demo-${level}@example.test`,
+  serviceId: services[0].id, service: services[0], stockAccountId: stocks[0].id, stockAccount: stocks[0],
+  price: 5.49, total: 5.49, details: '', date: now, createdAt: now, updatedAt: now,
+  unpaidSince: now, lastReminderAt: now, reminderCount: level,
+  paymentMethod: 'Carte bancaire (Stripe)', stripeSubscriptionId: 'sub_readonly_fixture',
+}));
 const server = http.createServer((req, res) => {
   if (process.env.FIXTURE_DEBUG === 'true') console.log(req.method, req.url);
-  const url = new URL(req.url, 'http://127.0.0.1:3101');
-  const mode = url.searchParams.get('fixture') || /fixture-mode=(empty|error|soldout)/.exec(req.headers.cookie || '')?.[1] || 'normal';
+  const url = new URL(req.url, `http://127.0.0.1:${previewPort}`);
+  const mode = url.searchParams.get('fixture') || /fixture-mode=(empty|error|soldout|reminders)/.exec(req.headers.cookie || '')?.[1] || 'normal';
   const json = (data, status = 200) => { res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(data)); };
   if (url.pathname.startsWith('/api/')) {
     if (req.method !== 'GET') return json({ error: 'Demonstration locale : aucune operation effectuee.' }, 503);
@@ -28,7 +37,7 @@ const server = http.createServer((req, res) => {
       '/api/settings/public': { success: true, settings },
       '/api/client/me': { authenticated: false },
       '/api/admin/auth': { authenticated: true },
-      '/api/admin/stock': { success: true, services: services.map(s => ({ ...s, stocks: stocks.filter(v => v.serviceId === s.id) })), orders: [], kpis: { totalRevenue: 0, totalCogs: 0, totalInvestment: 36, netProfit: 0, marginPercentage: 0 } },
+      '/api/admin/stock': { success: true, services: services.map(s => ({ ...s, stocks: stocks.filter(v => v.serviceId === s.id) })), orders: mode === 'reminders' ? unpaidOrders : [], kpis: { totalRevenue: 0, totalCogs: 0, totalInvestment: 36, netProfit: 0, marginPercentage: 0 } },
       '/api/admin/settings': { success: true, settings },
       '/api/admin/clients': { success: true, clients: [] },
       '/api/admin/2fa': { success: true, enabled: false },
@@ -41,7 +50,7 @@ const server = http.createServer((req, res) => {
   if (req.method !== 'GET' && req.method !== 'HEAD') return json({ error: 'Lecture seule' }, 405);
   const exp = String(Date.now() + 600000);
   const signature = crypto.createHmac('sha256', 'audit-local-admin-secret-not-for-production').update(exp).digest('hex');
-  const upstream = http.request({ hostname: '127.0.0.1', port: 3100, path: req.url, method: req.method, headers: { ...req.headers, host: '127.0.0.1:3100', cookie: `ADMIN_SECRET_TOKEN=${exp}.${signature}` } }, upstreamRes => {
+  const upstream = http.request({ hostname: '127.0.0.1', port: nextPort, path: req.url, method: req.method, headers: { ...req.headers, host: `127.0.0.1:${nextPort}`, cookie: `ADMIN_SECRET_TOKEN=${exp}.${signature}` } }, upstreamRes => {
     const headers = { ...upstreamRes.headers };
     if (url.searchParams.has('fixture')) headers['set-cookie'] = `fixture-mode=${mode}; Path=/; HttpOnly; SameSite=Strict`;
     delete headers['set-cookie2'];
@@ -51,4 +60,4 @@ const server = http.createServer((req, res) => {
   upstream.on('error', () => json({ error: 'Serveur local indisponible' }, 502));
   upstream.end();
 });
-server.listen(3101, '127.0.0.1', () => console.log('UI fixtures: http://127.0.0.1:3101 (read-only)'));
+server.listen(previewPort, '127.0.0.1', () => console.log(`UI fixtures: http://127.0.0.1:${previewPort} (read-only)`));

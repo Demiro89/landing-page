@@ -122,6 +122,32 @@ encore le parcours reel checkout -> webhook -> reservation -> facture -> acces
 ni les alertes Telegram en exploitation. Aucun compte client ou acces fournisseur
 de production n'a ete utilise. Ne pas reouvrir les ventes sur cette seule preuve.
 
+### Suivi des relances d'impayes
+
+Les relances Stripe et les deux actions admin `mark_unpaid`/`send_reminder` sont
+desormais ajoutees a `DeliveryJob` dans la meme transaction que le changement
+d'etat de la commande, lorsque le schema de remediation est active. Aucune
+nouvelle table ou migration n'est necessaire. Le mode historique conserve son
+envoi direct lorsque cet interrupteur est ferme.
+
+Les reprises conservent la meme cle d'idempotence. Une commande regularisee,
+annulee, une relance remplacee par un niveau suivant ou un nouvel episode
+d'impaye rend la relance precedente obsolete (`skipped`, sans envoi). Une erreur
+permanente du prestataire passe en revue manuelle ; les erreurs temporaires et
+limitations de debit restent reprises. Une facture deja confirmee payee ne peut
+pas etre retrogradee par un ancien evenement d'echec de cette meme facture.
+
+Le message ne contient aucun identifiant d'acces ni adresse de paiement PayPal
+fixe. Il renvoie vers l'espace client et demande de contacter le support avant
+un autre reglement si le paiement a deja ete regularise. Il comporte des versions
+texte et HTML avec echappement des valeurs. L'admin indique une relance
+"enregistree", et ne pretend plus que l'e-mail a ete recu ou envoye.
+
+Validation locale : 57 tests unitaires reussis, lint et build reussis. Un cinquieme
+test PostgreSQL couvre les relances, reprises concurrentes, regularisations,
+actions admin et annulations ; son resultat CI est a confirmer avant validation.
+L'apercu UI utilise exclusivement des donnees fictives et refuse toute mutation.
+
 ## Identite, mediation et comptabilite
 
 Les informations existantes de l'exploitant et de CM2C sont conservees. Aucun
@@ -179,8 +205,9 @@ Controle du 7 octobre 2026 : audit de production sans vulnerabilite signalee.
 2. Configurer et verifier un traitement regulier des livraisons ainsi que la
    reception des alertes d'exploitation. Les tests unitaires prouvent les gardes
    et reprises ; aucun ordonnanceur frequent ni canal Telegram n'a ete valide
-   en exploitation dans cette intervention. Les relances d'impayes utilisent
-   encore l'envoi historique sans job durable : leur reprise reste a fiabiliser.
+   en exploitation dans cette intervention. La reprise des relances d'impayes
+   est preparee dans cette branche, mais reste a verifier avec les vrais jobs
+   de l'instance de test et cet ordonnanceur.
 3. Fournir les justificatifs d'identite/immatriculation, l'attestation CM2C et le
    regime de TVA. Verifier les factures de renouvellement et les durees de
    conservation avec les professionnels concernes.
@@ -199,10 +226,13 @@ commerce/livraison restent fermes.
 ## Fichiers modifies dans la PR
 
 - `.github/workflows/quality.yml`
+- `app/admin/page.tsx`
+- `app/api/admin/stock/route.ts`
 - `app/api/checkout/stripe/route.ts`
 - `app/api/client/export-data/route.ts`
 - `app/api/cron/cleanup/route.ts`
 - `app/api/cron/deliveries/route.ts`
+- `app/api/stripe/webhook/route.ts`
 - `app/politique-confidentialite/page.tsx`
 - `docs/rollout-verification-2026-10-07.md`
 - `lib/billingSnapshot.ts`
@@ -211,13 +241,18 @@ commerce/livraison restent fermes.
 - `lib/deliveryWorker.ts`
 - `lib/invoice.ts`
 - `lib/legalConfig.ts`
+- `lib/nodemailer.ts`
 - `lib/reservedStripeOrder.ts`
 - `lib/telegram.ts`
+- `lib/unpaidReminders.ts`
 - `package.json`
 - `proxy.ts`
 - `tests/postgres-payments.cjs`
+- `tests/order-security.test.cjs`
 - `tests/rollout-verification.test.cjs`
 - `tests/security.test.cjs`
+- `tests/start-ui-preview.cjs`
+- `tests/ui-preview.cjs`
 
 ## Sources
 

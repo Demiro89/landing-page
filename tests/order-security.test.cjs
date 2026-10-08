@@ -57,8 +57,9 @@ function webhookFixture(event, overrides = {}) {
   const changes = [];
   const notifications = [];
   const tx = {
+    $queryRaw: async () => [],
     processedWebhookEvent: { create: async ({ data }) => { markers.add(data.id); } },
-    order: { updateMany: async query => { changes.push(query); return { count: 0 }; } },
+    order: { findUniqueOrThrow: async () => ({ id: 'order', status: 'cancelled', reminderCount: 1 }), updateMany: async query => { changes.push(query); return { count: 0 }; } },
   };
   const prisma = {
     processedWebhookEvent: { findUnique: async ({ where }) => markers.has(where.id) ? { id: where.id } : null, upsert: async ({ where }) => { markers.add(where.id); } },
@@ -94,7 +95,8 @@ test('renewal and failed-payment events cannot resurrect or remind cancelled ord
   for (const type of ['invoice.payment_succeeded', 'invoice.payment_failed']) {
     const f = webhookFixture({ id: type, type, data: { object: { billing_reason: 'subscription_cycle', parent: { subscription_details: { subscription: 'sub' } } } } });
     assert.equal((await f.POST(request({}))).status, 200);
-    assert.deepEqual(f.changes[0].where.status.in, ['active', 'unpaid']);
+    if (type === 'invoice.payment_failed') assert.deepEqual(f.changes, []);
+    else assert.deepEqual(f.changes[0].where.status.in, ['active', 'unpaid']);
     assert.deepEqual(f.notifications, []);
   }
 });
