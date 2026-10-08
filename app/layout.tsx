@@ -3,9 +3,9 @@ import { headers } from 'next/headers';
 import './globals.css';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.streammalin.fr';
-const TITLE = 'StreamMalin | Offres d’accès numériques';
+const TITLE = 'StreamMalin | Location d’abonnements streaming';
 const DESCRIPTION =
-  'Consultez les offres numériques disponibles, leurs conditions d’accès et leur prix. Service indépendant des plateformes citées, avec un support client en français.';
+  'Location d’abonnements vidéo et musique selon disponibilité. Consultez les prix mensuels, les conditions d’accès et l’éligibilité. Service indépendant, support en français.';
 
 export const metadata: Metadata = {
   metadataBase: new URL(APP_URL),
@@ -32,7 +32,7 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  themeColor: '#0B0F19',
+  themeColor: '#101416',
 };
 
 const jsonLd = {

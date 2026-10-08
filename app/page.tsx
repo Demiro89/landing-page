@@ -1,12 +1,9 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import Footer from '@/components/Footer';
 import OfferCard from '@/components/OfferCard';
-import ServiceMark from '@/components/ServiceMark';
-import { formatEuro, hasAvailableOffer, matchesServiceFilter, prudentCommercialCopy } from '@/lib/offerPresentation';
-import { Menu, X, UserRound, ArrowRight, Mail, RefreshCw, LayoutGrid, Tv, Music2, ShieldCheck, Headphones, Clock3, FileText, Calculator } from 'lucide-react';
-import './storefront.css';
+import StreamingStorefront from '@/components/StreamingStorefront';
+import { Menu, X, UserRound, Eye, EyeOff, LockKeyhole } from 'lucide-react';
 
 interface Service {
   id: string;
@@ -25,20 +22,6 @@ interface Service {
   eligibility?: string;
 }
 
-interface Stock {
-  id: string;
-  serviceId: string;
-  price: number;
-  maxSlots: number;
-  filledSlots: number;
-  service: {
-    name: string;
-    icon: string;
-    gradient: string;
-    tagline: string;
-    original: number;
-  };
-}
 
 interface Message {
   id: string;
@@ -70,14 +53,6 @@ interface Order {
 type View = 'storefront' | 'dashboard';
 type DashTab = 'orders' | 'rent' | 'chat' | 'settings';
 type AuthMode = 'login' | 'register' | 'forgot' | 'reset';
-type FilterType = 'all' | 'streaming' | 'musique' | 'securite';
-
-const SERVICE_FILTERS: Record<FilterType, string[]> = {
-  all: [],
-  streaming: ['netflix', 'youtube', 'disney'],
-  musique: ['spotify'],
-  securite: ['surfshark'],
-};
 
 export default function Home() {
   const [view, setView] = useState<View>('storefront');
@@ -86,6 +61,7 @@ export default function Home() {
   const goToDashboard = () => {
     setView('dashboard');
     window.history.replaceState({}, '', '/espace-client');
+    window.scrollTo(0, 0);
   };
   const goToStorefront = () => {
     setView('storefront');
@@ -94,15 +70,7 @@ export default function Home() {
   const [services, setServices] = useState<Service[]>([]);
   const [servicesLoaded, setServicesLoaded] = useState(false);
   const [catalogError, setCatalogError] = useState('');
-  const [stocksLoaded, setStocksLoaded] = useState(false);
-  const [stocksError, setStocksError] = useState('');
-  const [stocks, setStocks] = useState<Stock[]>([]);
-  const [filter, setFilter] = useState<FilterType>('all');
-  const [faqOpen, setFaqOpen] = useState<number | null>(0);
   const [menuOpen, setMenuOpen] = useState(false);
-
-  // Calculator
-  const [calcSel, setCalcSel] = useState<Record<string, boolean>>({});
 
   // Espace client (auth)
   const [authChecked, setAuthChecked] = useState(false);
@@ -147,21 +115,9 @@ export default function Home() {
       setServices([]);
     } finally { setServicesLoaded(true); }
   };
-  const loadStocks = async () => {
-    try {
-      const response = await fetch('/api/stocks/public', { cache: 'no-store' });
-      const data = await response.json();
-      if (!response.ok || !data.success || !Array.isArray(data.stocks)) throw new Error('Disponibilités indisponibles');
-      setStocks(data.stocks.filter((s: Stock) => Number.isFinite(s.price) && s.price > 0 && s.filledSlots >= 0 && s.filledSlots < s.maxSlots));
-      setStocksError('');
-    } catch {
-      setStocksError('Les disponibilités n’ont pas pu être chargées. Réessayez dans quelques instants.');
-      setStocks([]);
-    } finally { setStocksLoaded(true); }
-  };
   useEffect(() => {
-    void Promise.resolve().then(() => { void loadCatalog(); void loadStocks(); });
-    const servicesInterval = setInterval(() => { void loadCatalog(); void loadStocks(); }, 60000);
+    void Promise.resolve().then(() => { void loadCatalog(); });
+    const servicesInterval = setInterval(() => { void loadCatalog(); }, 60000);
 
     // Vérifier la session client
     fetch('/api/client/me', { cache: 'no-store' }).then(r => r.json()).then(d => {
@@ -537,60 +493,6 @@ export default function Home() {
     }
   };
 
-  const filteredServices = services.filter(s =>
-    filter === 'all' || matchesServiceFilter(s.id, SERVICE_FILTERS[filter])
-  );
-
-  const filteredStocks = stocks.filter(s =>
-    filter === 'all' || matchesServiceFilter(s.serviceId, SERVICE_FILTERS[filter])
-  );
-
-  const availableServices = services.filter(hasAvailableOffer);
-  const comparableServices = availableServices.filter(s => s.referenceVerified === true && s.original >= s.price);
-
-  const calcTotal = Object.entries(calcSel).reduce((sum, [id, on]) => {
-    if (!on) return sum;
-    const svc = comparableServices.find(s => s.id === id);
-    return sum + (svc?.price || 0);
-  }, 0);
-
-  const calcOriginal = Object.entries(calcSel).reduce((sum, [id, on]) => {
-    if (!on) return sum;
-    const svc = comparableServices.find(s => s.id === id);
-    return sum + (svc?.original || 0);
-  }, 0);
-
-  const calcSavings = calcOriginal - calcTotal;
-  const calcHasValidSelection = Object.entries(calcSel).some(([id, on]) =>
-    on && comparableServices.some(s => s.id === id)
-  );
-
-  const faqItems = [
-    {
-      q: 'Comment fonctionne StreamMalin ?',
-      a: 'StreamMalin propose des accès numériques temporaires selon les offres disponibles. Le type d’accès, les fonctionnalités et les conditions d’éligibilité sont précisés sur la fiche de l’offre. Les accès sont transmis après validation du paiement et selon disponibilité. StreamMalin est indépendant des plateformes citées.',
-    },
-    {
-      q: 'Quelles sont les conditions et les limites de confidentialité ?',
-      a: 'Elles dépendent de l’offre et du fournisseur : pays, foyer, groupe familial, appareils et historique du compte peuvent conditionner l’accès. Un profil distinct ne garantit pas que toutes les informations sont invisibles à l’administrateur du compte. Consultez la fiche de l’offre et contactez le support avant de payer en cas de doute.',
-    },
-    {
-      q: 'Y a-t-il un engagement sur mes abonnements ?',
-      a: 'Le paiement par carte correspond à un abonnement mensuel renouvelé automatiquement jusqu’à résiliation, sans durée minimale d’engagement. La résiliation est demandée depuis l’espace client et prend effet à la fin de la période payée indiquée. Les paiements manuels, lorsqu’ils sont proposés, sont traités après vérification du paiement reçu.',
-    },
-    {
-      q: 'Que se passe-t-il si un compte cesse de fonctionner ?',
-      a: 'Nous assurons le suivi des accès et une assistance en cas de dysfonctionnement. Si une difficulté survient, contactez le support afin que notre équipe analyse la situation et propose une solution adaptée selon les disponibilités.',
-    },
-  ];
-
-  const slotDots = (maxSlots: number, filledSlots: number) =>
-    Array.from({ length: Math.min(maxSlots, 12) }, (_, i) => {
-      let cls = 'slot-dot';
-      if (i < filledSlots) cls += ' filled';
-      else if (i === filledSlots) cls += ' available';
-      return <div key={i} className={cls} />;
-    });
 
   return (
     <div className="relative min-h-screen">
@@ -603,10 +505,10 @@ export default function Home() {
           </button>
 
           <nav className="nav-links">
-            <a href="#offres" onClick={goToStorefront} className="nav-link">Offres</a>
-            <a href="#marketplace" onClick={goToStorefront} className="nav-link">Marketplace</a>
-            <a href="#calculateur" onClick={goToStorefront} className="nav-link">Calculateur</a>
-            <a href="#faq" onClick={goToStorefront} className="nav-link">FAQ</a>
+            <a href="#offres" onClick={goToStorefront} className="nav-link">Abonnements</a>
+            <a href="#comment" onClick={goToStorefront} className="nav-link">Fonctionnement</a>
+            <a href="#faq" onClick={goToStorefront} className="nav-link">Questions fréquentes</a>
+            <a href="/contact" className="nav-link">Contact</a>
             <button onClick={goToDashboard} className="btn btn-outline btn-sm" style={{ marginLeft: 8 }}>
               <UserRound size={16} aria-hidden="true" /> Espace client
             </button>
@@ -616,372 +518,17 @@ export default function Home() {
         </div>
         {menuOpen && (
           <div id="mobile-navigation" className="md:hidden border-t border-white/5 px-6 py-4 flex flex-col gap-3" style={{ background: 'color-mix(in srgb, var(--bg-dark) 96%, transparent)' }}>
-            <a href="#offres" onClick={() => { goToStorefront(); setMenuOpen(false); }} className="nav-link">Offres</a>
-            <a href="#marketplace" onClick={() => { goToStorefront(); setMenuOpen(false); }} className="nav-link">Marketplace</a>
-            <a href="#calculateur" onClick={() => { goToStorefront(); setMenuOpen(false); }} className="nav-link">Calculateur</a>
-            <a href="#faq" onClick={() => { goToStorefront(); setMenuOpen(false); }} className="nav-link">FAQ</a>
+            <a href="#offres" onClick={() => { goToStorefront(); setMenuOpen(false); }} className="nav-link">Abonnements</a>
+            <a href="#comment" onClick={() => { goToStorefront(); setMenuOpen(false); }} className="nav-link">Fonctionnement</a>
+            <a href="#faq" onClick={() => { goToStorefront(); setMenuOpen(false); }} className="nav-link">Questions fréquentes</a>
+            <a href="/contact" className="nav-link">Contact</a>
             <button onClick={() => { goToDashboard(); setMenuOpen(false); }} className="btn btn-outline btn-sm"><UserRound size={16} aria-hidden="true" /> Espace client</button>
           </div>
         )}
       </header>
 
-      {/* ======================== STOREFRONT ======================== */}
-      {view === 'storefront' && (
-        <main className="storefront">
-          {/* HERO */}
-          <section className="hero">
-            <div className="hero-content">
-              <p className="hero-category">ABONNEMENTS & ACCÈS NUMÉRIQUES</p>
-              <h1>
-                StreamMalin
-              </h1>
-              <p className="hero-subtitle">
-                Vos abonnements à prix malin. Comparez les accès disponibles et choisissez l’offre adaptée à votre compte.
-              </p>
-              <div className="hero-cta">
-                <a href={servicesLoaded && !catalogError && availableServices.length === 0 ? 'mailto:hello@streammalin.fr' : '#offres'} className="btn btn-primary">
-                  {servicesLoaded && !catalogError && availableServices.length === 0 ? 'Connaître les disponibilités' : 'Voir les offres'} <ArrowRight size={18} aria-hidden="true" />
-                </a>
-                <button onClick={goToDashboard} className="btn btn-outline">
-                  <UserRound size={18} aria-hidden="true" /> Espace client
-                </button>
-              </div>
-              {servicesLoaded && !catalogError && availableServices.length === 0 && <p className="hero-stock-note" role="status">Aucune place disponible actuellement. Contactez-nous pour connaître les prochaines disponibilités.</p>}
-              <div className="hero-trust">
-                <a href="mailto:hello@streammalin.fr"><Headphones size={16} aria-hidden="true" /> Support en français</a>
-                <span><Clock3 size={16} aria-hidden="true" /> Accès après validation</span>
-                <a href="/cgv"><FileText size={16} aria-hidden="true" /> Conditions transparentes</a>
-              </div>
-            </div>
-          </section>
-
-          {/* CATALOGUE */}
-          <section id="offres" className="section">
-            <div className="section-inner">
-              <div className="catalog-heading">
-                <div>
-                  <h2 className="section-title">Choisissez votre abonnement</h2>
-                  <p className="section-subtitle">Tarifs mensuels. Disponibilités actualisées selon le stock.</p>
-                </div>
-                <a href="#marketplace" className="catalog-stock-link">Voir les places <ArrowRight size={16} aria-hidden="true" /></a>
-              </div>
-
-              <div className="filters">
-                {([{ key: 'all', label: 'Toutes les offres', Icon: LayoutGrid }, { key: 'streaming', label: 'Vidéo', Icon: Tv }, { key: 'musique', label: 'Musique', Icon: Music2 }, { key: 'securite', label: 'VPN & sécurité', Icon: ShieldCheck }] as const).filter(({ key }) => key === 'all' || services.some(s => matchesServiceFilter(s.id, SERVICE_FILTERS[key]))).map(({ key, label, Icon }) => (
-                  <button
-                    key={key}
-                    onClick={() => setFilter(key)}
-                    className={`filter-btn ${filter === key ? 'active' : ''}`}
-                    aria-pressed={filter === key}
-                  >
-                    <Icon size={16} aria-hidden="true" /> {label}
-                  </button>
-                ))}
-              </div>
-
-              <div className="products-grid">
-                {filteredServices.map(offer => <OfferCard key={offer.id} offer={offer} />)}
-                {!servicesLoaded && (
-                  <>
-                    {Array.from({ length: 6 }).map((_, i) => (
-                      <div key={i} className="product-card glass-panel" style={{ opacity: 0.5, pointerEvents: 'none' }}>
-                        <div className="product-banner" style={{ background: 'rgba(255,255,255,0.04)' }} />
-                        <div className="product-body">
-                          <div style={{ height: 18, width: '60%', borderRadius: 6, background: 'rgba(255,255,255,0.07)', marginBottom: 10 }} />
-                          <div style={{ height: 12, width: '80%', borderRadius: 6, background: 'rgba(255,255,255,0.04)', marginBottom: 6 }} />
-                          <div style={{ height: 12, width: '50%', borderRadius: 6, background: 'rgba(255,255,255,0.04)', marginBottom: 20 }} />
-                          <div style={{ height: 36, borderRadius: 8, background: 'rgba(255,255,255,0.06)' }} />
-                        </div>
-                      </div>
-                    ))}
-                  </>
-                )}
-                {catalogError && (
-                  <div className="catalog-state" role="alert"><p>{catalogError}</p><button className="btn btn-outline btn-sm" onClick={() => { void loadCatalog(); void loadStocks(); }}><RefreshCw size={16} /> Réessayer</button></div>
-                )}
-                {servicesLoaded && !catalogError && filteredServices.length === 0 && (
-                  <div className="catalog-state" role="status">Aucune offre disponible dans cette catégorie.</div>
-                )}
-              </div>
-            </div>
-          </section>
-
-          {/* MARKETPLACE */}
-          <section id="marketplace" className="section section-alt">
-            <div className="section-inner">
-              <div className="section-head">
-                <div className="section-eyebrow">— Marketplace en direct —</div>
-                <h2 className="section-title">
-                  Places <span className="gradient-text">disponibles maintenant</span>
-                </h2>
-                <p className="section-subtitle">Vos accès sont suivis par notre équipe, avec assistance en cas de dysfonctionnement.</p>
-              </div>
-
-              <div className="shares-list fade-in-up-stagger">
-                {!stocksLoaded ? <div className="catalog-state" role="status">Chargement des disponibilités…</div> : stocksError ? (
-                  <div className="catalog-state" role="alert"><p>{stocksError}</p><button className="btn btn-outline btn-sm" onClick={loadStocks}><RefreshCw size={16} /> Réessayer</button></div>
-                ) : filteredStocks.length === 0 ? (
-                  <div className="catalog-state">
-                    <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(138,92,247,0.12)', border: '1px solid rgba(138,92,247,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
-                      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-                      </svg>
-                    </div>
-                    <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-white)', marginBottom: 8 }}>Aucune place disponible</h3>
-                    <p style={{ fontSize: '0.88rem', color: 'var(--text-gray)', lineHeight: 1.65, marginBottom: 20 }}>
-                      Aucune place disponible actuellement. Contactez-nous pour connaître les prochaines disponibilités.
-                    </p>
-                    <a
-                      href="mailto:hello@streammalin.fr"
-                      className="btn btn-outline btn-sm"
-                      style={{ fontSize: '0.82rem' }}
-                    >
-                      <Mail size={16} aria-hidden="true" /> Contacter le support
-                    </a>
-                  </div>
-                ) : (
-                  filteredStocks.map((stock) => {
-                    const avSlots = stock.maxSlots - stock.filledSlots;
-                    return (
-                      <div key={stock.id} className="share-item glass-panel">
-                        <ServiceMark id={stock.serviceId} name={stock.service.name} />
-                        <div className="share-details">
-                          <div className="share-name">{stock.service.name}</div>
-                          <div className="share-tag">Accès après validation · Support en français</div>
-                          <div className="share-slots">
-                            <span className="slots-label">{avSlots} place{avSlots > 1 ? 's' : ''} libre{avSlots > 1 ? 's' : ''}</span>
-                            <div className="share-dots">
-                              {slotDots(stock.maxSlots, stock.filledSlots)}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="share-price">
-                          <span className="price-val">{formatEuro(stock.price)}</span>
-                          <span className="price-sub">par mois</span>
-                        </div>
-                        <a
-                          href={`/checkout?service=${stock.serviceId}&stock=${stock.id}`}
-                          className="btn btn-primary btn-sm shrink-0"
-                        >
-                          Choisir <ArrowRight size={16} aria-hidden="true" />
-                        </a>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-          </section>
-
-          {/* CALCULATEUR D'ÉCONOMIES */}
-          <section id="calculateur" className="section">
-            <div className="section-inner" style={{ maxWidth: 1100 }}>
-              <div className="section-head">
-                <div className="section-eyebrow">— Comparateur de prix —</div>
-                <h2 className="section-title">
-                  Comparez votre <span className="gradient-text">budget mensuel</span>
-                </h2>
-                <p className="section-subtitle">Comparez les tarifs publics indicatifs avec les prix proposés par StreamMalin selon les offres disponibles.</p>
-              </div>
-
-              <div className="comparison">
-                <div className="comparison-row comparison-head">
-                  <div>Service</div>
-                  <div style={{ textAlign: 'center' }}>Tarif Public</div>
-                  <div style={{ textAlign: 'center' }}>StreamMalin</div>
-                  <div style={{ textAlign: 'center' }}>Économie</div>
-                </div>
-
-                {comparableServices.map((s) => {
-                  const savings = (s.original - s.price).toFixed(2);
-                  const pct = Math.round((1 - s.price / s.original) * 100);
-                  return (
-                    <div key={s.id} className="comparison-row">
-                      <div className="comparison-service">
-                        <ServiceMark id={s.id} name={s.name} />
-                        <div>
-                          <div style={{ fontWeight: 700, color: 'var(--text-white)', fontSize: '0.92rem' }}>{s.name}</div>
-                          <div className="comparison-tagline">{prudentCommercialCopy(s.tagline)}</div>
-                        </div>
-                      </div>
-                      <div className="comparison-price-old" data-label="Tarif public">{formatEuro(s.original)} / mois</div>
-                      <div className="comparison-price-new" data-label="StreamMalin">{formatEuro(s.price)} / mois</div>
-                      <div style={{ display: 'flex', justifyContent: 'center' }}>
-                        <span className="comparison-badge">{pct}% · {formatEuro(Number(savings))} / mois</span>
-                      </div>
-                    </div>
-                  );
-                })}
-
-                <div style={{ marginTop: 36, paddingTop: 28, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-                  <h3 className="calculator-title">
-                    <Calculator size={20} aria-hidden="true" /> Calculateur d&apos;économies
-                  </h3>
-                  <div className="calc-chips">
-                    {comparableServices.map((s) => (
-                      <button
-                        key={s.id}
-                        onClick={() => setCalcSel(prev => ({ ...prev, [s.id]: !prev[s.id] }))}
-                        className={`calc-chip ${calcSel[s.id] ? 'active' : ''}`}
-                        aria-pressed={Boolean(calcSel[s.id])}
-                      >
-                        <ServiceMark id={s.id} name={s.name} /> {s.name}
-                      </button>
-                    ))}
-                  </div>
-                  {calcHasValidSelection ? (
-                    <>
-                      <div className="calc-result">
-                        <div className="calc-tile">
-                          <div className="calc-tile-label">Tarif public</div>
-                          <div className="calc-tile-value">{formatEuro(calcOriginal)}</div>
-                        </div>
-                        <div className="calc-tile">
-                          <div className="calc-tile-label">Avec StreamMalin</div>
-                          <div className="calc-tile-value gradient-text">{formatEuro(calcTotal)}</div>
-                        </div>
-                        <div className="calc-tile">
-                          <div className="calc-tile-label">Vous économisez</div>
-                          <div className="calc-tile-value" style={{ color: 'var(--accent-green)' }}>{formatEuro(calcSavings)} / mois</div>
-                        </div>
-                      </div>
-
-                      <div style={{ marginTop: 24, display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'center', justifyContent: 'space-between' }}>
-                        <p style={{ fontSize: '0.88rem', color: 'var(--text-gray)' }}>
-                          Économie annuelle estimée :{' '}
-                          <strong className="gradient-text">{formatEuro(calcSavings * 12)}</strong>, si les offres et tarifs restent identiques pendant douze mois.
-                        </p>
-                        <a href="#offres" className="btn btn-primary btn-sm">
-                          Choisir mes abonnements
-                        </a>
-                      </div>
-                    </>
-                  ) : (
-                    <div style={{ marginTop: 18, padding: '18px 24px', borderRadius: 'var(--radius)', color: 'var(--text-muted)', textAlign: 'center', background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.08)', fontSize: '0.88rem' }}>
-                      Sélectionnez une offre pour calculer vos économies.
-                    </div>
-                  )}
-                  {comparableServices.length === 0 && <p className="comparison-note">La comparaison sera disponible avec une offre en stock et un tarif de référence vérifié.</p>}
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* COMMENT ÇA MARCHE */}
-          <section id="comment" className="section section-alt">
-            <div className="section-inner" style={{ maxWidth: 1100 }}>
-              <div className="section-head">
-                <div className="section-eyebrow">— Mode d&apos;emploi —</div>
-                <h2 className="section-title">
-                  Comment ça <span className="gradient-text">marche</span> ?
-                </h2>
-                <p className="section-subtitle">De la sélection au suivi de votre accès.</p>
-              </div>
-              <div className="steps-grid fade-in-up-stagger">
-                {[
-                  { n: '1', title: 'Sélectionnez une offre', text: 'Parcourez notre catalogue et choisissez l\'offre qui correspond à vos besoins parmi nos services premium.' },
-                  { n: '2', title: 'Vérifiez et réglez', text: 'Vérifiez votre éligibilité et les conditions de renouvellement, puis utilisez l’un des moyens effectivement proposés au paiement.' },
-                  { n: '3', title: 'Recevez votre accès', text: 'Les informations d\'accès ou le lien d\'invitation sont transmis après validation du paiement et selon disponibilité.' },
-                ].map((step) => (
-                  <div key={step.n} className="step-card glass-panel">
-                    <div className="step-number">{step.n}</div>
-                    <h3>{step.title}</h3>
-                    <p>{step.text}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-
-          {/* GARANTIES */}
-          <section className="section">
-            <div className="section-inner" style={{ maxWidth: 1100 }}>
-              <div className="section-head">
-                <div className="section-eyebrow">— Nos engagements —</div>
-                <h2 className="section-title">
-                  Partagez en toute <span className="gradient-text">sérénité</span>
-                </h2>
-                <p className="section-subtitle">Service encadré par des CGV, avec support client dédié et non-affiliation claire aux plateformes citées.</p>
-              </div>
-              <div className="guarantees-grid fade-in-up-stagger">
-                {[
-                  {
-                    svg: <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
-                    title: 'Suivi des accès', text: 'Assistance en cas de dysfonctionnement et traitement des demandes selon les CGV.',
-                  },
-                  {
-                    svg: <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>,
-                    title: 'Identifiants Chiffrés', text: 'Vos mots de passe et liens de connexion sont chiffrés avec la norme AES-256.',
-                  },
-                  {
-                    svg: <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>,
-                    title: 'Livraison rapide', text: 'Votre accès est transmis après validation de la commande et selon disponibilité.',
-                  },
-                  {
-                    svg: <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
-                    title: 'Support client', text: 'Une équipe dédiée en français répond aux demandes liées aux commandes et aux accès.',
-                  },
-                ].map((g, i) => (
-                  <div key={i} className="guarantee-card glass-panel">
-                    <div className="guarantee-icon" style={{ color: 'var(--primary)' }}>{g.svg}</div>
-                    <div className="guarantee-title">{g.title}</div>
-                    <p className="guarantee-text">{g.text}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-
-          {/* FAQ */}
-          <section id="faq" className="section section-alt">
-            <div className="section-inner" style={{ maxWidth: 820 }}>
-              <div className="section-head">
-                <div className="section-eyebrow">— FAQ —</div>
-                <h2 className="section-title">
-                  Questions <span className="gradient-text">fréquentes</span>
-                </h2>
-                <p className="section-subtitle">Des réponses aux questions fréquentes.</p>
-              </div>
-              <div className="faq-list">
-                {faqItems.map((item, i) => (
-                  <div key={i} className={`faq-item glass-panel ${faqOpen === i ? 'open' : ''}`}>
-                    <button
-                      className="faq-trigger"
-                      onClick={() => setFaqOpen(faqOpen === i ? null : i)}
-                      aria-expanded={faqOpen === i}
-                      aria-controls={`faq-answer-${i}`}
-                    >
-                      <span>{item.q}</span>
-                      <span className="faq-icon" aria-hidden="true">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-                      </span>
-                    </button>
-                    {faqOpen === i && (
-                      <div className="faq-answer" id={`faq-answer-${i}`} role="region">{item.a}</div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-
-          {/* CTA */}
-          <section className="section">
-            <div className="section-inner" style={{ maxWidth: 900 }}>
-              <div className="cta-block">
-                <h2>{availableServices.length > 0 ? 'Une offre vous intéresse ?' : 'Besoin d’un accès numérique ?'}</h2>
-                <p>{availableServices.length > 0 ? 'Consultez ses conditions d’éligibilité avant de commander. Notre support répond à vos questions.' : 'Contactez-nous pour connaître les prochaines disponibilités et les conditions d’accès.'}</p>
-                <div className="cta-buttons">
-                  <a href={availableServices.length > 0 ? '#offres' : 'mailto:hello@streammalin.fr'} className="btn btn-primary">{availableServices.length > 0 ? 'Consulter les offres' : 'Contacter le support'} <ArrowRight size={18} aria-hidden="true" /></a>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* FOOTER */}
-          <Footer />
-        </main>
-      )}
+      {/* Public catalogue: availability always comes from the server projection. */}
+      {view === 'storefront' && <StreamingStorefront offers={services} loaded={servicesLoaded} error={catalogError} retry={() => { void loadCatalog(); }} />}
 
       {/* ======================== DASHBOARD CLIENT ======================== */}
       {view === 'dashboard' && (
@@ -1027,9 +574,9 @@ export default function Home() {
               </button>
             </div>
 
-            <div className="dash-layout">
+            <div className={`dash-layout${!customer ? ' client-guest-layout' : ''}`}>
               {/* Sidebar */}
-              <aside className="glass-panel dash-sidebar">
+              {customer && <aside className="glass-panel dash-sidebar">
                 <button
                   onClick={() => setDashTab('orders')}
                   className={`dash-sidebar-btn ${dashTab === 'orders' ? 'active' : ''}`}
@@ -1080,16 +627,17 @@ export default function Home() {
                   </div>
                   Les accès sont protégés et consultables depuis votre espace client après validation.
                 </div>
-              </aside>
+              </aside>}
 
               {/* Content */}
               <div>
+                {!authChecked && <p role="status">Chargement de votre espace client…</p>}
                 {/* Login / Register / Forgot / Reset — affiché si non authentifié */}
                 {authChecked && !customer && (
                   <div className="glass-panel dash-card fade-in-up">
                     <div className="dash-card-head">
                       <div className="icon-bubble">
-                        {authMode === 'login' ? '🔐' : authMode === 'register' ? '✨' : authMode === 'forgot' ? '🔑' : '🆕'}
+                        <LockKeyhole size={20} aria-hidden="true" />
                       </div>
                       {authMode === 'login' && 'Connexion à mon espace'}
                       {authMode === 'register' && 'Créer un compte client'}
@@ -1103,13 +651,13 @@ export default function Home() {
                           onClick={() => { setAuthMode('login'); setAuthError(''); setAuthMsg(''); }}
                           className={`auth-tab-btn${authMode === 'login' ? ' active' : ''}`}
                         >
-                          🔐 Connexion
+                          Connexion
                         </button>
                         <button
                           onClick={() => { setAuthMode('register'); setAuthError(''); setAuthMsg(''); }}
                           className={`auth-tab-btn${authMode === 'register' ? ' active' : ''}`}
                         >
-                          ✨ Inscription
+                          Inscription
                         </button>
                       </div>
                     )}
@@ -1158,7 +706,7 @@ export default function Home() {
                               aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
                               aria-pressed={showPassword}
                             >
-                              {showPassword ? '🙈' : '👁️'}
+                              {showPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
                             </button>
                           </div>
                         </div>
@@ -1240,64 +788,18 @@ export default function Home() {
                     )}
 
                     {authError && (
-                      <p className="msg-error" style={{ marginTop: 12 }}>⚠️ {authError}</p>
+                      <p className="msg-error" role="alert" style={{ marginTop: 12 }}>{authError}</p>
                     )}
                     {authMsg && (
-                      <p className="msg-success" style={{ marginTop: 12 }}>{authMsg}</p>
+                      <p className="msg-success" role="status" style={{ marginTop: 12 }}>{authMsg}</p>
                     )}
                   </div>
                 )}
 
-                {/* Onglet Louer un abonnement */}
-                {customer && dashTab === 'rent' && (
-                  <div className="fade-in-up">
-                    <div className="glass-panel dash-card" style={{ marginBottom: 20 }}>
-                      <div className="dash-card-head">
-                        <div className="icon-bubble">
-                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
-                        </div>
-                        Louer un nouvel abonnement
-                      </div>
-                      <p style={{ fontSize: '0.85rem', color: 'var(--text-gray)' }}>
-                        Choisissez un service ci-dessous. Vous serez redirigé vers le paiement avec votre email pré-rempli.
-                      </p>
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
-                      {services.map((s) => {
-                        const hasStock = s.availableSlots > 0;
-                        return (
-                          <div key={s.id} className="glass-panel" style={{ padding: 18 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
-                              <div style={{ width: 44, height: 44, borderRadius: 12, background: s.gradient, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem' }}>
-                                {s.icon}
-                              </div>
-                              <div>
-                                <h4 style={{ fontSize: '1rem', fontWeight: 800 }}>{s.name}</h4>
-                                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{s.tagline}</div>
-                              </div>
-                            </div>
-                            <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-white)', marginBottom: 12 }}>
-                              {s.price.toFixed(2)}€<span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}> / mois</span>
-                            </div>
-                            {hasStock ? (
-                              <a
-                                href={`/checkout?service=${s.id}&stock=${s.availableStockId}&email=${encodeURIComponent(customer.email)}`}
-                                className="btn btn-primary"
-                                style={{ width: '100%', textAlign: 'center' }}
-                              >
-                                🛒 Louer maintenant
-                              </a>
-                            ) : (
-                              <button disabled className="btn btn-ghost" style={{ width: '100%', opacity: 0.5 }}>
-                                Aucune place disponible
-                              </button>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
+                {customer && dashTab === 'rent' && <section>
+                  <h2 style={{ fontSize: '1.2rem', marginBottom: 20 }}>Louer un nouvel abonnement</h2>
+                  {!servicesLoaded ? <p role="status">Chargement des abonnements…</p> : catalogError ? <p role="alert">{catalogError}</p> : services.length === 0 ? <p>Aucune place disponible actuellement. Contactez-nous pour connaître les prochaines disponibilités.</p> : <div className="stream-offer-grid">{services.map(offer => <OfferCard key={offer.id} offer={offer} />)}</div>}
+                </section>}
 
                 {/* Orders tab */}
                 {customer && dashTab === 'orders' && (

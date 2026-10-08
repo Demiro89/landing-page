@@ -7,6 +7,8 @@ import Footer from '@/components/Footer';
 import { CURRENT_TERMS_VERSION, CURRENT_TERMS_URL } from '@/lib/termsVersion';
 import { formatEuro, matchesServiceFilter } from '@/lib/offerPresentation';
 import ServiceMark from '@/components/ServiceMark';
+import { normalizeEmail } from '@/lib/checkoutValidation';
+import { Bitcoin, CreditCard, WalletCards, ListChecks, Headphones, LockKeyhole, CircleCheck } from 'lucide-react';
 import './checkout.css';
 
 interface ServiceDetails {
@@ -182,11 +184,12 @@ function CheckoutContent() {
   }, [payTab, gateways.crypto]);
 
   const isYoutube = Boolean(serviceId && matchesServiceFilter(serviceId, ['youtube']));
+  const identityOk = Boolean(normalizeEmail(email)) && (!isYoutube || Boolean(normalizeEmail(youtubeEmail)));
 
   const handleStripeCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !serviceId || !stockId || isSubmitting) return;
-    if (isYoutube && !youtubeEmail.trim()) {
+    if (!normalizeEmail(email) || !serviceId || !stockId || isSubmitting) return;
+    if (isYoutube && !normalizeEmail(youtubeEmail)) {
       setErrorMsg('Merci d\'indiquer votre adresse e-mail YouTube pour recevoir l\'invitation.');
       return;
     }
@@ -241,11 +244,11 @@ function CheckoutContent() {
 
   // Enregistre une commande « en attente » pour les paiements PayPal / crypto.
   const createManualOrder = async (method: 'paypal' | 'crypto'): Promise<string | null> => {
-    if (!serviceId || !stockId || !email) {
+    if (!serviceId || !stockId || !normalizeEmail(email)) {
       setErrorMsg('Merci de renseigner votre adresse email.');
       return null;
     }
-    if (isYoutube && !youtubeEmail.trim()) {
+    if (isYoutube && !normalizeEmail(youtubeEmail)) {
       setErrorMsg('Merci d\'indiquer votre adresse e-mail YouTube.');
       return null;
     }
@@ -349,20 +352,79 @@ function CheckoutContent() {
         <div className="checkout-head fade-in-up">
           <div className="eyebrow">
             <span className="hero-badge-dot" style={{ width: 6, height: 6 }} />
-            CHECKOUT SÉCURISÉ · SSL CHIFFRÉ
+            VOTRE ABONNEMENT
           </div>
           <h1>
             Finaliser votre <span className="gradient-text">commande</span>
           </h1>
-          <p>Paiement sécurisé — accès transmis après validation de la commande et selon disponibilité</p>
+          <p>Vérifiez le prix et le renouvellement. Accès transmis après validation de la commande et selon disponibilité.</p>
         </div>
 
         <div className="checkout-grid">
-          {/* ── Formulaire ── */}
-          <div className="glass-panel checkout-card fade-in-up">
+          {/* ── Récapitulatif ── */}
+          <div className="glass-panel checkout-card checkout-summary fade-in-up" style={{ animationDelay: '0.1s' }}>
             <div className="checkout-card-head">
               <div className="icon-bubble">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+                <ListChecks size={20} aria-hidden="true" />
+              </div>
+              Récapitulatif
+            </div>
+
+            <div className="recap-service">
+              <div className="recap-service-icon">
+                <ServiceMark id={service.id} name={service.name} />
+              </div>
+              <div className="recap-service-info">
+                <div className="name">{service.name}</div>
+                <div className="sub">Accès numérique · Un mois</div>
+              </div>
+              <div className="recap-service-price">{formatEuro(service.price)}</div>
+            </div>
+
+            <div className="recap-line-list">
+              <div className="recap-line">
+                <span>Prix de l&apos;accès</span>
+                <strong>{formatEuro(service.price)}</strong>
+              </div>
+              <div className="recap-line">
+                <span>Frais d&apos;activation</span>
+                <strong style={{ color: 'var(--accent-green)' }}>Gratuit</strong>
+              </div>
+              {savings !== null && <div className="recap-line savings">
+                <span>Économie estimée</span>
+                <strong>{formatEuro(savings)}/mois</strong>
+              </div>}
+              <div className="recap-divider" />
+              <div className="recap-line" style={{ fontSize: '0.78rem' }}>
+                <span>Fréquence</span>
+                <strong>{payTab === 'cb' ? 'Prélèvement mensuel automatique' : 'Paiement manuel pour un mois'}</strong>
+              </div>
+            </div>
+
+            <div className="recap-total">
+              <span className="recap-total-label">Total à payer</span>
+              <span className="recap-total-value">{formatEuro(service.price)}</span>
+            </div>
+
+            <div className="guarantee-box">
+              <div className="guarantee-box-title"><Headphones size={16} aria-hidden="true" /> Suivi StreamMalin inclus</div>
+              <div className="guarantee-box-text">
+                Suivi des accès et assistance en cas de dysfonctionnement, avec traitement selon les CGV et les disponibilités.
+              </div>
+            </div>
+
+            <div className="trust-row" style={{ marginTop: 18 }}>
+              <span><LockKeyhole size={14} aria-hidden="true" /> Paiement via prestataire</span>
+              <span><CircleCheck size={14} aria-hidden="true" /> Accès après validation</span>
+              <span><Headphones size={14} aria-hidden="true" /> Assistance en français</span>
+            </div>
+          </div>
+
+          {/* ── Formulaire ── */}
+          <div className="glass-panel checkout-card checkout-form fade-in-up">
+            <div className="checkout-card-head">
+              <div className="icon-bubble">
+                <CreditCard size={20} aria-hidden="true" />
               </div>
               Choisir un moyen de paiement
             </div>
@@ -373,9 +435,9 @@ function CheckoutContent() {
             {/* Pay tabs */}
             <div className="pay-tabs">
               {([
-                { id: 'cb' as PayTab, icon: '💳', label: 'Carte Bancaire' },
-                { id: 'paypal' as PayTab, icon: '🅿️', label: 'PayPal' },
-                { id: 'crypto' as PayTab, icon: '₿', label: 'Cryptomonnaies' },
+                { id: 'cb' as PayTab, Icon: CreditCard, label: 'Carte bancaire' },
+                { id: 'paypal' as PayTab, Icon: WalletCards, label: 'PayPal' },
+                { id: 'crypto' as PayTab, Icon: Bitcoin, label: 'Crypto' },
               ]).map(tab => (
                 <button
                   key={tab.id}
@@ -384,7 +446,7 @@ function CheckoutContent() {
                   disabled={!gateways[tab.id] || manualBusy || isSubmitting || Boolean(manualOrderId)}
                   aria-pressed={payTab === tab.id}
                 >
-                  <span className="pay-icon">{tab.icon}</span>
+                  <tab.Icon size={18} aria-hidden="true" />
                   {tab.label}
                 </button>
               ))}
@@ -504,7 +566,7 @@ function CheckoutContent() {
                 </div>
                 <button
                   type="submit"
-                  disabled={isSubmitting || !gateways.cb || !email || (isYoutube && !youtubeEmail.trim()) || !consentOk || !stockAvailable}
+                  disabled={isSubmitting || !gateways.cb || !identityOk || !consentOk || !stockAvailable}
                   className="btn-pay"
                 >
                   {isSubmitting ? 'Redirection…' : !consentOk ? 'Cochez les 3 confirmations pour continuer' : !stockAvailable ? 'Offre indisponible' : `S’abonner pour ${formatEuro(service.price)}/mois avec obligation de paiement`}
@@ -528,7 +590,7 @@ function CheckoutContent() {
                   <div className="info-box-title">🅿️ Étapes du paiement PayPal</div>
                   <ol style={{ listStyle: 'decimal', paddingLeft: 20, fontSize: '0.84rem', color: 'var(--text-gray)', lineHeight: 1.8 }}>
                     <li>Connectez-vous à votre compte PayPal.</li>
-                    <li>Envoyez <strong style={{ color: 'var(--text-white)' }}>{service.price.toFixed(2)}€</strong> en mode <strong style={{ color: 'var(--accent-yellow)' }}>« Biens et Services »</strong>.</li>
+                    <li>Envoyez <strong style={{ color: 'var(--text-white)' }}>{formatEuro(service.price)}</strong> en mode <strong style={{ color: 'var(--accent-yellow)' }}>« Biens et Services »</strong>.</li>
                     <li>Dans la note : indiquez <strong style={{ color: 'var(--text-white)' }}>{email || 'votre email de livraison'}</strong>.</li>
                     <li>Vos accès sont traités rapidement après vérification du paiement et selon disponibilité.</li>
                   </ol>
@@ -578,7 +640,7 @@ function CheckoutContent() {
                 ) : (
                   <button
                     type="button"
-                    disabled={!gateways.paypal || !consentOk || manualBusy || !email || !stockAvailable || !paypalEmail}
+                    disabled={!gateways.paypal || !consentOk || manualBusy || !identityOk || !stockAvailable || !paypalEmail}
                     onClick={async () => {
                       const id = await createManualOrder('paypal');
                       if (id) window.open(paypalUrl, '_blank', 'noopener,noreferrer');
@@ -586,7 +648,7 @@ function CheckoutContent() {
                     className="btn btn-primary"
                     style={{ display: 'block', width: '100%', textAlign: 'center', marginTop: 12, background: consentOk && stockAvailable && paypalEmail ? '#0070ba' : undefined, opacity: consentOk && stockAvailable && paypalEmail ? 1 : 0.5, cursor: consentOk && stockAvailable && paypalEmail ? 'pointer' : 'not-allowed' }}
                   >
-                    {manualBusy ? 'Enregistrement…' : !consentOk ? 'Cochez les 3 confirmations pour continuer' : !stockAvailable ? 'Offre indisponible' : !paypalEmail ? 'PayPal non configuré' : `🅿️ Payer ${service.price.toFixed(2)}€ via PayPal →`}
+                    {manualBusy ? 'Enregistrement…' : !consentOk ? 'Cochez les 3 confirmations pour continuer' : !stockAvailable ? 'Offre indisponible' : !paypalEmail ? 'PayPal non configuré' : `Payer ${formatEuro(service.price)} via PayPal avec obligation de paiement`}
                   </button>
                 )}
 
@@ -638,7 +700,7 @@ function CheckoutContent() {
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>≈ EUR</div>
-                      <div style={{ fontSize: '0.95rem', fontWeight: 700 }}>{service.price.toFixed(2)}€</div>
+                      <div style={{ fontSize: '0.95rem', fontWeight: 700 }}>{formatEuro(service.price)}</div>
                     </div>
                   </div>
 
@@ -672,7 +734,7 @@ function CheckoutContent() {
                 ) : (
                   <button
                     type="button"
-                    disabled={!gateways.crypto || !ratesLive || !consentOk || manualBusy || !email || !cryptoAddr[activeCoin] || !stockAvailable}
+                    disabled={!gateways.crypto || !ratesLive || !consentOk || manualBusy || !identityOk || !cryptoAddr[activeCoin] || !stockAvailable}
                     onClick={() => createManualOrder('crypto')}
                     className="btn btn-primary"
                     style={{ display: 'block', width: '100%', textAlign: 'center', marginTop: 14, opacity: (consentOk && cryptoAddr[activeCoin] && stockAvailable) ? 1 : 0.5, cursor: (consentOk && cryptoAddr[activeCoin] && stockAvailable) ? 'pointer' : 'not-allowed' }}
@@ -694,64 +756,6 @@ function CheckoutContent() {
             {manualExpired && <p role="alert" className="warn-box">Réservation expirée. N’effectuez aucun transfert ; contactez le support pour vérifier la disponibilité.</p>}
           </div>
 
-          {/* ── Récapitulatif ── */}
-          <div className="glass-panel checkout-card fade-in-up" style={{ animationDelay: '0.1s' }}>
-            <div className="checkout-card-head">
-              <div className="icon-bubble">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
-              </div>
-              Récapitulatif
-            </div>
-
-            <div className="recap-service">
-              <div className="recap-service-icon">
-                <ServiceMark id={service.id} name={service.name} />
-              </div>
-              <div className="recap-service-info">
-                <div className="name">{service.name}</div>
-                <div className="sub">Accès numérique · Un mois</div>
-              </div>
-              <div className="recap-service-price">{service.price.toFixed(2)}€</div>
-            </div>
-
-            <div className="recap-line-list">
-              <div className="recap-line">
-                <span>Prix de l&apos;accès</span>
-                <strong>{service.price.toFixed(2)}€</strong>
-              </div>
-              <div className="recap-line">
-                <span>Frais d&apos;activation</span>
-                <strong style={{ color: 'var(--accent-green)' }}>Gratuit</strong>
-              </div>
-              {savings !== null && <div className="recap-line savings">
-                <span>💰 Économie estimée</span>
-                <strong>{formatEuro(savings)}/mois</strong>
-              </div>}
-              <div className="recap-divider" />
-              <div className="recap-line" style={{ fontSize: '0.78rem' }}>
-                <span>Fréquence</span>
-                <strong>{payTab === 'cb' ? 'Prélèvement mensuel automatique' : 'Paiement manuel pour un mois'}</strong>
-              </div>
-            </div>
-
-            <div className="recap-total">
-              <span className="recap-total-label">Total à payer</span>
-              <span className="recap-total-value gradient-text">{service.price.toFixed(2)}€</span>
-            </div>
-
-            <div className="guarantee-box">
-              <div className="guarantee-box-title">🛡️ Suivi StreamMalin inclus</div>
-              <div className="guarantee-box-text">
-                Suivi des accès et assistance en cas de dysfonctionnement, avec traitement selon les CGV et les disponibilités.
-              </div>
-            </div>
-
-            <div className="trust-row" style={{ marginTop: 18 }}>
-              <span>🔒 Paiement SSL</span>
-              <span>⚡ Accès après validation</span>
-              <span>💬 Support client réactif</span>
-            </div>
-          </div>
         </div>
       </div>
 

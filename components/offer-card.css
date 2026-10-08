@@ -1,0 +1,120 @@
+.offer-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 22px;
+  border: 1px solid #39424a;
+  border-radius: 8px;
+  background: #151b20;
+  overflow-wrap: anywhere;
+}
+.offer-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.offer-availability {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #b7bfc7;
+  font-size: 0.75rem;
+}
+.offer-availability.available {
+  color: #90d9b5;
+}
+.offer-card h3 {
+  font-size: 1.18rem;
+  line-height: 1.4;
+  margin: 0 0 8px;
+  color: #f4f6f7;
+  letter-spacing: 0;
+}
+.offer-tagline {
+  color: #bac3ca;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  min-height: 42px;
+  margin-bottom: 20px;
+}
+.offer-price {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 8px;
+}
+.offer-price strong {
+  font-size: 1.85rem;
+  line-height: 1.15;
+  color: #f4f6f7;
+  letter-spacing: 0;
+}
+.offer-price span,
+.offer-public-price {
+  color: #bac3ca;
+  font-size: 0.8rem;
+}
+.offer-public-price {
+  margin: 4px 0;
+}
+.offer-savings {
+  font-size: 0.8rem;
+  color: #90d9b5;
+  margin-top: 7px;
+}
+.offer-features {
+  list-style: none;
+  display: grid;
+  gap: 9px;
+  padding: 18px 0;
+  margin: 12px 0 0;
+  border-top: 1px solid #323c43;
+}
+.offer-features li {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  color: #c5cdd3;
+  font-size: 0.83rem;
+  line-height: 1.5;
+}
+.offer-features svg {
+  flex: 0 0 15px;
+  color: #90d9b5;
+  margin-top: 3px;
+}
+.offer-eligibility {
+  color: #c5cdd3;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  margin-bottom: 8px;
+}
+.offer-billing-note {
+  margin: auto 0 18px;
+  padding-top: 15px;
+  font-size: 0.73rem;
+  color: #aebbb5;
+  line-height: 1.55;
+}
+.offer-action {
+  width: 100%;
+  min-height: 44px;
+}
+.offer-action-disabled {
+  background: #293039;
+  color: #aeb8c1;
+  border: 1px solid #4a545e;
+}
+.offer-contact {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 14px;
+  min-height: 36px;
+  color: #acd8c8;
+  font-size: 0.8rem;
+}
