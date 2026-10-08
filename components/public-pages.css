@@ -1,0 +1,66 @@
+.public-shell { min-height: 100vh; display: flex; flex-direction: column; background: #101416; color: #f2f4f2; letter-spacing: 0; }
+.public-page-nav { display: flex; gap: 24px; align-items: center; }
+.public-page-nav a { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; color: #c7d5cc; font-size: .83rem; }
+.public-page-wrap { max-width: 1120px; width: 100%; margin: 0 auto; padding: 105px 28px 60px; flex: 1; }
+.public-back { display: inline-flex; align-items: center; gap: 8px; font-size: .82rem; color: #bdc9c1; margin-bottom: 30px; min-height: 36px; }
+.public-eyebrow { font-size: .73rem; font-weight: 700; color: #b7d7c4; margin: 0 0 10px; }
+.public-shell h1 { font-size: 2.1rem; line-height: 1.3; letter-spacing: 0; margin: 0 0 12px; }
+.public-shell h2 { font-size: 1.15rem; line-height: 1.4; letter-spacing: 0; margin: 0 0 12px; }
+.public-shell p { line-height: 1.8; color: #c0cac3; font-size: .9rem; overflow-wrap: anywhere; }
+.public-shell .btn { min-height: 44px; border-radius: 6px; box-shadow: none; font-size: .85rem; }
+.public-shell .btn-primary { background: #aad9b8; color: #12221a; border-color: #aad9b8; }
+.public-shell .btn-primary:hover { background: #c0e8cc; transform: none; }
+.public-shell :focus-visible { outline: 2px solid #c0e8cc; outline-offset: 4px; }
+.offer-detail-heading { display: flex; align-items: center; gap: 22px; padding-bottom: 30px; border-bottom: 1px solid #3b4541; }
+.offer-detail-heading .service-mark { width: 72px; height: 72px; flex-basis: 72px; }
+.offer-detail-heading .service-mark img { width: 42px; height: 42px; }
+.offer-detail-layout { display: grid; grid-template-columns: minmax(0, 1fr) 345px; gap: 50px; margin-top: 32px; align-items: start; }
+.offer-details section { padding-block: 0 26px; margin-bottom: 26px; border-bottom: 1px solid #3b4541; }
+.offer-details section p + p { margin-top: 12px; }
+.offer-detail-features { list-style: none; padding: 0; margin: 20px 0 0; display: grid; gap: 13px; }
+.offer-detail-features li { display: flex; align-items: flex-start; gap: 10px; color: #dce3de; font-size: .87rem; line-height: 1.7; }
+.offer-detail-features svg { color: #aad9b8; flex: 0 0 17px; margin-top: 3px; }
+.offer-detail-eligibility a { display: inline-flex; align-items: center; gap: 9px; font-size: .84rem; color: #d2bda3; margin-top: 16px; }
+.offer-detail-purchase { position: sticky; top: 96px; padding: 26px; border: 1px solid #4a5650; background: #1c2420; border-radius: 8px; }
+.offer-detail-status { display: flex; gap: 7px; align-items: center; color: #c5d5ca; font-size: .78rem; }
+.offer-detail-price { display: flex; gap: 9px; align-items: baseline; margin-block: 22px 10px; }
+.offer-detail-price strong { font-size: 2rem; }
+.offer-detail-price span { font-size: .85rem; color: #c0cac3; }
+.offer-detail-purchase > p { font-size: .82rem; margin-bottom: 20px; }
+.offer-detail-purchase .btn { width: 100%; }
+.offer-stock-choice { display: block; font-size: .8rem; margin-bottom: 20px; }
+.offer-stock-choice select { display: block; width: 100%; min-height: 44px; border: 1px solid #617568; border-radius: 5px; background: #17221a; color: #f1f4f2; font-size: .85rem; padding: 10px; margin-top: 9px; }
+.offer-detail-purchase .offer-delivery-note { font-size: .76rem; margin-top: 20px; padding-top: 18px; border-top: 1px solid #48554b; }
+.offer-detail-legal { display: flex; flex-wrap: wrap; gap: 10px 16px; font-size: .75rem; color: #becbc2; }
+.offer-detail-legal a, .offer-reference a { text-decoration: underline; text-underline-offset: 3px; }
+.contact-heading { max-width: 680px; margin-bottom: 32px; }
+.contact-layout { display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 70px; }
+.contact-form { display: grid; gap: 22px; }
+.contact-form label { display: block; font-size: .84rem; color: #d5e0d8; font-weight: 600; }
+.contact-form input, .contact-form select, .contact-form textarea { display: block; width: 100%; margin-top: 9px; background: #1b2220; color: #f1f4f2; border: 1px solid #53615a; border-radius: 6px; padding: 13px; font-size: .95rem; min-height: 46px; }
+.contact-form textarea { resize: vertical; min-height: 150px; line-height: 1.65; }
+.contact-form .contact-privacy { font-size: .76rem; }
+.contact-privacy a { text-decoration: underline; text-underline-offset: 3px; }
+.contact-form .btn { justify-self: start; }
+.contact-honeypot { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.contact-aside { border-left: 1px solid #49564e; padding-left: 25px; }
+.contact-aside h2 { margin-bottom: 10px; }
+.contact-aside p { font-size: .84rem; margin-bottom: 25px; }
+.contact-aside a { color: #b6d9c5; overflow-wrap: anywhere; text-decoration: underline; text-underline-offset: 4px; }
+.contact-result { padding: 18px; border-left: 3px solid #aad9b8; background: #1b2c23; }
+.contact-error { padding: 15px; border-left: 3px solid #dfa28f; background: #2b211e; color: #f0cabc; font-size: .85rem; line-height: 1.7; }
+@media (max-width: 800px) {
+  .offer-detail-layout, .contact-layout { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+  .offer-detail-purchase { position: static; grid-row: 1; }
+  .contact-aside { border-left: none; border-top: 1px solid #49564e; padding: 24px 0 0; }
+}
+@media (max-width: 600px) {
+  .public-page-wrap { padding: 91px 20px 35px; }
+  .public-page-nav { gap: 15px; }
+  .public-page-nav span { display: none; }
+  .public-shell h1 { font-size: 1.65rem; }
+  .offer-detail-heading { align-items: flex-start; gap: 16px; }
+  .offer-detail-heading .service-mark { width: 52px; height: 52px; flex-basis: 52px; }
+  .offer-detail-heading .service-mark img { width: 30px; height: 30px; }
+  .offer-detail-purchase { padding: 20px; }
+}

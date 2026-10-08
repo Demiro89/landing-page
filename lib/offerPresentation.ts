@@ -8,6 +8,22 @@ export function matchesServiceFilter(id: string, prefixes: string[]): boolean {
   return prefixes.some(prefix => id === prefix || id.startsWith(`${prefix}-`));
 }
 
+export type StreamingCategory = 'video' | 'music' | 'other';
+
+const videoServices = ['netflix', 'youtube', 'disney', 'prime', 'amazon-prime', 'apple-tv', 'max', 'hbo', 'paramount', 'crunchyroll', 'adn', 'dazn', 'canal', 'bein', 'rmc'];
+const musicServices = ['spotify', 'deezer', 'tidal', 'apple-music', 'amazon-music', 'qobuz'];
+
+export function streamingCategory(id: string): StreamingCategory {
+  if (matchesServiceFilter(id, videoServices)) return 'video';
+  if (matchesServiceFilter(id, musicServices)) return 'music';
+  return 'other';
+}
+
+export function canCompareOffer(offer: { referenceVerified?: boolean; original: number; price: number; availableSlots: number; availableStockId: string | null }): boolean {
+  return hasAvailableOffer(offer) && offer.referenceVerified === true && Number.isFinite(offer.price)
+    && offer.price > 0 && Number.isFinite(offer.original) && offer.original >= offer.price;
+}
+
 export function hasAvailableOffer(offer: { availableSlots: number; availableStockId: string | null }): boolean {
   return Number.isInteger(offer.availableSlots) && offer.availableSlots > 0 && Boolean(offer.availableStockId);
 }

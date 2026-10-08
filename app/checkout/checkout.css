@@ -11,6 +11,29 @@
 .checkout-page .recap-line strong { text-align: right; }
 .checkout-page .recap-service-icon { background: none; flex-shrink: 0; }
 .checkout-page .crypto-addr { overflow-wrap: anywhere; }
+.checkout-page .checkout-grid { align-items: start; grid-template-areas: "form summary"; }
+.checkout-page .checkout-form { grid-area: form; }
+.checkout-page .checkout-summary { grid-area: summary; }
+.checkout-page .checkout-summary { position: sticky; top: 96px; }
+.checkout-page .pay-tab { display: inline-flex; align-items: center; justify-content: center; gap: 7px; border-radius: 5px; }
+.checkout-page .pay-tabs { border-radius: 6px; }
+.checkout-page .pay-tab.active { background: #315343; box-shadow: none; }
+.checkout-page .guarantee-box { border-radius: 6px; background: #1b2922; border-color: #496552; }
+.checkout-page .guarantee-box-title, .checkout-page .trust-row span { display: inline-flex; align-items: center; gap: 7px; }
+.checkout-page .recap-line strong { max-width: 65%; }
+.checkout-page .checkout-card-head { font-size: 1.08rem; }
+.checkout-page .checkout-card { background: #1b2021; border-color: #414944; }
+.checkout-page .checkout-card .icon-bubble { background: #293d33; color: #b4d5c1; box-shadow: none; border-radius: 5px; }
+.checkout-page .recap-service, .checkout-page .recap-line-list { background: none; border: none; border-radius: 0; box-shadow: none; padding-inline: 0; }
+.checkout-page .recap-service-price { color: #f2f4f2; }
+.checkout-page .dash-input { border-radius: 6px; }
+.checkout-page .checkout-head .eyebrow { letter-spacing: 0; background: none; border: none; padding: 0; box-shadow: none; }
+@media (max-width: 900px) {
+  .checkout-page .checkout-grid { display: flex; flex-direction: column; }
+  .checkout-page .checkout-card { width: 100%; }
+  .checkout-page .checkout-summary { order: -1; position: static; }
+  .checkout-page .checkout-summary .guarantee-box, .checkout-page .checkout-summary .trust-row { display: none; }
+}
 @media (max-width: 600px) {
   .checkout-page .checkout-wrap { padding-inline: 16px; }
   .checkout-page .checkout-head h1 { font-size: 1.7rem; }

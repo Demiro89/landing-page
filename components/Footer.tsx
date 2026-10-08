@@ -14,7 +14,7 @@ const COLUMNS: { title: string; links: { label: string; href: string }[] }[] = [
   {
     title: 'Aide & support',
     links: [
-      { label: 'Contact / Support', href: `mailto:${COMPANY.email}` },
+      { label: 'Contact / Support', href: '/contact' },
       { label: 'Réclamation', href: '/reclamation' },
       { label: 'Médiation de la consommation', href: '/mediation' },
       { label: 'FAQ & guide des abonnements', href: '/#faq' },
@@ -56,7 +56,7 @@ export default function Footer() {
               <span className="gradient-text">StreamMalin</span>
             </div>
             <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: 1.7, maxWidth: 260 }}>
-              Mise à disposition temporaire d&apos;accès numériques à prix malin. Service indépendant
+              Location d&apos;abonnements streaming selon les offres disponibles. Service indépendant
               édité en micro-entreprise.
             </p>
             <a
@@ -74,7 +74,7 @@ export default function Footer() {
                 style={{
                   fontSize: '0.72rem',
                   fontWeight: 800,
-                  letterSpacing: '0.08em',
+                  letterSpacing: 0,
                   textTransform: 'uppercase',
                   color: 'var(--text-muted)',
                   marginBottom: 14,
