@@ -86,7 +86,7 @@ test('IP evidence ignores spoofable headers outside trusted deployments', () => 
 test('the access gate allows authenticated machine endpoints and public legal pages', async () => {
   process.env.SITE_ACCESS_CODE = 'test-gate';
   const { proxy } = createLoader()('proxy.ts');
-  for (const pathname of ['/api/stripe/webhook', '/api/cron/cleanup', '/cgv', '/retractation']) assert.equal((await proxy(new NextRequest(`http://localhost${pathname}`, { method: 'GET' }))).status, 200);
+  for (const pathname of ['/api/stripe/webhook', '/api/cron/cleanup', '/api/cron/deliveries', '/cgv', '/retractation']) assert.equal((await proxy(new NextRequest(`http://localhost${pathname}`, { method: 'GET' }))).status, 200);
   for (const pathname of ['/api/services', '/api/stripe/webhook/other', '/api/acces/other']) assert.equal((await proxy(new NextRequest(`http://localhost${pathname}`, { headers: { purpose: 'prefetch' } }))).status, 403);
   assert.equal((await proxy(new NextRequest('http://localhost/', { headers: { purpose: 'prefetch' } }))).status, 307);
   delete process.env.SITE_ACCESS_CODE;
@@ -123,7 +123,7 @@ test('client sessions require a verified customer', async () => {
 test('client account and export do not return suspended access', async () => {
   const orders = ['active', 'cancelled_pending', 'unpaid', 'cancelled', 'pending'].map(status => ({ id: status, status, details: 'sensitive-access', service: { id: 'service', name: 'Service' }, chats: null }));
   const load = createLoader({
-    '@/lib/prisma': { prisma: { order: { updateMany: async () => ({}), findMany: async () => orders } } },
+    '@/lib/prisma': { prisma: { order: { updateMany: async () => ({}), findMany: async () => orders }, setting: { findMany: async () => [] } } },
     '@/lib/clientAuth': { getCurrentCustomer: async () => ({ id: 'customer', email: body.email }) },
     '@/lib/crypto': { decrypt: value => value },
     '@/lib/rateLimit': { enforceRateLimit: async () => null },

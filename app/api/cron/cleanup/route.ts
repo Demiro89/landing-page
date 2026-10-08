@@ -1,27 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { runDeliveryJobs } from '@/lib/deliveryWorker';
 import { remediationSchemaEnabled } from '@/lib/commerce';
 import { enqueueOrderJob } from '@/lib/durableOrders';
+import { isCronAuthorized } from '@/lib/cronAuth';
 
 export const dynamic = 'force-dynamic';
 
-// Sécurisation par token Bearer (CRON_SECRET env var, aussi utilisé par Vercel Cron).
-// Comparaison à temps constant pour ne pas fuiter le secret via une attaque
-// temporelle sur l'égalité de chaînes.
-function isAuthorized(request: NextRequest): boolean {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return false;
-  const auth = request.headers.get('authorization') || '';
-  const expected = `Bearer ${secret}`;
-  const authBuf = Buffer.from(auth, 'utf8');
-  const expBuf = Buffer.from(expected, 'utf8');
-  return authBuf.length === expBuf.length && crypto.timingSafeEqual(authBuf, expBuf);
-}
-
 export async function GET(request: NextRequest) {
-  if (!isAuthorized(request)) {
+  if (!isCronAuthorized(request)) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
   }
 

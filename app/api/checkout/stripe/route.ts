@@ -47,6 +47,7 @@ export async function POST(request: Request) {
     }
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription', payment_method_types: ['card'], customer_email: input.email,
+      billing_address_collection: 'required',
       expires_at: Math.floor(reservation.expiresAt.getTime() / 1000), client_reference_id: order.id,
       line_items: [{ price_data: { currency: 'eur', product_data: {
         name: `StreamMalin - ${stock.service.name}`, description: 'Abonnement avec prélèvement mensuel automatique. Résiliation avant la prochaine échéance depuis l’espace client.',

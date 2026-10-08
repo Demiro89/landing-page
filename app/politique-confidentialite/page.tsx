@@ -37,7 +37,7 @@ export default function PolitiqueConfidentialitePage() {
       <p>Dans le cadre de l&apos;utilisation du service, StreamMalin est susceptible de collecter&nbsp;:</p>
       <ul>
         <li><strong>Adresse e-mail</strong> — pour la création de compte, la livraison de l&apos;accès et le support&nbsp;;</li>
-        <li><strong>Nom</strong> — uniquement s&apos;il est fourni volontairement par le client&nbsp;;</li>
+        <li><strong>Identité et adresse de facturation</strong> — nom et adresse transmis lors du paiement lorsque nécessaires à la facturation&nbsp;;</li>
         <li><strong>Données de commande</strong> — offre souscrite, date, montant, statut, moyen de paiement choisi, identifiant de commande&nbsp;;</li>
         <li><strong>Données de paiement</strong> — traitées par les prestataires de paiement&nbsp;; StreamMalin ne conserve pas le numéro de carte bancaire, mais peut conserver des données limitées (4 derniers chiffres, type de carte, identifiants Stripe ou PayPal lorsque nécessaires au suivi de la commande)&nbsp;;</li>
         <li><strong>Preuves contractuelles</strong> — date d&apos;acceptation des CGV, date d&apos;acceptation de la renonciation au droit de rétractation, date de confirmation d&apos;éligibilité et version des CGV acceptée&nbsp;;</li>
@@ -71,7 +71,7 @@ export default function PolitiqueConfidentialitePage() {
         <li><strong>Vercel</strong> — hébergement du site et des journaux techniques&nbsp;;</li>
         <li><strong>Resend</strong> — envoi des e-mails transactionnels&nbsp;;</li>
         <li><strong>Telegram</strong> — notifications internes de support et de suivi des commandes lorsque configuré&nbsp;;</li>
-        <li><strong>Fournisseur de base de données</strong> — stockage sécurisé des données de commande.</li>
+        <li><strong>Neon</strong> — stockage des données de commande ; la base principale est hébergée à Francfort, en Allemagne.</li>
       </ul>
       <p>
         Certains de ces prestataires peuvent être situés hors de l&apos;Union européenne&nbsp;; dans ce

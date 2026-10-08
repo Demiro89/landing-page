@@ -1,5 +1,7 @@
 const { spawn } = require('node:child_process');
 const path = require('node:path');
+const previewPort = process.env.PREVIEW_PORT || '3101';
+const nextPort = process.env.PREVIEW_NEXT_PORT || '3100';
 
 // No real credential, database or payment can be reached from this UI preview.
 const env = { ...process.env,
@@ -11,9 +13,9 @@ const env = { ...process.env,
   STRIPE_SECRET_KEY: 'sk_test_mock', STRIPE_WEBHOOK_SECRET: '', RESEND_API_KEY: '',
   TELEGRAM_BOT_TOKEN: '', TELEGRAM_CHAT_ID: '', CRON_SECRET: '',
   COMMERCE_ENABLED: 'false', REMEDIATION_SCHEMA_ENABLED: 'false', DELIVERY_WORKER_ENABLED: 'false',
-  NEXT_PUBLIC_APP_URL: 'http://127.0.0.1:3101', NEXT_TELEMETRY_DISABLED: '1',
+  NEXT_PUBLIC_APP_URL: `http://127.0.0.1:${previewPort}`, NEXT_TELEMETRY_DISABLED: '1',
 };
-const next = spawn(process.execPath, [require.resolve('next/dist/bin/next'), process.env.PREVIEW_PRODUCTION === 'true' ? 'start' : 'dev', '--port', '3100'], { env, stdio: 'inherit', windowsHide: true });
+const next = spawn(process.execPath, [require.resolve('next/dist/bin/next'), process.env.PREVIEW_PRODUCTION === 'true' ? 'start' : 'dev', '--hostname', '127.0.0.1', '--port', nextPort], { env, stdio: 'inherit', windowsHide: true });
 const fixture = spawn(process.execPath, [path.join(__dirname, 'ui-preview.cjs')], { env, stdio: 'inherit', windowsHide: true });
 function stop() { next.kill(); fixture.kill(); }
 process.on('SIGINT', stop); process.on('SIGTERM', stop);

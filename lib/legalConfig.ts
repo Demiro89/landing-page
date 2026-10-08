@@ -19,7 +19,7 @@ export const COMPANY = {
   /** Numéro SIRET du siège (14 chiffres = SIREN + code établissement NIC) */
   siret: '104 981 014 00012',
   /** Code d'activité (NAF/APE) */
-  nafCode: '4791A',
+  nafCode: '4791B',
   /** Adresse professionnelle déclarée */
   address: '4 rue des Acacias, 89200 Avallon',
   /** Contact officiel */
@@ -67,7 +67,7 @@ export const SERVICE_NATURE =
   "L'accès fourni ne constitue pas une vente définitive d'un abonnement, d'un compte ou d'un droit de propriété. Le client bénéficie uniquement d'un droit d'accès temporaire et personnel pendant la durée de l'offre souscrite.";
 
 /** Date de dernière mise à jour des documents légaux. */
-export const LEGAL_LAST_UPDATED = '23 mai 2026';
+export const LEGAL_LAST_UPDATED = '7 octobre 2026';
 
 /** Libellé de facture pour une offre donnée. */
 export function invoiceLineLabel(offerName: string, durationLabel = '1 mois'): string {

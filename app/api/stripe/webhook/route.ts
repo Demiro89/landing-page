@@ -10,6 +10,7 @@ import { cancelOrderAndReleaseStock } from '@/lib/orderLifecycle';
 import { remediationSchemaEnabled } from '@/lib/commerce';
 import { fulfillReservedStripeOrder } from '@/lib/reservedStripeOrder';
 import { enqueueOrderJob, recordOrderPayment } from '@/lib/durableOrders';
+import { queueUnpaidReminder, type ReminderLevel } from '@/lib/unpaidReminders';
 
 export const dynamic = 'force-dynamic';
 
@@ -299,20 +300,29 @@ export async function POST(request: Request) {
           include: { service: true },
         });
         if (!order) break;
-        const nextLevel = Math.min((order.reminderCount || 0) + 1, 3) as 1 | 2 | 3;
-        const failed = await processWebhookEvent(event, (tx) => tx.order.updateMany({
-          where: { id: order.id, status: { in: ['active', 'unpaid'] } },
-          data: {
-            status: 'unpaid',
-            unpaidSince: order.unpaidSince || new Date(),
-            reminderCount: nextLevel,
-            lastReminderAt: new Date(),
-          },
-        }));
-        if (failed.count === 0) break;
-        sendUnpaidReminderEmail(order.clientEmail, order.service.name, order.id, nextLevel).catch(() => {});
+        const durable = remediationSchemaEnabled();
+        const failed = await processWebhookEvent(event, async tx => {
+          await tx.$queryRaw`SELECT "id" FROM "Order" WHERE "id" = ${order.id} FOR UPDATE`;
+          const current = await tx.order.findUniqueOrThrow({ where: { id: order.id } });
+          if (!['active', 'unpaid'].includes(current.status)) return { count: 0, nextLevel: null };
+          if (durable && invoice.id) {
+            const paid = await tx.paymentRecord.findUnique({ where: { provider_providerPaymentId: { provider: 'stripe', providerPaymentId: invoice.id } } });
+            if (paid?.orderId === order.id && paid.status === 'paid') return { count: 0, nextLevel: null };
+          }
+          const now = new Date();
+          const unpaidSince = current.unpaidSince || now;
+          const nextLevel = Math.min(current.reminderCount + 1, 3) as ReminderLevel;
+          const changed = await tx.order.updateMany({
+            where: { id: order.id, status: { in: ['active', 'unpaid'] } },
+            data: { status: 'unpaid', unpaidSince, reminderCount: nextLevel, lastReminderAt: now },
+          });
+          if (changed.count === 1 && durable) await queueUnpaidReminder(tx, order.id, unpaidSince, nextLevel);
+          return { ...changed, nextLevel };
+        });
+        if (failed.count === 0 || !failed.nextLevel) break;
+        if (!durable) await sendUnpaidReminderEmail(order.clientEmail, order.service.name, order.id, failed.nextLevel);
         sendTelegramNotification(
-          `❌ <b>Paiement Stripe échoué</b>\n👤 ${order.clientEmail}\n📺 ${order.service.name}\n💶 ${order.price.toFixed(2)}€\n🔔 Rappel ${nextLevel}/3 envoyé`
+          `❌ <b>Paiement Stripe échoué</b>\n👤 ${order.clientEmail}\n📺 ${order.service.name}\n💶 ${order.price.toFixed(2)}€\n🔔 Relance ${failed.nextLevel}/3 enregistrée`
         ).catch(() => {});
         break;
       }

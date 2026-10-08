@@ -1,22 +1,29 @@
-const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const CHAT_ID = process.env.TELEGRAM_ADMIN_CHAT_ID || process.env.TELEGRAM_CHAT_ID;
-
-export async function sendTelegramNotification(message: string): Promise<void> {
+export async function sendTelegramNotification(message: string): Promise<boolean> {
+  const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+  const CHAT_ID = process.env.TELEGRAM_ADMIN_CHAT_ID || process.env.TELEGRAM_CHAT_ID;
   if (!BOT_TOKEN || !CHAT_ID) {
-    console.log('[Telegram] Non configuré — message ignoré:', message);
-    return;
+    console.warn('[Telegram] Notification non envoyée : configuration absente.');
+    return false;
   }
   try {
-    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+    const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(10000),
       body: JSON.stringify({
         chat_id: CHAT_ID,
         text: message,
         parse_mode: 'HTML',
       }),
     });
-  } catch (err) {
-    console.error('[Telegram] Erreur envoi notification:', err);
+    const result = await response.json();
+    if (!response.ok || result.ok !== true) {
+      console.error('[Telegram] Notification refusée par le fournisseur.');
+      return false;
+    }
+    return true;
+  } catch {
+    console.error('[Telegram] Notification non confirmée.');
+    return false;
   }
 }

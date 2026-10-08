@@ -4,6 +4,7 @@ import { getCurrentCustomer } from '@/lib/clientAuth';
 import { decrypt } from '@/lib/crypto';
 import { enforceRateLimit } from '@/lib/rateLimit';
 import { canReadAccess } from '@/lib/orderAccess';
+import { readBillingSnapshot } from '@/lib/billingSnapshot';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,12 +29,18 @@ export async function GET(request: Request) {
     where: { customerId: customer.id },
     include: {
       service: { select: { name: true, id: true } },
+      invoice: { select: { number: true, issuedAt: true, paidAt: true, clientName: true, clientAddress: true, totalTTC: true } },
       chats: {
         include: { messages: { orderBy: { createdAt: 'asc' } } },
       },
     },
     orderBy: { date: 'desc' },
   });
+
+  const billingRows = orders.length ? await prisma.setting.findMany({
+    where: { key: { in: orders.map(order => `billing:${order.id}`) } },
+  }) : [];
+  const billing = new Map(billingRows.map(row => [row.key.slice('billing:'.length), readBillingSnapshot(row.value)]));
 
   const exportPayload = {
     exportedAt: new Date().toISOString(),
@@ -51,6 +58,8 @@ export async function GET(request: Request) {
       price: o.price,
       total: o.total,
       paymentMethod: o.paymentMethod,
+      billingDetails: billing.get(o.id) || null,
+      invoice: o.invoice || null,
       accessDetails: canReadAccess(o.status) ? decrypt(o.details) : '',
       nextBillingAt: o.nextBillingAt,
       cancellationRequestedAt: o.cancellationRequestedAt,
@@ -77,6 +86,7 @@ export async function GET(request: Request) {
   return new NextResponse(json, {
     headers: {
       'Content-Type': 'application/json; charset=utf-8',
+      'Cache-Control': 'private, no-store',
       'Content-Disposition': `attachment; filename="${filename}"`,
     },
   });
