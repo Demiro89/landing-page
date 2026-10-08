@@ -169,9 +169,10 @@ Le site étant protégé et sans ventes déclarées, aucun taux de conversion ac
 - `npm run build` : compilation de production réussie, TypeScript validé. Cette commande génère le client Prisma mais ne modifie pas la base.
 - `npm audit --omit=dev --audit-level=high` : zéro vulnérabilité signalée.
 - `npm audit --audit-level=high` : échec connu sur les cinq alertes de développement décrites ci-dessus. Ne pas présenter tous les contrôles comme verts.
-- Un test PostgreSQL de concurrence ajouté. PostgreSQL local non exécuté : moteur Docker indisponible. Le workflow existant l'exécute sur une base jetable dans GitHub Actions ; son résultat doit être vérifié sur la PR.
+- Un test PostgreSQL de concurrence ajouté. PostgreSQL local non exécuté : moteur Docker indisponible. Sur le commit d'implémentation `2cca2d7`, le [workflow GitHub Actions](https://github.com/Demiro89/landing-page/actions/runs/37794108412) a exécuté les six tests PostgreSQL sur une base jetable : six réussites, aucun échec. Lint, 75 tests unitaires et build y réussissent aussi ; seul l'audit des dépendances de développement échoue. L'aperçu Vercel associé réussit également. Vérifier à nouveau ces contrôles après réorientation de la PR vers `main`.
 - Vérification visuelle sur ordinateur et mobile, notamment largeur 320 et 390 pixels. Le refus d'un changement de passerelle conserve la valeur antérieure ; une réponse support refusée conserve le brouillon. Les fenêtres sont fermées par Échap et rendent le focus.
 - Pas de changement des dépendances, du schéma Prisma, des secrets, des réglages Vercel/Neon ni des données réelles.
+- PR de livraison : [#83](https://github.com/Demiro89/landing-page/pull/83), non fusionnée. Aperçu local en lecture seule : `http://127.0.0.1:3107/admin?fixture=admin`. Les neuf pages légales ont aussi été ouvertes avec succès dans cet aperçu ; les états publics vide, erreur et épuisé ont été revérifiés.
 
 Ordre de revue : examiner puis fusionner la PR publique #82 si elle est validée ; réorienter ensuite la PR admin vers `main` et relancer les contrôles. Ne pas fusionner la PR admin dans la branche publique par inadvertance. Toute mise en production doit conserver les ventes fermées jusqu'à validation des points de mise en service ci-dessus.
 
