@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
-import { getCurrentCustomer, verifyPassword, hashPassword, bumpSessionVersion, setSession } from '@/lib/clientAuth';
+import { getCurrentCustomer, verifyPassword, hashPassword, setSession } from '@/lib/clientAuth';
 import { prisma } from '@/lib/prisma';
 import { enforceRateLimit } from '@/lib/rateLimit';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
-  const limited = await enforceRateLimit(request, 'change-password', 5, 900);
+  const limited = await enforceRateLimit(request, 'change-password', 5, 900, true);
   if (limited) return limited;
 
   const customer = await getCurrentCustomer();
@@ -35,13 +35,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Le nouveau mot de passe doit être différent de l\'actuel' }, { status: 400 });
   }
 
-  await prisma.customer.update({
-    where: { id: customer.id },
-    data: { passwordHash: hashPassword(newPassword) },
+  const updated = await prisma.$transaction(async tx => {
+    const changed = await tx.customer.updateMany({
+      where: { id: customer.id, passwordHash: customer.passwordHash, sessionVersion: customer.sessionVersion },
+      data: {
+        passwordHash: hashPassword(newPassword), sessionVersion: { increment: 1 },
+        resetToken: null, resetTokenExp: null, pendingEmail: null, emailChangeToken: null, emailChangeTokenExp: null,
+      },
+    });
+    if (changed.count !== 1) return null;
+    return tx.customer.findUniqueOrThrow({ where: { id: customer.id }, select: { sessionVersion: true } });
   });
-
-  const newVersion = await bumpSessionVersion(customer.id);
-  await setSession(customer.id, newVersion);
+  if (!updated) return NextResponse.json({ error: 'Le compte a changé. Reconnectez-vous avant de réessayer.' }, { status: 409 });
+  await setSession(customer.id, updated.sessionVersion);
 
   return NextResponse.json({ success: true });
 }

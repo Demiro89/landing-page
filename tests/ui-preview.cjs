@@ -22,10 +22,34 @@ const unpaidOrders = [1, 3].map(level => ({
   unpaidSince: now, lastReminderAt: now, reminderCount: level,
   paymentMethod: 'Carte bancaire (Stripe)', stripeSubscriptionId: 'sub_readonly_fixture',
 }));
+const adminOrders = ['active', 'pending', 'payment_review', 'unpaid', 'cancelled_pending', 'cancelled'].map((status, index) => ({
+  id: `demo-order-${index + 1}`, status, clientEmail: `client-${index + 1}@example.test`,
+  serviceId: services[index % 2].id, service: services[index % 2], stockAccountId: stocks[index % 2 === 0 ? 0 : 2].id,
+  stockAccount: stocks[index % 2 === 0 ? 0 : 2], price: services[index % 2].price, fee: 0, total: services[index % 2].price,
+  details: 'DEMONSTRATION - aucun acces reel', date: new Date(Date.now() - index * 86400000).toISOString(),
+  paymentMethod: index % 2 === 0 ? 'Carte bancaire (Stripe)' : 'PayPal', stripeSubscriptionId: index % 2 === 0 ? `sub_demo_${index}` : null,
+  unpaidSince: status === 'unpaid' ? now : null, reminderCount: status === 'unpaid' ? 1 : 0,
+  cancellationEffectiveAt: status.startsWith('cancelled') ? now : null,
+  acceptedTermsAt: now, acceptedWithdrawalWaiverAt: now, acceptedEligibilityAt: now, termsVersion: '2026-10-07.1',
+  acceptanceIp: '192.0.2.1', acceptanceUserAgent: 'Demonstration locale',
+}));
+const adminOperations = {
+  success: true, schemaEnabled: true,
+  jobs: [{ id: 'demo-job-1', orderId: 'demo-order-1', kind: 'delivery', status: 'pending', attempts: 0, lastError: null },
+    { id: 'demo-job-2', orderId: 'demo-order-3', kind: 'payment_review', status: 'needs_review', attempts: 1, lastError: 'Demonstration : verification prestataire necessaire.' },
+    { id: 'demo-job-3', orderId: 'demo-order-6', kind: 'access_revocation', status: 'needs_review', attempts: 0, lastError: null }],
+  payments: [{ id: 'demo-payment-1', orderId: 'demo-order-1', amountMinor: 549, paidAt: now, provider: 'stripe', providerPaymentId: 'pi_demo_non_reel', status: 'paid' }],
+  sessions: [{ createdAt: now, expiresAt: new Date(Date.now() + 3600000).toISOString() }],
+  withdrawals: [{ id: 'demo-withdrawal-1', orderId: 'demo-order-6', receivedAt: now, email: 'client-6@example.test' }],
+};
+const supportThreads = [0, 3].map(index => ({ id: adminOrders[index].id, orderId: adminOrders[index].id, title: 'Support demonstration', createdAt: now,
+  order: { clientEmail: adminOrders[index].clientEmail, service: adminOrders[index].service },
+  messages: [{ id: `demo-message-${index}`, sender: 'Vous', text: 'Bonjour, pouvez-vous verifier mon acces ? (demonstration)', createdAt: now }],
+}));
 const server = http.createServer((req, res) => {
   if (process.env.FIXTURE_DEBUG === 'true') console.log(req.method, req.url);
   const url = new URL(req.url, `http://127.0.0.1:${previewPort}`);
-  const mode = url.searchParams.get('fixture') || /fixture-mode=(empty|error|soldout|reminders)/.exec(req.headers.cookie || '')?.[1] || 'normal';
+  const mode = url.searchParams.get('fixture') || /fixture-mode=(empty|error|soldout|reminders|admin|login)/.exec(req.headers.cookie || '')?.[1] || 'normal';
   const json = (data, status = 200) => { res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(data)); };
   if (url.pathname.startsWith('/api/')) {
     if (req.method !== 'GET') return json({ error: 'Demonstration locale : aucune operation effectuee.' }, 503);
@@ -36,14 +60,15 @@ const server = http.createServer((req, res) => {
       '/api/stocks/public': { success: true, stocks: empty || mode === 'soldout' ? [] : stocks.map(s => ({ id: s.id, serviceId: s.serviceId, price: s.price, maxSlots: s.maxSlots, filledSlots: s.filledSlots, service: s.service })) },
       '/api/settings/public': { success: true, settings },
       '/api/client/me': { authenticated: false },
-      '/api/admin/auth': { authenticated: true },
-      '/api/admin/stock': { success: true, services: services.map(s => ({ ...s, stocks: stocks.filter(v => v.serviceId === s.id) })), orders: mode === 'reminders' ? unpaidOrders : [], kpis: { totalRevenue: 0, totalCogs: 0, totalInvestment: 36, netProfit: 0, marginPercentage: 0 } },
+      '/api/admin/auth': { authenticated: mode !== 'login' },
+      '/api/admin/stock': { success: true, schemaEnabled: mode === 'admin', services: empty ? [] : services.map(s => ({ ...s, stocks: stocks.filter(v => v.serviceId === s.id) })), orders: mode === 'admin' ? adminOrders : mode === 'reminders' ? unpaidOrders : [], kpis: { totalRevenue: 0, totalCogs: 0, totalInvestment: empty ? 0 : 36, netProfit: 0, marginPercentage: 0 } },
       '/api/admin/settings': { success: true, settings },
-      '/api/admin/clients': { success: true, clients: [] },
+      '/api/admin/clients': { success: true, clients: mode === 'admin' ? adminOrders.map(order => ({ email: order.clientEmail, firstOrderDate: new Date(order.date).toLocaleDateString('fr-FR'), orderCount: 1, activeOrders: Number(order.status === 'active'), totalSpent: ['active', 'unpaid', 'cancelled_pending'].includes(order.status) ? order.total : 0 })) : [] },
       '/api/admin/2fa': { success: true, enabled: false },
       '/api/admin/commercial-review': { success: true, commerceEnabled: false, schemaEnabled: false, services: services.map(service => ({ id: service.id, name: service.name, active: service.active, review: { status: 'unverified', authorizationReference: '', eligibility: service.eligibility, accessType: service.accessType, privacyNote: service.privacyNote, referenceUrl: '', referenceCheckedAt: '', referencePrice: null, comparableReference: false } })) },
-      '/api/admin/operations': { success: true, schemaEnabled: false, jobs: [], payments: [], sessions: [], withdrawals: [] },
-      '/api/chat': { success: true, threads: [] },
+      '/api/admin/operations': mode === 'admin' ? adminOperations : { success: true, schemaEnabled: false, jobs: [], payments: [], sessions: [], withdrawals: [] },
+      '/api/admin/audit': { success: true, logs: mode === 'admin' ? [{ id: 'demo-audit-1', action: 'order.validate', entityType: 'order', entityId: 'demo-order-1', description: 'DEMONSTRATION : validation de paiement', ip: '192.0.2.1', createdAt: now }] : [] },
+      '/api/chat': { success: true, threads: mode === 'admin' ? supportThreads : [] },
     };
     return json(endpoints[url.pathname] || { error: 'API non simulee' }, endpoints[url.pathname] ? 200 : 404);
   }

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { hashPassword, setSession, bumpSessionVersion } from '@/lib/clientAuth';
+import { hashPassword, setSession } from '@/lib/clientAuth';
 import { enforceRateLimit } from '@/lib/rateLimit';
 
 export const dynamic = 'force-dynamic';
@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     if (limited) return limited;
 
     const { token, password } = await request.json();
-    if (!token || !password) {
+    if (typeof token !== 'string' || !/^[a-f0-9]{64}$/.test(token) || !password) {
       return NextResponse.json({ error: 'Token et mot de passe requis' }, { status: 400 });
     }
     if (typeof password !== 'string' || password.length < 8 || password.length > 128 || !/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
@@ -34,23 +34,28 @@ export async function POST(request: Request) {
 
     // Consommation atomique du token : empêche un double usage en cas de
     // requêtes parallèles avec le même lien.
-    const consumed = await prisma.customer.updateMany({
-      where: { id: customer.id, resetToken: token },
-      data: {
-        passwordHash: hashPassword(password),
-        resetToken: null,
-        resetTokenExp: null,
-        emailVerified: true, // si le mdp est réinitialisé via email, l'email est de fait vérifié
-        loginAttempts: 0,
-        lockedUntil: null,
-      },
+    const updated = await prisma.$transaction(async tx => {
+      const consumed = await tx.customer.updateMany({
+        where: { id: customer.id, resetToken: token, resetTokenExp: { gt: new Date() } },
+        data: {
+          passwordHash: hashPassword(password),
+          resetToken: null,
+          resetTokenExp: null,
+          emailVerified: true,
+          loginAttempts: 0,
+          lockedUntil: null,
+          sessionVersion: { increment: 1 },
+          pendingEmail: null, emailChangeToken: null, emailChangeTokenExp: null,
+        },
+      });
+      if (consumed.count !== 1) return null;
+      return tx.customer.findUniqueOrThrow({ where: { id: customer.id }, select: { sessionVersion: true } });
     });
-    if (consumed.count === 0) {
+    if (!updated) {
       return NextResponse.json({ error: 'Lien de réinitialisation invalide ou expiré' }, { status: 400 });
     }
 
-    const newVersion = await bumpSessionVersion(customer.id);
-    await setSession(customer.id, newVersion);
+    await setSession(customer.id, updated.sessionVersion);
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {

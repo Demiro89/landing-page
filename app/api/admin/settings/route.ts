@@ -56,7 +56,7 @@ export async function PUT(request: Request) {
   if (!(await checkAuth())) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
   }
-  const limited = await enforceRateLimit(request, 'admin-write', 60, 60);
+  const limited = await enforceRateLimit(request, 'admin-write', 60, 60, true);
   if (limited) return limited;
   try {
     const body = await request.json();

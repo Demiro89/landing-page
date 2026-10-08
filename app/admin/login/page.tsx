@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { ArrowLeft, LogIn } from 'lucide-react';
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -53,9 +55,7 @@ export default function AdminLoginPage() {
     <div className="admin-login-wrap">
       <div className="glass-panel admin-login-card">
         <div className="admin-login-icon">SM</div>
-        <h2 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: 6 }}>
-          Accès <span className="gradient-text">restreint</span>
-        </h2>
+        <h1>Administration StreamMalin</h1>
         <p style={{ color: 'var(--text-gray)', fontSize: '0.85rem', marginBottom: 28 }}>
           Zone réservée au personnel autorisé.
         </p>
@@ -103,9 +103,10 @@ export default function AdminLoginPage() {
           {loginError && <div className="error-box" role="alert">{loginError}</div>}
 
           <button type="submit" className="btn-pay" disabled={loading} style={{ marginTop: 4 }}>
-            {loading ? 'Vérification…' : 'Connexion'}
+            <LogIn size={17} aria-hidden="true" />{loading ? 'Vérification…' : 'Connexion'}
           </button>
         </form>
+        <Link href="/" className="admin-login-return"><ArrowLeft size={15} aria-hidden="true" /> Retour au site</Link>
 
         <div style={{ marginTop: 20, fontSize: '0.7rem', color: 'var(--text-muted)', textAlign: 'center' }}>
           StreamMalin · Administration
