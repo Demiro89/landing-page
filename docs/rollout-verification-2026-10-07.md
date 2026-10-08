@@ -47,15 +47,15 @@ facturation, renouvellement, paiement echoue, resiliation et liberation de place
 seulement apres confirmation de revocation de l'acces fournisseur. Un paiement
 tardif ne prend pas la place reservee par une autre commande : revue manuelle.
 
-Resultats techniques verifies sur le commit `7912a67` :
+Resultats techniques verifies sur le commit `175bc98` :
 
-- 52 tests unitaires reussis, sans echec ni test ignore.
-- 4 tests d'integration reussis sur PostgreSQL 17 dans GitHub Actions, sans echec
+- 57 tests unitaires reussis, sans echec ni test ignore.
+- 5 tests d'integration reussis sur PostgreSQL 17 dans GitHub Actions, sans echec
   ni test ignore. La migration additive est appliquee sur le schema historique
   avant ces tests ; les appels aux prestataires y restent simules.
 - `npm run lint` et `npm run build` reussis en local ; compilation et verification
-  TypeScript egalement reussies dans GitHub Actions.
-- Execution GitHub Actions : [Quality 37610170703](https://github.com/Demiro89/landing-page/actions/runs/37610170703).
+  TypeScript egalement reussies dans GitHub Actions avec Next.js 16.3.8.
+- Execution GitHub Actions : [Quality 37770829308](https://github.com/Demiro89/landing-page/actions/runs/37770829308).
   Son statut global reste en echec a cause de l'audit des dependances de
   developpement. Ce n'est pas un echec des tests PostgreSQL ou du build.
 
@@ -143,10 +143,14 @@ un autre reglement si le paiement a deja ete regularise. Il comporte des version
 texte et HTML avec echappement des valeurs. L'admin indique une relance
 "enregistree", et ne pretend plus que l'e-mail a ete recu ou envoye.
 
-Validation locale : 57 tests unitaires reussis, lint et build reussis. Un cinquieme
-test PostgreSQL couvre les relances, reprises concurrentes, regularisations,
-actions admin et annulations ; son resultat CI est a confirmer avant validation.
+Validation locale et CI : 57 tests unitaires reussis, lint et build reussis. Le
+cinquieme test PostgreSQL couvre les relances, reprises concurrentes,
+regularisations, actions admin et annulations ; les cinq tests PostgreSQL sont
+reussis sans test ignore sur `175bc98`. Les prestataires y sont simules.
 L'apercu UI utilise exclusivement des donnees fictives et refuse toute mutation.
+Affichage controle a 390 x 843 et 1440 x 1000 pixels CSS : libelles "enregistree",
+dates, deux niveaux de relance et absence de quatrieme rappel. Aucun debordement
+horizontal de la page constate ; les captures sont locales, hors depot.
 
 ## Identite, mediation et comptabilite
 
@@ -189,13 +193,23 @@ une modification de modele : elle n'est pas improvisee ici.
 
 ## Dependances
 
+Le controle CI sur `1585bf0` a signale des avis Next.js supplementaires affectant
+16.3.7. Le correctif officiel minimal 16.3.8 et sa configuration lint correspondante
+sont appliques dans `package.json` et le fichier de verrouillage, sans mise a
+jour majeure ni modification de base. Les tests, le lint et le build passent
+avec cette version. Controle apres correction : `npm audit --omit=dev` ne signale
+aucune vulnerabilite. Cela concerne les dependances de cette branche, pas une
+attestation de securite complete du site. Le correctif n'est pas encore deploye
+en production puisque la PR reste non mergee.
+
 L'alerte GHSA-vfj7-8cjw-p6xm affecte `braces <= 3.0.3`, transitivement utilise par
 le lint Next via `fast-glob`/`micromatch`. Les dernieres versions officielles
 consultees conservent cette dependance ; aucune version corrigee de braces
 n'est disponible dans l'avis au moment du controle. Ne pas appliquer le downgrade
 automatique du lint vers Next 14 ni masquer l'alerte. L'audit complet reste rouge.
-L'audit des seules dependances de production doit etre controle separement.
-Controle du 7 octobre 2026 : audit de production sans vulnerabilite signalee.
+Les cinq entrees de l'audit complet correspondent a cette chaine de dependances
+de developpement. L'audit de production reste un controle distinct et reussit
+apres le correctif Next.js ; l'audit complet est conserve en echec dans la CI.
 
 ## Restant avant ouverture des ventes
 
@@ -245,6 +259,7 @@ commerce/livraison restent fermes.
 - `lib/reservedStripeOrder.ts`
 - `lib/telegram.ts`
 - `lib/unpaidReminders.ts`
+- `package-lock.json`
 - `package.json`
 - `proxy.ts`
 - `tests/postgres-payments.cjs`
@@ -263,3 +278,4 @@ commerce/livraison restent fermes.
 - [Tests Stripe](https://docs.stripe.com/testing)
 - [Tests de facturation Stripe](https://docs.stripe.com/billing/testing)
 - [Alerte braces](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)
+- [Correctifs de securite Next.js 16.3.8](https://github.com/vercel/next.js/releases/tag/v16.3.8)
