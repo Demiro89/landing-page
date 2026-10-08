@@ -50,7 +50,7 @@ function withCsp(request: NextRequest): NextResponse {
     response.headers.set('Referrer-Policy', 'no-referrer');
     response.headers.set('Cache-Control', 'private, no-store');
   }
-  if (request.nextUrl.pathname.startsWith('/api/') || request.nextUrl.pathname.startsWith('/facture/')) {
+  if (request.nextUrl.pathname.startsWith('/api/') || request.nextUrl.pathname.startsWith('/facture/') || request.nextUrl.pathname.startsWith('/admin')) {
     response.headers.set('Cache-Control', 'private, no-store');
   }
   return response;

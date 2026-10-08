@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { isAdminAuthenticated } from '@/lib/adminAuth';
+import { hasValidatedInitialAmount } from '@/lib/adminPresentation';
 
 export const dynamic = 'force-dynamic';
 
@@ -54,7 +55,7 @@ export async function GET() {
         };
       }
       clientMap[email].orderCount += 1;
-      clientMap[email].totalSpent += order.total;
+      if (hasValidatedInitialAmount(order.status)) clientMap[email].totalSpent += order.total;
       if (order.status === 'active') clientMap[email].activeOrders += 1;
     });
 

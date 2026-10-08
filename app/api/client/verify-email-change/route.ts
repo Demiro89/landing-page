@@ -8,7 +8,7 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://streammalin.fr';
 export async function GET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get('token');
 
-  if (!token) {
+  if (!token || !/^[a-f0-9]{64}$/.test(token)) {
     return NextResponse.redirect(`${APP_URL}/?emailChange=invalid`);
   }
 
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
   // requêtes parallèles avec le même lien.
   const consumed = await prisma.$transaction(async tx => {
     const claimed = await tx.customer.updateMany({
-      where: { id: customer.id, emailChangeToken: token },
+      where: { id: customer.id, emailChangeToken: token, emailChangeTokenExp: { gt: new Date() }, pendingEmail: newEmail },
       data: {
         email: newEmail,
         pendingEmail: null,

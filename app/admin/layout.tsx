@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import './admin-experience.css';
 
 // Espace d'administration : jamais indexé par les moteurs de recherche.
 export const metadata: Metadata = {

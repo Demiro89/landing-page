@@ -210,6 +210,28 @@ test('PostgreSQL: unpaid reminders commit with order state, retry once, and beco
   assert.equal(await db.deliveryJob.count({ where: { id: { in: pending.map(job => job.id) }, status: 'skipped', lastError: 'reminder_obsolete' } }), 3);
 });
 
+test('PostgreSQL: concurrent manual regularizations create one payment proof, and a used receipt cannot settle another unpaid episode', async () => {
+  const f = await fixture();
+  await db.$transaction([
+    db.order.update({ where: { id: f.order.id }, data: { status: 'unpaid', paymentMethod: 'PayPal', unpaidSince: new Date() } }),
+    db.stockAccount.update({ where: { id: f.stock.id }, data: { filledSlots: 1 } }),
+    db.stockReservation.update({ where: { id: f.reservation.id }, data: { status: 'consumed', consumedAt: new Date() } }),
+  ]);
+  const admin = load('app/api/admin/stock/route.ts');
+  const reference = `manual_${crypto.randomUUID()}`;
+  const regularize = () => admin.PUT(new Request('http://localhost/api/admin/stock', { method: 'PUT', body: JSON.stringify({ action: 'mark_paid', orderId: f.order.id, paymentReference: reference }) }));
+  const results = await Promise.all([regularize(), regularize()]);
+  assert.deepEqual(results.map(response => response.status).sort(), [200, 409]);
+  assert.equal(await db.paymentRecord.count({ where: { orderId: f.order.id } }), 1);
+  const proof = await db.paymentRecord.findFirstOrThrow({ where: { orderId: f.order.id } });
+  assert.equal(proof.providerPaymentId, reference); assert.equal(proof.amountMinor, 300);
+  assert.equal((await db.order.findUniqueOrThrow({ where: { id: f.order.id } })).status, 'active');
+  await db.order.update({ where: { id: f.order.id }, data: { status: 'unpaid', unpaidSince: new Date() } });
+  assert.equal((await regularize()).status, 409);
+  assert.equal((await db.order.findUniqueOrThrow({ where: { id: f.order.id } })).status, 'unpaid');
+  assert.equal(await db.paymentRecord.count({ where: { orderId: f.order.id } }), 1);
+});
+
 test.after(async () => {
   try {
     const orders = await db.order.findMany({ where: { serviceId: { in: services } }, select: { id: true } });

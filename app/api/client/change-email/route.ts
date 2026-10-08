@@ -44,18 +44,16 @@ export async function POST(request: Request) {
   const token = generateVerificationToken();
   const exp = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-  await prisma.customer.update({
-    where: { id: customer.id },
+  const changed = await prisma.customer.updateMany({
+    where: { id: customer.id, passwordHash: customer.passwordHash, sessionVersion: customer.sessionVersion },
     data: {
       pendingEmail: normalized,
       emailChangeToken: token,
       emailChangeTokenExp: exp,
     },
   });
-
-  sendEmailChangeVerificationEmail(normalized, token).catch((err) =>
-    console.error('[change-email] send error:', err)
-  );
-
-  return NextResponse.json({ success: true, message: 'Un email de confirmation a été envoyé à votre nouvelle adresse.' });
+  if (changed.count !== 1) return NextResponse.json({ error: 'Le compte a changé. Reconnectez-vous avant de réessayer.' }, { status: 409 });
+  const sent = await sendEmailChangeVerificationEmail(normalized, token).catch(() => null);
+  if (!sent?.success) return NextResponse.json({ error: 'L’envoi de la confirmation n’a pas pu être confirmé. Votre adresse actuelle reste inchangée.' }, { status: 503 });
+  return NextResponse.json({ success: true, message: 'Le message de confirmation a été accepté par le prestataire. Vérifiez la nouvelle boîte e-mail, y compris les indésirables.' });
 }

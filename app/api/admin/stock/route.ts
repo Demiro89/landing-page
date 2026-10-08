@@ -14,13 +14,14 @@ import { remediationSchemaEnabled } from '@/lib/commerce';
 import { lockStock, heldPlaces } from '@/lib/stockReservations';
 import { recordOrderPayment, enqueueOrderJob } from '@/lib/durableOrders';
 import { queueUnpaidReminder } from '@/lib/unpaidReminders';
+import { isStripeOrder, hasValidatedInitialAmount } from '@/lib/adminPresentation';
 
 export const dynamic = 'force-dynamic';
 
 // Throttle commun aux mutations admin : limite les dégâts en cas de session
 // volée et les opérations en masse involontaires (60 écritures / minute).
 const writeRateLimit = (request: Request) =>
-  enforceRateLimit(request, 'admin-write', 60, 60);
+  enforceRateLimit(request, 'admin-write', 60, 60, true);
 
 const checkAuth = isAdminAuthenticated;
 const errorMessage = (error: unknown) => {
@@ -94,7 +95,7 @@ export async function GET() {
     let totalCogs = 0; // Coût d'achat global des slots consommés
 
     orders.forEach((order) => {
-      if (['pending', 'payment_review', 'cancelled'].includes(order.status)) return;
+      if (!hasValidatedInitialAmount(order.status)) return;
       totalRevenue += order.total;
       // On calcule le coût unitaire de ce slot dans le compte de stock associé
       // COGS d'un slot = Coût d'achat total du compte divisé par le nombre maximal de slots
@@ -318,6 +319,7 @@ export async function PUT(request: Request) {
 
     if (action === 'toggle_service') {
       const { active } = body;
+      if (typeof id !== 'string' || !id || typeof active !== 'boolean') return NextResponse.json({ error: 'Service ou état invalide.' }, { status: 400 });
       const updatedService = await prisma.service.update({
         where: { id },
         data: { active },
@@ -424,11 +426,29 @@ export async function PUT(request: Request) {
     // ── Marquer comme payé (régularisation) ──
     if (action === 'mark_paid') {
       const { orderId } = body;
-      const before = await prisma.order.findUnique({ where: { id: orderId } });
-      if (before?.stripeSubscriptionId) return NextResponse.json({ error: 'Un paiement Stripe doit être régularisé et confirmé chez Stripe.' }, { status: 409 });
-      const changed = await prisma.order.updateMany({
-        where: { id: orderId, status: 'unpaid' },
-        data: { status: 'active', unpaidSince: null, reminderCount: 0, lastReminderAt: null },
+      const before = await prisma.order.findUnique({ where: { id: orderId }, include: { service: true } });
+      if (!before) return NextResponse.json({ error: 'Commande introuvable.' }, { status: 404 });
+      if (isStripeOrder(before)) return NextResponse.json({ error: 'Un paiement Stripe doit être régularisé et confirmé chez Stripe.' }, { status: 409 });
+      const durable = remediationSchemaEnabled();
+      if (durable && (typeof body.paymentReference !== 'string' || !/^[A-Za-z0-9_-]{6,120}$/.test(body.paymentReference))) return NextResponse.json({ error: 'La référence du nouveau paiement vérifié est requise.' }, { status: 400 });
+      const changed = await prisma.$transaction(async tx => {
+        await tx.$queryRaw`SELECT "id" FROM "Order" WHERE "id" = ${orderId} FOR UPDATE`;
+        if (durable) {
+          const provider = before.paymentMethod === 'PayPal' ? 'paypal_manual' : before.paymentMethod === 'Cryptomonnaie' ? 'crypto_manual' : null;
+          if (!provider) throw new OrderConflictError('Moyen de paiement non reconnu : vérifiez la commande.');
+          const previousPayment = await tx.paymentRecord.findUnique({ where: { provider_providerPaymentId: { provider, providerPaymentId: body.paymentReference } } });
+          if (previousPayment) throw new OrderConflictError('Cette référence de paiement est déjà enregistrée.');
+        }
+        const result = await tx.order.updateMany({
+          where: { id: orderId, status: 'unpaid' },
+          data: { status: 'active', unpaidSince: null, reminderCount: 0, lastReminderAt: null },
+        });
+        if (result.count === 1 && durable) await recordOrderPayment(tx, {
+          orderId, provider: before.paymentMethod === 'PayPal' ? 'paypal_manual' : 'crypto_manual', providerPaymentId: body.paymentReference,
+          amountMinor: Math.round(before.price * 100), currency: 'eur', clientEmail: before.clientEmail, serviceName: before.service.name,
+          termsVersion: before.termsVersion, paidAt: new Date(),
+        });
+        return result;
       });
       if (changed.count !== 1) return NextResponse.json({ error: 'Seule une commande impayée peut être régularisée.' }, { status: 409 });
       void writeAuditLog({ action: 'order.mark_paid', entityType: 'order', entityId: orderId, description: `Commande régularisée (marquée payée)`, ip: clientIpFromRequest(request) });
@@ -444,6 +464,7 @@ export async function PUT(request: Request) {
         include: { service: true, stockAccount: true },
       });
       if (!order) return NextResponse.json({ error: 'Commande introuvable' }, { status: 404 });
+      if (isStripeOrder(order)) return NextResponse.json({ error: 'Un paiement Stripe doit être confirmé par Stripe.' }, { status: 409 });
       if (order.status !== 'pending') {
         return NextResponse.json({ error: "Cette commande n'est pas en attente de validation." }, { status: 400 });
       }
@@ -462,7 +483,7 @@ export async function PUT(request: Request) {
               id: orderId,
               orderId,
               title: `Support ${order.service.name}`,
-              messages: { create: [{ sender: 'Support StreamMalin', text: `Bonjour ! Merci pour votre abonnement à ${order.service.name}. Vos identifiants de connexion sont disponibles sur votre commande dans votre espace client et vous ont été envoyés par e-mail. Une question ? Écrivez-nous ici.` }] },
+              messages: { create: [{ sender: 'Support StreamMalin', text: `Bonjour ! Votre paiement pour ${order.service.name} a été validé. Retrouvez le suivi de votre accès dans votre espace client. Une question ? Écrivez-nous ici.` }] },
             },
           });
         }
@@ -473,7 +494,6 @@ export async function PUT(request: Request) {
         void writeAuditLog({ action: 'order.validate', entityType: 'order', entityId: orderId, description: 'Paiement manuel vérifié ; transmission enregistrée dans la file de suivi.', ip: clientIpFromRequest(request) });
         return NextResponse.json({ success: true, deliveryQueued: true });
       }
-      if (order.paymentMethod === 'Carte bancaire (Stripe)') return NextResponse.json({ error: 'Un paiement Stripe doit être confirmé par Stripe.' }, { status: 409 });
       const invoice = await createInvoiceForOrder({
         orderId: order.id,
         clientEmail: order.clientEmail,

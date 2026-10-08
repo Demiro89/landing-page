@@ -4,9 +4,15 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { SERVICE_CATALOG, CATALOG_CATEGORIES, type ServicePreset } from '@/lib/serviceCatalog';
-import { Menu, X, LogOut, Keyboard, ArrowLeft } from 'lucide-react';
-import './admin.css';
-import OperationsPanel from '@/components/admin/OperationsPanel';
+import { Menu, X, LogOut, Keyboard, ArrowLeft, LayoutDashboard, ClipboardCheck, Package, Clapperboard, Users, Ticket, CircleAlert, Ban, MessagesSquare, Settings2, History, ShieldCheck, RefreshCw, ArrowUpRight, Download, Eye, EyeOff, Copy, Pencil, Save, Trash2, Check, Send, ChevronDown, Plus } from 'lucide-react';
+import OperationsPanel, { type OperationsTab } from '@/components/admin/OperationsPanel';
+import AdminActivityChart from '@/components/admin/AdminActivityChart';
+import OrderStatus from '@/components/admin/OrderStatus';
+import AdminDialog from '@/components/admin/AdminDialog';
+import { useAdminActions } from '@/components/admin/useAdminActions';
+import { adminResponse } from '@/lib/adminResponse';
+import { hasValidatedInitialAmount, isStripeOrder, matchesOrderSearch } from '@/lib/adminPresentation';
+import { formatEuro } from '@/lib/offerPresentation';
 
 /* ─── Types ─────────────────────────────────────────────────────────────── */
 interface Service {
@@ -24,6 +30,7 @@ interface Order {
   serviceId: string;
   stockAccountId: string;
   paymentMethod?: string | null;
+  stripeSubscriptionId?: string | null;
   acceptanceIp?: string | null;
   acceptanceUserAgent?: string | null;
   acceptedTermsAt?: string | null;
@@ -72,7 +79,7 @@ interface ServiceForm {
 type ServiceFormKey = keyof ServiceForm;
 
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
-const fmt = (n: number) => n.toFixed(2).replace('.', ',') + '€';
+const fmt = formatEuro;
 
 const accentStyle = (value: string): AccentStyle => ({ '--accent-color': value });
 const serviceFields: Array<{ label: string; key: ServiceFormKey; placeholder: string; type?: string }> = [
@@ -85,19 +92,24 @@ const serviceFields: Array<{ label: string; key: ServiceFormKey; placeholder: st
   { label: 'Places max', key: 'maxSlots', placeholder: '4', type: 'number' },
 ];
 
-function toast(msg: string, duration = 5000) {
-  const el = document.getElementById('sm-toast');
-  if (!el) return;
-  el.textContent = msg;
-  el.style.display = 'block';
-  setTimeout(() => { el.style.display = 'none'; }, duration);
-}
-
 /* ─── Main Component ─────────────────────────────────────────────────────── */
 export default function AdminPage() {
   const router = useRouter();
   const [activePage, setActivePage] = useState<AdminPage>('dashboard');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [notification, setNotification] = useState('');
+  const toast = useCallback((message: string) => setNotification(message), []);
+  useEffect(() => {
+    if (!notification) return;
+    const timer = setTimeout(() => setNotification(''), 6500);
+    return () => clearTimeout(timer);
+  }, [notification]);
+  const [loading, setLoading] = useState(true);
+  const [lastLoadedAt, setLastLoadedAt] = useState<Date | null>(null);
+  const [orderFilter, setOrderFilter] = useState('all');
+  const [supportError, setSupportError] = useState('');
+  const [auditError, setAuditError] = useState('');
+  const mainRef = React.useRef<HTMLElement>(null);
 
   // Double authentification (2FA / TOTP)
   const [twoFaEnabled, setTwoFaEnabled] = useState(false);
@@ -149,11 +161,21 @@ export default function AdminPage() {
   const supportBottomRef = React.useRef<HTMLDivElement>(null);
   const supportPollRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const { request: adminFetch, busy: mutationBusy } = useAdminActions(loading, loadError, setLoadError, toast);
+
+  const [operationsTab, setOperationsTab] = useState<OperationsTab>('Offres');
+  const navigate = (page: AdminPage, tab: OperationsTab = 'Offres') => {
+    setOperationsTab(tab);
+    setActivePage(page); setMobileNavOpen(false); setShowCredIds(new Set());
+    mainRef.current?.focus();
+    window.scrollTo({ top: 0 });
+  };
+
   /* ─── Auth ───────────────────────────────────────────────────────────── */
   const doLogout = async () => {
     if (!confirm('Confirmer la déconnexion ?')) return;
     try {
-      const response = await fetch('/api/admin/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'logout' }) });
+      const response = await adminFetch('/api/admin/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'logout' }) });
       if (!response.ok) { toast('Déconnexion impossible. Réessayez.'); return; }
       router.replace('/admin/login');
       router.refresh();
@@ -162,10 +184,11 @@ export default function AdminPage() {
 
   /* ─── Data ────────────────────────────────────────────────────────────── */
   const loadAll = useCallback(async () => {
+    setLoading(true);
     try {
       const [stockRes, clientRes, settRes, twoFaRes] = await Promise.all(
         ['stock', 'clients', 'settings', '2fa'].map(async path => {
-          const response = await fetch(`/api/admin/${path}`);
+          const response = await adminResponse(`/api/admin/${path}`);
           if (response.status === 401) router.replace('/admin/login');
           if (!response.ok) throw new Error('Chargement impossible');
           const data = await response.json();
@@ -179,7 +202,11 @@ export default function AdminPage() {
       setSettings(settRes.settings);
       setTwoFaEnabled(twoFaRes.enabled);
       setLoadError('');
-    } catch { setLoadError('Chargement impossible. Les données affichées peuvent être anciennes. Réessayez avant toute modification.'); }
+      setLastLoadedAt(new Date());
+      setShowCredIds(new Set());
+      return true;
+    } catch { setLoadError('Chargement impossible. Les données affichées peuvent être anciennes. Réessayez avant toute modification.'); return false; }
+    finally { setLoading(false); }
   }, [router]);
 
   useEffect(() => { void Promise.resolve().then(loadAll); }, [loadAll]);
@@ -225,7 +252,7 @@ export default function AdminPage() {
   const start2faSetup = async () => {
     setTwoFaBusy(true);
     try {
-      const r = await fetch('/api/admin/2fa', {
+      const r = await adminFetch('/api/admin/2fa', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'setup' }),
       });
@@ -239,7 +266,7 @@ export default function AdminPage() {
     if (!twoFaSetup) return;
     setTwoFaBusy(true);
     try {
-      const r = await fetch('/api/admin/2fa', {
+      const r = await adminFetch('/api/admin/2fa', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'enable', secret: twoFaSetup.secret, token: twoFaCode }),
       });
@@ -252,7 +279,7 @@ export default function AdminPage() {
   const disable2fa = async () => {
     setTwoFaBusy(true);
     try {
-      const r = await fetch('/api/admin/2fa', {
+      const r = await adminFetch('/api/admin/2fa', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'disable', token: twoFaCode }),
       });
@@ -264,10 +291,10 @@ export default function AdminPage() {
 
   /* ─── Chiffrement des identifiants hérités ────────────────────────────── */
   const runLegacyEncryption = async () => {
-    if (!confirm('Chiffrer tous les identifiants encore en clair dans la base ? Action sûre et relançable.')) return;
+    if (!confirm('Une sauvegarde vérifiée est nécessaire. Confirmez-vous qu’elle est disponible avant de chiffrer les anciennes données ?')) return;
     setEncryptBusy(true);
     try {
-      const r = await fetch('/api/admin/encrypt-legacy', { method: 'POST' });
+      const r = await adminFetch('/api/admin/encrypt-legacy', { method: 'POST' });
       const d = await r.json();
       if (d.success) {
         setEncryptResult(`${d.stocksDone} compte(s) de stock et ${d.ordersDone} commande(s) chiffré(s).`);
@@ -290,7 +317,7 @@ export default function AdminPage() {
     if (!confirm('Le paiement reçu a-t-il été vérifié ? La transmission de l’accès sera suivie après validation.')) return;
     setBusyOrderId(orderId);
     try {
-      const r = await fetch('/api/admin/stock', {
+      const r = await adminFetch('/api/admin/stock', {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'validate_order', orderId, paymentReference }),
       });
@@ -308,7 +335,7 @@ export default function AdminPage() {
     if (!confirm('Refuser cette commande en attente ?')) return;
     setBusyOrderId(orderId);
     try {
-      const r = await fetch('/api/admin/stock', {
+      const r = await adminFetch('/api/admin/stock', {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'reject_order', orderId }),
       });
@@ -333,12 +360,13 @@ export default function AdminPage() {
     let ok = 0, fail = 0;
     for (const orderId of ids) {
       try {
-        const r = await fetch('/api/admin/stock', {
+        const r = await adminFetch('/api/admin/stock', {
           method: 'PUT', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action, orderId }),
         });
         const d = await r.json();
         if (d.success) ok++; else fail++;
+        if (r.status >= 500) { fail += ids.length - ok - fail; break; }
       } catch { fail++; }
     }
     return { ok, fail };
@@ -346,11 +374,11 @@ export default function AdminPage() {
 
   const validateSelected = async (ids: string[]) => {
     if (bulkBusy || ids.length === 0) return;
-    if (!confirm(`Valider et livrer ${ids.length} commande(s) ? Les identifiants seront envoyés à chaque client.`)) return;
+    if (!confirm(`Confirmez-vous avoir vérifié les paiements de ces ${ids.length} commandes ? La validation ne prouve pas la réception des accès.`)) return;
     setBulkBusy(true);
     try {
       const { ok, fail } = await runBulkOrders('validate_order', ids);
-      toast(fail ? `${ok} validée(s), ${fail} en échec` : `${ok} commande(s) validée(s) et livrée(s) !`);
+      toast(fail ? `${ok} validée(s), ${fail} en échec. Vérifiez le suivi.` : `${ok} commande(s) validée(s). Vérifiez la transmission des accès.`);
       setSelectedOrders(new Set());
       loadAll();
     } finally {
@@ -372,11 +400,12 @@ export default function AdminPage() {
     }
   };
 
-  const loadSupportThreads = async () => {
-    const r = await fetch('/api/chat');
+  const loadSupportThreads = useCallback(async () => {
+    const r = await adminResponse('/api/chat');
     const d = await r.json();
-    if (d.success) setSupportThreads(d.threads);
-  };
+    if (r.ok && d.success) { setSupportThreads(d.threads); setSupportError(''); }
+    else setSupportError(d.error || 'Conversations indisponibles.');
+  }, []);
 
   React.useEffect(() => {
     if (activePage === 'support') {
@@ -386,7 +415,7 @@ export default function AdminPage() {
       if (supportPollRef.current) clearInterval(supportPollRef.current);
     }
     return () => { if (supportPollRef.current) clearInterval(supportPollRef.current); };
-  }, [activePage]);
+  }, [activePage, loadSupportThreads]);
 
   React.useEffect(() => {
     supportBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -394,9 +423,9 @@ export default function AdminPage() {
 
   React.useEffect(() => {
     if (activePage === 'audit' && !auditLoaded) {
-      fetch('/api/admin/audit?limit=200')
+      adminResponse('/api/admin/audit?limit=200')
         .then(r => r.json())
-        .then(d => { if (d.success) { setAuditLogs(d.logs); setAuditLoaded(true); } });
+        .then(d => { if (d.success) { setAuditLogs(d.logs); setAuditLoaded(true); setAuditError(''); } else setAuditError(d.error || 'Journal indisponible.'); });
     }
   }, [activePage, auditLoaded]);
 
@@ -405,14 +434,17 @@ export default function AdminPage() {
     if (!supportInput.trim() || !activeSupportThread || sendingSupport) return;
     setSendingSupport(true);
     const text = supportInput.trim();
-    setSupportInput('');
-    await fetch('/api/chat', {
+    try {
+    const response = await adminFetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ orderId: activeSupportThread, text, sender: 'Support StreamMalin' }),
     });
+    const data = await response.json();
+    if (!response.ok || !data.success) { setSupportError(data.error || 'Réponse non enregistrée.'); return; }
+    setSupportInput('');
     await loadSupportThreads();
-    setSendingSupport(false);
+    } finally { setSendingSupport(false); }
   };
 
   /* ─── KPIs filtrés par plage de dates ──────────────────────────────────── */
@@ -423,7 +455,7 @@ export default function AdminPage() {
     else if (kpiRange === 'quarter') cutoff.setMonth(now.getMonth() - 3);
     else if (kpiRange === 'year') cutoff.setFullYear(now.getFullYear() - 1);
 
-    const paidOrders = orders.filter(order => !['pending', 'payment_review', 'cancelled'].includes(order.status));
+    const paidOrders = orders.filter(order => hasValidatedInitialAmount(order.status));
     const subset = kpiRange === 'all' ? paidOrders : paidOrders.filter((o: Order) => new Date(o.date) >= cutoff);
     const totalRevenue = subset.reduce((s: number, o: Order) => s + o.total, 0);
     const totalCogs = subset.reduce((s: number, o: Order) => s + (o.stockAccount?.maxSlots > 0 ? o.stockAccount.accountsBoughtPrice / o.stockAccount.maxSlots : 0), 0);
@@ -445,17 +477,16 @@ export default function AdminPage() {
       const d = new Date(); d.setDate(d.getDate() - i);
       const label = d.toLocaleDateString('fr-FR', { weekday: 'short' });
       const dayOrders = orders.filter(o => new Date(o.date).toDateString() === d.toDateString());
-      const profit = dayOrders.filter(order => !['pending', 'cancelled', 'payment_review'].includes(order.status)).reduce((acc, o) => acc + o.total - (o.stockAccount?.maxSlots > 0 ? o.stockAccount.accountsBoughtPrice / o.stockAccount.maxSlots : 0), 0);
+      const profit = dayOrders.filter(order => hasValidatedInitialAmount(order.status)).reduce((acc, o) => acc + o.total - (o.stockAccount?.maxSlots > 0 ? o.stockAccount.accountsBoughtPrice / o.stockAccount.maxSlots : 0), 0);
       days.push({ label: label.charAt(0).toUpperCase() + label.slice(1), profit });
     }
     return days;
   })();
-  const maxProfit = Math.max(...chartData.map(d => d.profit), 1);
 
   /* ─── Actions stock ───────────────────────────────────────────────────── */
   const addStock = async (e: React.FormEvent) => {
     e.preventDefault();
-    const r = await fetch('/api/admin/stock', {
+    const r = await adminFetch('/api/admin/stock', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({ action: 'add_stock', serviceId: stockForm.serviceId, accountsBoughtPrice: stockForm.accountsBoughtPrice || '0', price: stockForm.price, maxSlots: stockForm.maxSlots, filledSlots: 0, details: stockForm.details }),
@@ -466,7 +497,7 @@ export default function AdminPage() {
   };
 
   const addStockInline = async (serviceId: string, price: string, maxSlots: string, details: string): Promise<boolean> => {
-    const r = await fetch('/api/admin/stock', {
+    const r = await adminFetch('/api/admin/stock', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'add_stock', serviceId, accountsBoughtPrice: '0', price, maxSlots, filledSlots: 0, details }),
@@ -480,7 +511,7 @@ export default function AdminPage() {
   const saveStock = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editStock) return;
-    const r = await fetch('/api/admin/stock', {
+    const r = await adminFetch('/api/admin/stock', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'update_stock', id: editStock.id, expectedUpdatedAt: editStock.updatedAt, accountsBoughtPrice: editStock.accountsBoughtPrice, price: editStock.price, maxSlots: editStock.maxSlots, filledSlots: editStock.filledSlots, details: editStock.details }),
@@ -493,7 +524,7 @@ export default function AdminPage() {
   const saveOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editOrder) return;
-    const r = await fetch('/api/admin/stock', {
+    const r = await adminFetch('/api/admin/stock', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -510,7 +541,9 @@ export default function AdminPage() {
 
   const deleteStock = async (id: string) => {
     if (!confirm('Voulez-vous vraiment supprimer ce compte de stock ?')) return;
-    await fetch(`/api/admin/stock?id=${id}&type=stock`, { method: 'DELETE' });
+    const response = await adminFetch(`/api/admin/stock?id=${encodeURIComponent(id)}&type=stock`, { method: 'DELETE' });
+    const data = await response.json();
+    if (!response.ok || !data.success) { toast(data.error || 'Suppression refusée.'); return; }
     toast('Stock supprimé.');
     loadAll();
   };
@@ -519,13 +552,13 @@ export default function AdminPage() {
   const createService = async (e: React.FormEvent) => {
     e.preventDefault();
     const features = srvForm.features.split(',').map(f => f.trim()).filter(Boolean);
-    const r = await fetch('/api/admin/stock', {
+    const r = await adminFetch('/api/admin/stock', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'create_service', id: srvForm.id, name: srvForm.name, icon: srvForm.icon, gradient: srvForm.gradient || 'linear-gradient(135deg, #a855f7, #3b82f6)', price: srvForm.price, original: srvForm.original, tagline: srvForm.tagline, maxSlots: srvForm.maxSlots, features }),
     });
     const d = await r.json();
-    if (d.success) { toast('Service publié !'); setSrvForm({ id: '', name: '', icon: '', gradient: '', price: '', original: '', tagline: '', maxSlots: '', features: '' }); loadAll(); }
+    if (d.success) { toast('Fiche service enregistrée.'); setSrvForm({ id: '', name: '', icon: '', gradient: '', price: '', original: '', tagline: '', maxSlots: '', features: '' }); loadAll(); }
     else toast('Erreur : ' + d.error);
   };
 
@@ -551,13 +584,13 @@ export default function AdminPage() {
     const id = uniqueServiceId(p.id);
     setCatalogBusy(p.id);
     try {
-      const r = await fetch('/api/admin/stock', {
+      const r = await adminFetch('/api/admin/stock', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'create_service', id, name: p.name, icon: p.icon, gradient: p.gradient, price: p.price, original: p.original, tagline: p.tagline, maxSlots: p.maxSlots, features: p.features }),
       });
       const d = await r.json();
-      if (d.success) { toast(`Service « ${p.name} » publié !`); loadAll(); }
+      if (d.success) { toast(`Fiche « ${p.name} » enregistrée.`); loadAll(); }
       else toast('Erreur : ' + d.error);
     } finally {
       setCatalogBusy(null);
@@ -565,27 +598,30 @@ export default function AdminPage() {
   };
 
   const saveService = async (svc: Service) => {
-    const r = await fetch('/api/admin/stock', {
+    const r = await adminFetch('/api/admin/stock', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'create_service', id: svc.id, name: svc.name, icon: svc.icon, gradient: svc.gradient, price: svc.price, original: svc.original, tagline: svc.tagline, maxSlots: svc.maxSlots, features: svc.features }),
     });
     const d = await r.json();
-    if (d.success) { toast(`Service ${svc.name} sauvegardé !`); loadAll(); }
+    if (d.success) { toast(`Fiche ${svc.name} enregistrée.`); return await loadAll(); }
+    toast(d.error || 'Enregistrement refusé.'); return false;
   };
 
   const toggleService = async (id: string, active: boolean) => {
-    await fetch('/api/admin/stock', {
+    const response = await adminFetch('/api/admin/stock', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'toggle_service', id, active }),
     });
-    loadAll();
+    const data = await response.json();
+    if (!response.ok || !data.success) { toast(data.error || 'Modification refusée.'); return false; }
+    await loadAll(); return true;
   };
 
   const deleteService = async (id: string, name: string) => {
     if (!confirm(`Supprimer définitivement le service « ${name} » ? Tous les stocks associés seront aussi perdus.`)) return;
-    const r = await fetch(`/api/admin/stock?id=${id}&type=service`, { method: 'DELETE' });
+    const r = await adminFetch(`/api/admin/stock?id=${encodeURIComponent(id)}&type=service`, { method: 'DELETE' });
     const d = await r.json();
     if (d.success) { toast('Service supprimé.'); loadAll(); }
     else toast('Erreur : ' + (d.error || 'suppression impossible'));
@@ -594,7 +630,7 @@ export default function AdminPage() {
   /* ─── Settings ────────────────────────────────────────────────────────── */
   const saveSettings = async () => {
     const updates = Object.entries(settings).map(([key, value]) => ({ key, value }));
-    const r = await fetch('/api/admin/settings', {
+    const r = await adminFetch('/api/admin/settings', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ settings: updates }),
@@ -604,46 +640,79 @@ export default function AdminPage() {
     else toast('Erreur lors de la sauvegarde.');
   };
 
+  const copyCreds = async (txt: string) => {
+    try { await navigator.clipboard.writeText(txt); toast('Identifiants copiés'); }
+    catch { toast('Copie impossible.'); }
+  };
+  const changeOrder = async (action: string, orderId: string, message: string, extra: Record<string, unknown> = {}) => {
+    const response = await adminFetch('/api/admin/stock', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, orderId, ...extra }) });
+    const data = await response.json();
+    if (!data.success) { toast(data.error || 'Action refusée.'); return; }
+    await loadAll(); toast(action === 'send_reminder' ? `Relance ${data.reminderLevel}/3 enregistrée` : message);
+  };
+  const markUnpaid = async (orderId: string) => {
+    if (confirm('Signaler un impayé pour cette commande et enregistrer une relance ?')) await changeOrder('mark_unpaid', orderId, 'Commande marquée impayée, relance enregistrée');
+  };
+  const sendReminder = (orderId: string) => changeOrder('send_reminder', orderId, 'Relance enregistrée');
+  const markPaid = async (orderId: string) => {
+    const order = orders.find(item => item.id === orderId);
+    if (!order || isStripeOrder(order)) return;
+    const paymentReference = schemaEnabled ? prompt('Référence du nouveau paiement reçu et vérifié (jamais une référence déjà utilisée) :') : '';
+    if (schemaEnabled && !paymentReference) return;
+    if (!confirm(`Confirmez-vous avoir vérifié la réception de ${fmt(order.price)} pour cette échéance ? Ne confirmez pas un règlement partiel.`)) return;
+    await changeOrder('mark_paid', orderId, 'Paiement manuel confirmé. Vérifiez son historique.', { paymentReference });
+  };
+  const cancelAfterUnpaid = async (orderId: string) => {
+    if (confirm('Résilier cet abonnement pour impayé ? Le retrait fournisseur reste à vérifier.')) await changeOrder('cancel_order', orderId, 'Résiliation enregistrée. Vérifiez le retrait de l’accès fournisseur.');
+  };
+  const confirmCancel = async (orderId: string) => {
+    if (confirm('Confirmer la résiliation immédiate ? Le retrait fournisseur reste à vérifier.')) await changeOrder('cancel_order', orderId, 'Résiliation enregistrée. Vérifiez le retrait de l’accès.');
+  };
+
   /* ─── ADMIN UI ─────────────────────────────────────────────────────────── */
   const allStocks: StockWithService[] = services.flatMap(s => s.stocks.map(st => ({ ...st, serviceName: s.name, serviceIcon: s.icon, serviceGradient: s.gradient })));
 
-  const pendingCount = orders.filter(o => o.status === 'pending').length;
+  const pendingCount = orders.filter(o => o.status === 'pending' && !isStripeOrder(o)).length;
   const unpaidCount = orders.filter(o => o.status === 'unpaid').length;
+  const reviewCount = orders.filter(o => o.status === 'payment_review').length;
+  const cancellationCount = orders.filter(o => o.status === 'cancelled_pending').length;
+  const availablePlaces = allStocks.reduce((count, stock) => count + Math.max(0, stock.maxSlots - stock.filledSlots), 0);
+  const filteredOrders = orders.filter(order => matchesOrderSearch(order, ordersSearch) && (orderFilter === 'all' || order.status === orderFilter));
+  const navIcons = { operations: ShieldCheck, dashboard: LayoutDashboard, pending: ClipboardCheck, stocks: Package, services: Clapperboard, subscribers: Ticket, clients: Users, unpaid: CircleAlert, cancellations: Ban, support: MessagesSquare, settings: Settings2, audit: History };
 
   const navItems: [AdminPage, string, string, number?][] = [
-    ['operations', '', 'Vérifications et suivi'],
     ['dashboard', '📊', 'Tableau de bord'],
-    ['pending', '🕓', 'Commandes à valider', pendingCount],
-    ['stocks', '📦', 'Gestion des Stocks'],
-    ['services', '🎬', 'Gestion des Services'],
-    ['subscribers', '🎫', 'Abonnés par service'],
-    ['clients', '👥', 'Utilisateurs & Clients'],
+    ['pending', '🕓', 'À valider', pendingCount],
     ['unpaid', '⚠️', 'Impayés', unpaidCount],
-    ['cancellations', '🔴', 'Résiliations'],
-    ['support', '💬', 'Support Client'],
-    ['settings', '⚙️', 'Paramètres globaux'],
-    ['audit', '🔍', 'Journal d\'audit'],
+    ['cancellations', '🔴', 'Résiliations', cancellationCount],
+    ['operations', '', 'Vérifications et suivi', reviewCount],
+    ['stocks', '📦', 'Stocks'],
+    ['services', '🎬', 'Services & tarifs'],
+    ['subscribers', '🎫', 'Abonnements'],
+    ['clients', '👥', 'Clients'],
+    ['support', '💬', 'Support'],
+    ['audit', '🔍', 'Journal d’audit'],
+    ['settings', '⚙️', 'Paramètres'],
   ];
 
   return (
     <div className="admin-page">
-      <div id="sm-toast" className="toast-box" role="status" aria-live="polite" style={{ display: 'none' }} />
+      <a className="admin-skip" href="#admin-content">Aller au contenu</a>
+      <div className={`admin-notification${notification ? ' visible' : ''}`} role="status" aria-live="polite">{notification}</div>
 
       {/* Topbar */}
       <header className="admin-topbar">
         <div className="admin-topbar-inner">
           <Link href="/" className="nav-logo">
             <div className="nav-logo-icon">SM</div>
-            <span className="gradient-text">StreamMalin</span>
+            <span>StreamMalin<small>Administration</small></span>
           </Link>
           <div className="admin-topbar-actions">
             <button type="button" className="admin-mobile-toggle" onClick={() => setMobileNavOpen(open => !open)} aria-label={mobileNavOpen ? 'Fermer la navigation' : 'Ouvrir la navigation'} aria-expanded={mobileNavOpen} aria-controls="admin-mobile-navigation" title="Navigation">
               {mobileNavOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
-            <div className="admin-topbar-status">
-              <span className="hero-badge-dot" style={{ width: 6, height: 6 }} />
-              MODE SUPER-ADMIN
-            </div>
+            <span className="admin-topbar-status"><ShieldCheck size={15} aria-hidden="true" /> Espace privé</span>
+            <button type="button" onClick={loadAll} disabled={loading || mutationBusy} className="btn btn-ghost btn-sm admin-refresh" title="Actualiser les données" aria-label="Actualiser les données"><RefreshCw size={18} className={loading ? 'admin-spin' : ''} /></button>
             <button
               onClick={() => setShowShortcuts(true)}
               className="btn btn-ghost btn-sm"
@@ -658,9 +727,9 @@ export default function AdminPage() {
           </div>
         </div>
         {mobileNavOpen && <nav id="admin-mobile-navigation" className="admin-mobile-navigation" aria-label="Administration">
-          {navItems.map(([page, , label, count]) => <button key={page} type="button" onClick={() => { setActivePage(page); setMobileNavOpen(false); }} aria-current={activePage === page ? 'page' : undefined}>
-            <span>{label}</span>{!!count && <span className="admin-nav-count">{count}</span>}
-          </button>)}
+          {navItems.map(([page, , label, count]) => { const Icon = navIcons[page]; return <button key={page} type="button" onClick={() => navigate(page)} aria-current={activePage === page ? 'page' : undefined}>
+            <Icon size={17} aria-hidden="true" /><span>{label}</span>{!!count && <span className="admin-nav-count">{count}</span>}
+          </button>; })}
           <Link href="/"><ArrowLeft size={16} aria-hidden="true" /> Retour au site</Link>
         </nav>}
       </header>
@@ -668,59 +737,67 @@ export default function AdminPage() {
       <div className="admin-shell">
         {/* Sidebar */}
         <aside className="admin-sidebar">
-          <div className="admin-sidebar-title">Navigation</div>
-          {navItems.map(([page, , label, count]) => (
+          <nav aria-label="Administration">
+          {navItems.map(([page, , label, count], index) => { const Icon = navIcons[page]; return <React.Fragment key={page}>
+            {[0, 5, 9].includes(index) && <div className="admin-sidebar-title">{index === 0 ? 'Pilotage' : index === 5 ? 'Catalogue & clients' : 'Administration'}</div>}
             <button
-              key={page}
-              onClick={() => setActivePage(page)}
+              onClick={() => navigate(page)}
               className={`dash-sidebar-btn ${activePage === page ? 'active' : ''}`}
               aria-current={activePage === page ? 'page' : undefined}
             >
-              {label}
+              <Icon size={18} aria-hidden="true" /><span>{label}</span>
               {!!count && (
-                <span aria-label={`${count} en attente`} style={{ marginLeft: 'auto', fontSize: '0.7rem', fontWeight: 800, padding: '2px 7px', borderRadius: 50, background: activePage === page ? 'rgba(255,255,255,0.25)' : 'rgba(239,68,68,0.25)', color: activePage === page ? '#fff' : '#f87171', border: `1px solid ${activePage === page ? 'rgba(255,255,255,0.2)' : 'rgba(239,68,68,0.35)'}` }}>
+                <span className="admin-nav-count" aria-label={`${count} en attente`}>
                   {count}
                 </span>
               )}
             </button>
-          ))}
+          </React.Fragment>; })}
+          </nav>
 
           <div className="dash-sidebar-divider" />
 
           <a href="/" target="_blank" rel="noopener noreferrer" className="dash-sidebar-btn">
-            ← Retour au site
+            <ArrowUpRight size={18} aria-hidden="true" /> Voir le site
           </a>
 
           <div className="dash-sidebar-foot" style={{ marginTop: 16 }}>
-            Session sécurisée · httpOnly
+            <ShieldCheck size={16} aria-hidden="true" /> Accès administrateur
           </div>
         </aside>
 
         {/* Main */}
-        <main className="admin-main">
-          <div className="admin-mobile-location">{navItems.find(([page]) => page === activePage)?.[2]}</div>
-          {activePage === 'operations' && <OperationsPanel />}
+        <main id="admin-content" ref={mainRef} tabIndex={-1} className="admin-main">
+          <div className="admin-context"><span>Administration <span aria-hidden="true">/</span> <strong>{navItems.find(([page]) => page === activePage)?.[2]}</strong></span><span>{loading ? 'Chargement…' : lastLoadedAt ? `Données actualisées à ${lastLoadedAt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : 'Données indisponibles'}</span></div>
           {loadError && <div className="admin-load-error error-box" role="alert">{loadError}<button className="btn btn-ghost btn-sm" onClick={loadAll}>Réessayer</button></div>}
+          {loading && !lastLoadedAt && <p className="admin-loading" role="status">Chargement du tableau de bord…</p>}
+          <fieldset className="admin-workspace" disabled={loading || Boolean(loadError) || mutationBusy} aria-busy={loading || mutationBusy}>
+          {activePage === 'operations' && <OperationsPanel key={operationsTab} initialTab={operationsTab} />}
 
           {/* ── DASHBOARD ── */}
           {activePage === 'dashboard' && (
             <div style={{ position: 'relative', zIndex: 1 }}>
               <div className="admin-section-head fade-in-up" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
                 <div>
-                  <h2>Tableau de bord</h2>
-                  <p>Vue d&apos;ensemble de la santé financière et de l&apos;activité.</p>
+                  <div className="admin-eyebrow">Vue d’ensemble</div>
+                  <h1>Tableau de bord</h1>
+                  <p>Commandes, accès et points à traiter.</p>
                 </div>
                 <button onClick={loadAll} className="btn btn-ghost btn-sm" style={{ marginTop: 8, flexShrink: 0 }}>
-                  ↻ Actualiser
+                  <RefreshCw size={16} aria-hidden="true" /> Actualiser
                 </button>
               </div>
 
-              {/* KPI — filtre par période */}
-              <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+              <div className="admin-priorities" aria-label="Actions prioritaires">
+                {([{ page: 'pending', label: 'À valider', value: pendingCount, icon: ClipboardCheck }, { page: 'unpaid', label: 'Impayés', value: unpaidCount, icon: CircleAlert }, { page: 'operations', label: 'Paiements à vérifier', value: reviewCount, icon: ShieldCheck }, { page: 'stocks', label: 'Places non occupées', value: availablePlaces, icon: Package }] as const).map(item => <button key={item.page} type="button" onClick={() => navigate(item.page, item.page === 'operations' ? 'Transmissions' : 'Offres')}><item.icon size={19} aria-hidden="true" /><span>{item.label}<strong>{loading || loadError ? '—' : item.value}</strong></span><ArrowUpRight size={15} aria-hidden="true" /></button>)}
+              </div>
+              <div className="admin-metrics-toolbar"><h2>Indicateurs de commandes</h2>
+              <div className="admin-periods" role="group" aria-label="Période des indicateurs">
                 {(['all', 'month', 'quarter', 'year'] as const).map((r) => (
                   <button
                     key={r}
                     onClick={() => setKpiRange(r)}
+                    aria-pressed={kpiRange === r}
                     className={`btn btn-sm ${kpiRange === r ? 'btn-primary' : 'btn-ghost'}`}
                     style={{ fontSize: '0.78rem' }}
                   >
@@ -728,59 +805,27 @@ export default function AdminPage() {
                   </button>
                 ))}
               </div>
+              </div>
               <div className="kpi-grid fade-in-up-stagger">
                 <div className="glass-panel kpi-card" style={accentStyle('linear-gradient(90deg, hsl(145,80%,48%), hsl(170,80%,50%))')}>
-                  <div className="kpi-label">Montant des commandes</div>
-                  <div className="kpi-value" style={{ color: 'var(--accent-green)' }}>{fmt(filteredKpis.totalRevenue)}</div>
-                  <div className="kpi-sub">Montants initiaux · hors attente et annulations</div>
+                  <div className="kpi-label">Montants initiaux validés</div>
+                  <div className="kpi-value" style={{ color: 'var(--accent-green)' }}>{loading || loadError ? '—' : fmt(filteredKpis.totalRevenue)}</div>
+                  <div className="kpi-sub">Hors attente, revue et annulations</div>
                 </div>
                 <div className="glass-panel kpi-card" style={accentStyle('linear-gradient(90deg, hsl(355,85%,58%), hsl(20,85%,58%))')}>
                   <div className="kpi-label">Achats de comptes</div>
-                  <div className="kpi-value" style={{ color: 'var(--accent-red)' }}>{fmt(filteredKpis.totalInvestment)}</div>
-                  <div className="kpi-sub">Coûts saisis dans le stock</div>
+                  <div className="kpi-value" style={{ color: 'var(--accent-red)' }}>{loading || loadError ? '—' : fmt(filteredKpis.totalInvestment)}</div>
+                  <div className="kpi-sub">Tous les comptes · toutes périodes</div>
                 </div>
                 <div className="glass-panel kpi-card" style={accentStyle('var(--gradient-aurora)')}>
                   <div className="kpi-label">Marge indicative</div>
-                  <div className="kpi-value gradient-text">{fmt(filteredKpis.netProfit)}</div>
+                  <div className="kpi-value gradient-text">{loading || loadError ? '—' : fmt(filteredKpis.netProfit)}</div>
                   <div className="kpi-sub">Estimation · hors frais, taxes et remboursements</div>
                 </div>
                 <div className="glass-panel kpi-card" style={accentStyle('linear-gradient(90deg, hsl(42,100%,58%), hsl(36,100%,55%))')}>
                   <div className="kpi-label">Marge indicative (%)</div>
-                  <div className="kpi-value" style={{ color: 'var(--accent-yellow)' }}>{filteredKpis.marginPercentage.toFixed(1).replace('.', ',')}%</div>
+                  <div className="kpi-value" style={{ color: 'var(--accent-yellow)' }}>{loading || loadError ? '—' : `${filteredKpis.marginPercentage.toFixed(1).replace('.', ',')}%`}</div>
                   <div className="kpi-sub">Ne constitue pas un résultat comptable</div>
-                </div>
-              </div>
-
-              {/* Chart */}
-              <div className="glass-panel admin-card fade-in-up">
-                <div className="admin-card-head">
-                  <div className="icon-bubble">📈</div>
-                  Estimation par commandes — 7 derniers jours
-                  <span style={{ marginLeft: 'auto', fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 500 }}>
-                    Actualisé en direct
-                  </span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14, height: 180, padding: '0 4px' }}>
-                  {chartData.map((day, i) => {
-                    const h = Math.max((day.profit / maxProfit) * 100, day.profit > 0 ? 5 : 2);
-                    return (
-                      <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--text-gray)', fontWeight: 600 }}>
-                          {day.profit > 0 ? fmt(day.profit) : '—'}
-                        </div>
-                        <div style={{
-                          width: '100%',
-                          height: `${h}%`,
-                          minHeight: 4,
-                          background: 'var(--gradient-aurora)',
-                          borderRadius: '8px 8px 4px 4px',
-                          boxShadow: '0 4px 16px rgba(138,92,247,0.3)',
-                          transition: 'height 0.4s ease',
-                        }} />
-                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>{day.label}</div>
-                      </div>
-                    );
-                  })}
                 </div>
               </div>
 
@@ -788,23 +833,25 @@ export default function AdminPage() {
               <div className="glass-panel admin-card fade-in-up">
                 <div className="admin-card-head" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div className="icon-bubble">🕐</div>
+                    <ClipboardCheck size={18} aria-hidden="true" />
                     Historique récent des commandes
                   </div>
                   <a href="/api/admin/export?type=orders" download className="btn btn-ghost btn-sm" style={{ fontSize: '0.78rem' }}>
-                    Exporter CSV
+                    <Download size={15} aria-hidden="true" /> Exporter CSV
                   </a>
                 </div>
-                <div style={{ marginBottom: 12 }}>
+                <div className="admin-orders-toolbar">
                   <input
                     type="search"
                     aria-label="Rechercher une commande par email, service ou ID"
-                    placeholder="🔍 Rechercher par email, service ou ID…"
+                    placeholder="Rechercher par e-mail, service ou référence"
                     value={ordersSearch}
                     onChange={e => { setOrdersSearch(e.target.value); setOrdersPage(0); }}
                     className="dash-input"
                     style={{ maxWidth: 420 }}
                   />
+                  <select className="dash-input" aria-label="Filtrer les commandes par statut" value={orderFilter} onChange={event => { setOrderFilter(event.target.value); setOrdersPage(0); }}><option value="all">Tous les statuts</option>{['pending', 'active', 'payment_review', 'unpaid', 'cancelled_pending', 'cancelled'].map(status => <option key={status} value={status}>{status === 'pending' ? 'En attente' : status === 'active' ? 'Actives' : status === 'payment_review' ? 'Paiements à vérifier' : status === 'unpaid' ? 'Impayées' : status === 'cancelled_pending' ? 'Résiliations programmées' : 'Résiliées / refusées'}</option>)}</select>
+                  <span className="admin-result-count">{filteredOrders.length} commande(s)</span>
                 </div>
                 <div style={{ overflowX: 'auto' }}>
                   <table className="admin-table">
@@ -814,21 +861,16 @@ export default function AdminPage() {
                         <th scope="col">Date</th>
                         <th scope="col">Service</th>
                         <th scope="col">Client</th>
-                        <th scope="col" style={{ textAlign: 'right' }}>Net</th>
+                        <th scope="col" style={{ textAlign: 'right' }}>Prix</th>
                         <th scope="col" style={{ textAlign: 'right' }}>Total</th>
                         <th scope="col">Statut</th>
                       </tr>
                     </thead>
                     <tbody>
                       {(() => {
-                        const filtered = orders.filter(o =>
-                          !ordersSearch ||
-                          o.clientEmail.toLowerCase().includes(ordersSearch.toLowerCase()) ||
-                          o.service.name.toLowerCase().includes(ordersSearch.toLowerCase()) ||
-                          o.id.toLowerCase().includes(ordersSearch.toLowerCase())
-                        );
+                        const filtered = filteredOrders;
                         if (filtered.length === 0) return (
-                          <tr><td colSpan={7} style={{ textAlign: 'center', padding: '40px 16px', color: 'var(--text-muted)' }}>Aucune transaction pour le moment.</td></tr>
+                          <tr><td colSpan={7} style={{ textAlign: 'center', padding: '40px 16px', color: 'var(--text-muted)' }}>{loading ? 'Chargement…' : loadError ? 'Données indisponibles.' : ordersSearch || orderFilter !== 'all' ? 'Aucune commande ne correspond aux filtres.' : 'Aucune commande pour le moment.'}</td></tr>
                         );
                         return filtered.slice(ordersPage * 20, ordersPage * 20 + 20).map(o => (
                           <tr key={o.id}>
@@ -846,13 +888,7 @@ export default function AdminPage() {
                             <td style={{ textAlign: 'right' }}>{fmt(o.price)}</td>
                             <td style={{ textAlign: 'right', color: 'var(--secondary)', fontWeight: 800 }}>{fmt(o.total)}</td>
                             <td>
-                              {o.status === 'unpaid'
-                                ? <span className="badge-pill" style={{ background: 'rgba(245,158,11,0.15)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.3)' }}>⚠️ Impayé</span>
-                                : o.status === 'cancelled_pending'
-                                ? <span className="badge-pill" style={{ background: 'rgba(239,68,68,0.12)', color: '#f87171', border: '1px solid rgba(239,68,68,0.25)' }}>🔴 Résiliation</span>
-                                : o.status === 'cancelled'
-                                ? <span className="badge-pill neutral">✕ Résilié</span>
-                                : <span className="badge-pill success">● Actif</span>}
+                              <OrderStatus status={o.status} />
                             </td>
                           </tr>
                         ));
@@ -861,12 +897,7 @@ export default function AdminPage() {
                   </table>
                 </div>
                 {(() => {
-                  const filtered = orders.filter(o =>
-                    !ordersSearch ||
-                    o.clientEmail.toLowerCase().includes(ordersSearch.toLowerCase()) ||
-                    o.service.name.toLowerCase().includes(ordersSearch.toLowerCase()) ||
-                    o.id.toLowerCase().includes(ordersSearch.toLowerCase())
-                  );
+                  const filtered = filteredOrders;
                   const totalPages = Math.ceil(filtered.length / 20);
                   if (totalPages <= 1) return null;
                   return (
@@ -878,12 +909,13 @@ export default function AdminPage() {
                   );
                 })()}
               </div>
+              {!loading && !loadError && <AdminActivityChart days={chartData} />}
             </div>
           )}
 
           {/* ── COMMANDES À VALIDER ── */}
           {activePage === 'pending' && (() => {
-            const pending = orders.filter(o => o.status === 'pending' && o.paymentMethod !== 'Carte bancaire (Stripe)');
+            const pending = orders.filter(o => o.status === 'pending' && !isStripeOrder(o));
             const selectedIds = pending.filter(o => selectedOrders.has(o.id)).map(o => o.id);
             const allSelected = pending.length > 0 && selectedIds.length === pending.length;
             const someSelected = selectedIds.length > 0 && !allSelected;
@@ -978,7 +1010,7 @@ export default function AdminPage() {
                         </details>
                         <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
                           <button onClick={() => validateOrder(o.id)} disabled={busyOrderId === o.id || bulkBusy} aria-busy={busyOrderId === o.id} className="btn btn-primary btn-sm">
-                            {busyOrderId === o.id ? 'Traitement…' : '✅ Valider & livrer'}
+                            <Check size={15} aria-hidden="true" />{busyOrderId === o.id ? 'Traitement…' : 'Valider le paiement'}
                           </button>
                           <button onClick={() => rejectOrder(o.id)} disabled={busyOrderId === o.id || bulkBusy} aria-busy={busyOrderId === o.id} className="btn btn-danger btn-sm">
                             ✕ Refuser
@@ -997,21 +1029,18 @@ export default function AdminPage() {
             <div style={{ position: 'relative', zIndex: 1 }}>
               <div className="admin-section-head fade-in-up">
                 <h2>Gestion des stocks</h2>
-                <p>Comptes premium achetés à l&apos;étranger, mis en location auprès des clients.</p>
+                <p>Comptes, capacité et accès associés aux offres.</p>
               </div>
 
-              <div className="glass-panel admin-card fade-in-up">
-                <div className="admin-card-head">
-                  <div className="icon-bubble">➕</div>
-                  Ajouter un compte de stock
-                </div>
-                <p className="admin-card-sub">Renseignez le service, le coût d&apos;achat, le prix de location et les identifiants.</p>
+              <details className="admin-card admin-create">
+                <summary><Plus size={18} aria-hidden="true" /> Ajouter un compte de stock</summary>
 
                 <form onSubmit={addStock}>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14, marginBottom: 14 }}>
                     <div className="form-field" style={{ marginBottom: 0 }}>
-                      <label className="form-label">Service <span className="required">*</span></label>
+                      <label className="form-label" htmlFor="stock-service">Service <span className="required">*</span></label>
                       <select
+                        id="stock-service"
                         required
                         value={stockForm.serviceId}
                         onChange={e => setStockForm(f => ({ ...f, serviceId: e.target.value }))}
@@ -1024,21 +1053,26 @@ export default function AdminPage() {
                       </select>
                     </div>
                     <div className="form-field" style={{ marginBottom: 0 }}>
-                      <label className="form-label">Prix location mensuel (€) <span className="required">*</span></label>
-                      <input type="number" step="0.01" required placeholder="3.49" value={stockForm.price}
+                      <label className="form-label" htmlFor="stock-price">Prix location mensuel (€) <span className="required">*</span></label>
+                      <input id="stock-price" type="number" step="0.01" min="0.01" required placeholder="3.49" value={stockForm.price}
                         onChange={e => setStockForm(f => ({ ...f, price: e.target.value }))}
                         className="dash-input" />
                     </div>
                     <div className="form-field" style={{ marginBottom: 0 }}>
-                      <label className="form-label">Places (max slots) <span className="required">*</span></label>
-                      <input type="number" required min="1" placeholder="5" value={stockForm.maxSlots}
+                      <label className="form-label" htmlFor="stock-slots">Capacité (places) <span className="required">*</span></label>
+                      <input id="stock-slots" type="number" required min="1" placeholder="5" value={stockForm.maxSlots}
                         onChange={e => setStockForm(f => ({ ...f, maxSlots: e.target.value }))}
                         className="dash-input" />
                     </div>
                   </div>
                   <div className="form-field">
-                    <label className="form-label">Accès sécurisés (identifiants ou lien d&apos;invitation) <span className="required">*</span></label>
+                    <label className="form-label" htmlFor="stock-cost">Coût d&apos;achat (€)</label>
+                    <input id="stock-cost" type="number" min="0" step="0.01" value={stockForm.accountsBoughtPrice} onChange={event => setStockForm(current => ({ ...current, accountsBoughtPrice: event.target.value }))} className="dash-input" />
+                  </div>
+                  <div className="form-field">
+                    <label className="form-label" htmlFor="stock-details">Identifiants ou lien d&apos;invitation <span className="required">*</span></label>
                     <textarea
+                      id="stock-details"
                       required
                       rows={3}
                       placeholder="email@example.com / motdepasse (Profil 3) OU Lien famille Google"
@@ -1048,9 +1082,9 @@ export default function AdminPage() {
                       style={{ resize: 'vertical', minHeight: 80 }}
                     />
                   </div>
-                  <button type="submit" className="btn btn-primary">⚡ Enregistrer ce compte en stock</button>
+                  <button type="submit" className="btn btn-primary"><Plus size={16} aria-hidden="true" /> Ajouter au stock</button>
                 </form>
-              </div>
+              </details>
 
               <div className="glass-panel admin-card">
                 <div className="admin-card-head">
@@ -1085,11 +1119,11 @@ export default function AdminPage() {
                           <span>Remplissage : <strong>{st.filledSlots}/{st.maxSlots}</strong></span>
                           {st.filledSlots < st.maxSlots && <><span>·</span><span style={{ color: 'var(--accent-green)' }}><strong>{st.maxSlots - st.filledSlots} slot{st.maxSlots - st.filledSlots > 1 ? 's' : ''} libre{st.maxSlots - st.filledSlots > 1 ? 's' : ''}</strong></span></>}
                         </div>
-                        <div className="stock-creds">🔑 {st.details}</div>
+                        <details className="admin-credentials"><summary><Eye size={15} aria-hidden="true" /> Consulter les identifiants</summary><pre>{st.details}</pre></details>
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
-                        <button onClick={() => setEditStock(st)} className="btn btn-primary btn-sm">📝 Modifier</button>
-                        <button onClick={() => deleteStock(st.id)} className="btn btn-danger btn-sm">❌ Retirer</button>
+                        <button onClick={() => setEditStock(st)} className="btn btn-ghost btn-sm"><Pencil size={15} aria-hidden="true" /> Modifier</button>
+                        <button onClick={() => deleteStock(st.id)} className="btn btn-danger btn-sm"><Trash2 size={15} aria-hidden="true" /> Retirer</button>
                       </div>
                     </div>
                   ))
@@ -1107,33 +1141,26 @@ export default function AdminPage() {
                 <p>Créez, modifiez ou désactivez les services proposés sur la marketplace.</p>
               </div>
 
-              <div className="glass-panel admin-card fade-in-up">
+              <details className="admin-card admin-create">
+                <summary><Plus size={18} aria-hidden="true" /> Créer un service</summary>
                 <div className="admin-card-head">
-                  <div className="icon-bubble">➕</div>
-                  Créer un nouveau service
                   <button
                     type="button"
                     onClick={() => { setCatalogOpen(true); setCatalogSearch(''); setCatalogCat('all'); }}
                     className="btn btn-primary btn-sm"
                     style={{ marginLeft: 'auto' }}
                   >
-                    📚 Catalogue ({SERVICE_CATALOG.length} services)
+                    <Clapperboard size={16} aria-hidden="true" /> Catalogue ({SERVICE_CATALOG.length})
                   </button>
-                </div>
-
-                <div className="info-box" style={{ marginBottom: 14 }}>
-                  <div className="info-box-title">💡 Astuce</div>
-                  <div className="info-box-text">
-                    Ouvrez le <strong>catalogue</strong> pour ajouter en 1 clic un service parmi {SERVICE_CATALOG.length} préréglages (Netflix, Spotify, ChatGPT, NordVPN…), ou pré-remplissez le formulaire pour ajuster les tarifs avant publication.
-                  </div>
                 </div>
 
                 <form onSubmit={createService}>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14, marginBottom: 14 }}>
                     {serviceFields.map(f => (
                       <div key={f.key} className="form-field" style={{ marginBottom: 0 }}>
-                        <label className="form-label">{f.label} <span className="required">*</span></label>
+                        <label className="form-label" htmlFor={`service-${f.key}`}>{f.label} <span className="required">*</span></label>
                         <input
+                          id={`service-${f.key}`}
                           type={f.type || 'text'}
                           step={f.type === 'number' ? '0.01' : undefined}
                           required
@@ -1146,8 +1173,9 @@ export default function AdminPage() {
                     ))}
                   </div>
                   <div className="form-field">
-                    <label className="form-label">Fonctionnalités clés (séparées par virgules) <span className="required">*</span></label>
+                    <label className="form-label" htmlFor="service-features">Fonctionnalités clés <span className="required">*</span></label>
                     <input
+                      id="service-features"
                       type="text" required
                       placeholder="Ultra HD 4K, Profil dédié, Téléchargement hors-ligne"
                       value={srvForm.features}
@@ -1155,9 +1183,9 @@ export default function AdminPage() {
                       className="dash-input"
                     />
                   </div>
-                  <button type="submit" className="btn btn-primary">🎬 Publier le service</button>
+                  <button type="submit" className="btn btn-primary"><Save size={16} aria-hidden="true" /> Enregistrer la fiche</button>
                 </form>
-              </div>
+              </details>
 
               <div className="glass-panel admin-card">
                 <div className="admin-card-head">
@@ -1181,13 +1209,6 @@ export default function AdminPage() {
           {/* ── ABONNÉS PAR SERVICE & COMPTE ── */}
           {activePage === 'subscribers' && (() => {
             const activeOrders = orders.filter(o => o.status === 'active' || o.status === 'unpaid' || o.status === 'cancelled_pending');
-            const statusBadge = (st: string) =>
-              st === 'unpaid'
-                ? <span className="badge-pill" style={{ background: 'rgba(245,158,11,0.15)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.3)' }}>⚠️ Impayé</span>
-                : st === 'cancelled_pending'
-                ? <span className="badge-pill" style={{ background: 'rgba(239,68,68,0.12)', color: '#f87171', border: '1px solid rgba(239,68,68,0.25)' }}>🔴 Résiliation</span>
-                : <span className="badge-pill success">● Actif</span>;
-            const copyCreds = (txt: string) => { navigator.clipboard.writeText(txt); toast('Identifiants copiés'); };
 
             return (
               <div style={{ position: 'relative', zIndex: 1 }}>
@@ -1216,10 +1237,10 @@ export default function AdminPage() {
                       ) : service.stocks.map((stock, idx) => {
                         const stockOrders = serviceOrders.filter(o => o.stockAccountId === stock.id);
                         return (
-                          <div key={stock.id} style={{ marginTop: idx === 0 ? 12 : 18, padding: 14, borderRadius: 12, background: 'rgba(15,23,42,0.4)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                          <div key={stock.id} style={{ marginTop: idx === 0 ? 12 : 18, padding: '14px 0', borderTop: '1px solid var(--border-subtle)' }}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                                <span style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-white)', background: 'rgba(168,85,247,0.15)', padding: '4px 10px', borderRadius: 6, border: '1px solid rgba(168,85,247,0.3)' }}>
+                                <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-white)', background: '#eaf0ee', padding: '4px 10px', borderRadius: 4 }}>
                                   COMPTE #{idx + 1}
                                 </span>
                                 <code style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontFamily: "'SF Mono',Menlo,monospace" }}>{stock.id.slice(0, 8)}</code>
@@ -1227,8 +1248,8 @@ export default function AdminPage() {
                                   {stock.filledSlots}/{stock.maxSlots} slots occupés · {fmt(stock.price)}/mois
                                 </span>
                               </div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <code style={{ fontSize: '0.72rem', background: 'rgba(0,0,0,0.4)', padding: '6px 10px', borderRadius: 6, color: '#3b82f6', fontFamily: "'SF Mono',Menlo,monospace", maxWidth: 340, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, maxWidth: '100%' }}>
+                                <code style={{ fontSize: '0.72rem', background: '#eaf0ee', padding: '6px 10px', borderRadius: 4, color: 'var(--secondary)', fontFamily: "'SF Mono',Menlo,monospace", minWidth: 0, maxWidth: 260, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                   {showCredIds.has(stock.id)
                                     ? (stock.details.length > 50 ? stock.details.slice(0, 50) + '…' : stock.details)
                                     : '🔑 ••••••••••••••••'}
@@ -1238,15 +1259,17 @@ export default function AdminPage() {
                                   className="btn btn-ghost btn-sm"
                                   style={{ fontSize: '0.7rem', padding: '4px 8px' }}
                                   title={showCredIds.has(stock.id) ? 'Masquer' : 'Afficher les identifiants'}
+                                  aria-label={showCredIds.has(stock.id) ? 'Masquer les identifiants' : 'Afficher les identifiants'}
                                 >
-                                  {showCredIds.has(stock.id) ? '🙈' : '👁️'}
+                                  {showCredIds.has(stock.id) ? <EyeOff size={16} aria-hidden="true" /> : <Eye size={16} aria-hidden="true" />}
                                 </button>
                                 <button
                                   onClick={() => copyCreds(stock.details)}
                                   className="btn btn-ghost btn-sm"
                                   style={{ fontSize: '0.7rem', padding: '4px 8px' }}
                                   title="Copier les identifiants du compte"
-                                >📋</button>
+                                  aria-label="Copier les identifiants du compte"
+                                ><Copy size={16} aria-hidden="true" /></button>
                               </div>
                             </div>
 
@@ -1282,7 +1305,8 @@ export default function AdminPage() {
                                               className="btn btn-ghost btn-sm"
                                               style={{ fontSize: '0.72rem', padding: '4px 8px' }}
                                               title="Modifier les infos client"
-                                            >✏️</button>
+                                              aria-label={`Modifier les infos client : ${o.clientEmail}`}
+                                            ><Pencil size={16} aria-hidden="true" /></button>
                                           </div>
                                         </td>
                                         <td style={{ color: 'var(--text-gray)', fontSize: '0.8rem' }}>
@@ -1296,7 +1320,7 @@ export default function AdminPage() {
                                             ? <span style={{ fontFamily: "'SF Mono',Menlo,monospace" }}>{(o.cardBrand || 'CB').toUpperCase()} •••• {o.cardLast4}</span>
                                             : <span style={{ color: 'var(--text-muted)' }}>—</span>}
                                         </td>
-                                        <td>{statusBadge(o.status)}</td>
+                                        <td><OrderStatus status={o.status} /></td>
                                       </tr>
                                     ))}
                                   </tbody>
@@ -1318,7 +1342,7 @@ export default function AdminPage() {
             <div style={{ position: 'relative', zIndex: 1 }}>
               <div className="admin-section-head fade-in-up">
                 <h2>Clients</h2>
-                <p>Profils dérivés des commandes — historique et CA par client.</p>
+                <p>Profils dérivés des commandes. Montants initiaux, hors renouvellements et remboursements.</p>
               </div>
 
               <div className="glass-panel admin-card fade-in-up">
@@ -1345,8 +1369,9 @@ export default function AdminPage() {
                   <div style={{ overflowX: 'auto' }}>
                     <div style={{ marginBottom: 12 }}>
                       <input
-                        type="text"
-                        placeholder="🔍 Rechercher par email…"
+                        type="search"
+                        aria-label="Rechercher un client par e-mail"
+                        placeholder="Rechercher par e-mail"
                         value={clientsSearch}
                         onChange={e => setClientsSearch(e.target.value)}
                         className="dash-input"
@@ -1361,7 +1386,7 @@ export default function AdminPage() {
                           <th>1ère commande</th>
                           <th style={{ textAlign: 'center' }}>Commandes</th>
                           <th style={{ textAlign: 'center' }}>Actifs</th>
-                          <th style={{ textAlign: 'right' }}>Total dépensé</th>
+                          <th style={{ textAlign: 'right' }}>Montants initiaux validés</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1397,35 +1422,6 @@ export default function AdminPage() {
           {/* ── IMPAYÉS ── */}
           {activePage === 'unpaid' && (() => {
             const unpaidOrders = orders.filter(o => o.status === 'unpaid');
-            const markUnpaid = async (orderId: string) => {
-              const r = await fetch('/api/admin/stock', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'mark_unpaid', orderId }) });
-              const d = await r.json();
-              if (!d.success) { toast('Erreur : ' + (d.error || 'action échouée')); return; }
-              await loadAll();
-              toast('Commande marquée impayée, relance enregistrée');
-            };
-            const sendReminder = async (orderId: string) => {
-              const r = await fetch('/api/admin/stock', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'send_reminder', orderId }) });
-              const d = await r.json();
-              if (!d.success) { toast('Erreur : ' + (d.error || 'action échouée')); return; }
-              await loadAll();
-              toast(`Relance ${d.reminderLevel}/3 enregistrée`);
-            };
-            const markPaid = async (orderId: string) => {
-              const r = await fetch('/api/admin/stock', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'mark_paid', orderId }) });
-              const d = await r.json();
-              if (!d.success) { toast('Erreur : ' + (d.error || 'action échouée')); return; }
-              await loadAll();
-              toast('Commande marquée comme payée ✅');
-            };
-            const cancelAfterUnpaid = async (orderId: string) => {
-              if (!confirm('Résilier définitivement cet abonnement pour impayé ?')) return;
-              const r = await fetch('/api/admin/stock', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'cancel_order', orderId }) });
-              const d = await r.json();
-              if (!d.success) { toast('Erreur : ' + (d.error || 'action échouée')); return; }
-              await loadAll();
-              toast('Abonnement résilié pour impayé');
-            };
             const reminderLabels: Record<number, string> = { 0: 'Aucune relance', 1: 'Relance 1/3 enregistrée', 2: 'Relance 2/3 enregistrée', 3: 'Relance 3/3 enregistrée' };
             return (
               <div style={{ position: 'relative', zIndex: 1 }}>
@@ -1492,7 +1488,7 @@ export default function AdminPage() {
                         const level = o.reminderCount || 0;
                         const daysSince = o.unpaidSince ? Math.floor((Date.now() - new Date(o.unpaidSince).getTime()) / 86400000) : 0;
                         return (
-                          <div key={o.id} style={{ padding: 18, borderRadius: 12, background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)' }}>
+                          <div key={o.id} style={{ padding: '18px 0', borderTop: '1px solid var(--border-subtle)' }}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 12 }}>
                               <div>
                                 <div style={{ fontWeight: 800, color: 'var(--text-white)', marginBottom: 4 }}>
@@ -1508,9 +1504,7 @@ export default function AdminPage() {
                                 )}
                               </div>
                               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                                <button onClick={() => markPaid(o.id)} className="btn btn-ghost btn-sm" style={{ color: 'var(--accent-green)', borderColor: 'rgba(16,185,129,0.3)', fontSize: '0.78rem' }}>
-                                  ✅ Marquer payé
-                                </button>
+                                {isStripeOrder(o) ? <span className="admin-action-note">Régularisation à confirmer chez Stripe</span> : <button onClick={() => markPaid(o.id)} className="btn btn-ghost btn-sm"><Check size={15} aria-hidden="true" /> Confirmer le paiement</button>}
                                 {level < 3 && (
                                   <button onClick={() => sendReminder(o.id)} className="btn btn-ghost btn-sm" style={{ color: '#fbbf24', borderColor: 'rgba(245,158,11,0.3)', fontSize: '0.78rem' }}>
                                     🔔 Rappel {level + 1}/3
@@ -1544,17 +1538,6 @@ export default function AdminPage() {
           {activePage === 'cancellations' && (() => {
             const pending = orders.filter(o => o.status === 'cancelled_pending');
             const cancelled = orders.filter(o => o.status === 'cancelled');
-            const confirmCancel = async (orderId: string) => {
-              if (!confirm('Confirmer la résiliation définitive de cette commande ?')) return;
-              const r = await fetch('/api/admin/stock', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'cancel_order', orderId }),
-              });
-              const d = await r.json();
-              if (!d.success) { toast('Erreur : ' + (d.error || 'action échouée')); return; }
-              await loadAll();
-            };
             return (
               <div style={{ position: 'relative', zIndex: 1 }}>
                 <div className="admin-section-head fade-in-up">
@@ -1655,12 +1638,13 @@ export default function AdminPage() {
                 <h2>Support client</h2>
                 <p>Répondez aux messages de vos clients en temps réel.</p>
               </div>
+              {supportError && <div className="error-box" role="alert">{supportError}<button type="button" className="btn btn-ghost btn-sm" onClick={loadSupportThreads}>Réessayer</button></div>}
 
               <div className="glass-panel fade-in-up" style={{ borderRadius: 'var(--radius)', overflow: 'hidden' }}>
                 {supportThreads.length === 0 ? (
                   <div className="dash-empty" style={{ borderRadius: 0 }}>
                     <div className="dash-empty-icon">💬</div>
-                    <h3>Aucune conversation</h3>
+                    <h3>{supportError ? 'Conversations indisponibles' : 'Aucune conversation'}</h3>
                     <p>Les messages de vos clients apparaîtront ici dès qu&apos;ils vous écriront depuis leur Espace Client.</p>
                   </div>
                 ) : (
@@ -1727,7 +1711,7 @@ export default function AdminPage() {
                               <div>
                                 <div className="status-online">{thread.order.service.name} — {thread.order.clientEmail}</div>
                               </div>
-                              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>🔒 Chiffré SSL</span>
+                              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Commande {thread.orderId.slice(0, 8)}</span>
                             </div>
                             <div className="chat-messages" style={{ minHeight: 380 }}>
                               {thread.messages.length === 0 ? (
@@ -1751,6 +1735,8 @@ export default function AdminPage() {
                             <form onSubmit={sendSupportMessage} className="chat-input-bar">
                               <input
                                 type="text"
+                                aria-label="Réponse au client"
+                                maxLength={2000}
                                 placeholder="Votre réponse au client…"
                                 value={supportInput}
                                 onChange={e => setSupportInput(e.target.value)}
@@ -1763,7 +1749,7 @@ export default function AdminPage() {
                                 className="btn btn-primary"
                                 style={{ opacity: sendingSupport || !supportInput.trim() ? 0.5 : 1 }}
                               >
-                                Envoyer
+                                <Send size={16} aria-hidden="true" /> Envoyer
                               </button>
                             </form>
                           </>
@@ -1787,10 +1773,10 @@ export default function AdminPage() {
               <div className="glass-panel admin-card fade-in-up">
                 <div className="admin-card-head">
                   <div className="icon-bubble">💳</div>
-                  Moyens de paiement actifs
+                  Moyens de paiement configurés
                 </div>
                 {[
-                  { key: 'gateway_cb', label: 'Carte Bancaire', sub: 'Via Stripe 3D Secure', icon: '💳' },
+                    { key: 'gateway_cb', label: 'Carte Bancaire', sub: 'Carte bancaire via Stripe', icon: '💳' },
                   { key: 'gateway_paypal', label: 'PayPal Checkout', sub: 'Mode Biens & Services uniquement', icon: '🅿️' },
                   { key: 'gateway_crypto', label: 'Cryptomonnaies', sub: 'BTC, ETH, USDT, LTC', icon: '₿' },
                 ].map(g => {
@@ -1808,16 +1794,20 @@ export default function AdminPage() {
                       <button
                         onClick={async () => {
                           const newVal = on ? 'false' : 'true';
-                          setSettings(s => ({ ...s, [g.key]: newVal }));
-                          await fetch('/api/admin/settings', {
+                          const response = await adminFetch('/api/admin/settings', {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ settings: [{ key: g.key, value: newVal }] }),
                           });
+                          const data = await response.json();
+                          if (!response.ok || !data.success) { toast(data.error || 'Modification refusée.'); return; }
+                          setSettings(s => ({ ...s, [g.key]: newVal }));
                           toast(`${g.label} ${newVal === 'true' ? 'activé' : 'désactivé'}`);
                         }}
                         className={`toggle ${on ? 'on' : ''}`}
-                        aria-label={`Toggle ${g.label}`}
+                        role="switch"
+                        aria-checked={on}
+                        aria-label={`Activer ${g.label}`}
                       />
                     </div>
                   );
@@ -1893,7 +1883,7 @@ export default function AdminPage() {
                   </div>
                   <p className="admin-card-sub">
                     Chiffre les identifiants des comptes encore stockés en clair (anciennes données).
-                    Les nouveaux ajouts sont déjà chiffrés automatiquement. Action sûre et relançable.
+                    Les nouveaux ajouts sont déjà chiffrés automatiquement. Une sauvegarde vérifiée reste nécessaire avant une intervention sur les anciennes données.
                   </p>
                   {encryptResult && (
                     <div className="info-box" style={{ background: 'rgba(16,185,129,0.06)', borderColor: 'rgba(16,185,129,0.2)' }}>
@@ -1919,8 +1909,9 @@ export default function AdminPage() {
                 </div>
                 <p className="admin-card-sub">Email PayPal affiché aux clients lors du paiement PayPal.</p>
                 <div className="form-field" style={{ marginBottom: 0 }}>
-                  <label className="form-label">Email PayPal</label>
+                  <label className="form-label" htmlFor="setting-paypal">Email PayPal</label>
                   <input
+                    id="setting-paypal"
                     type="email"
                     placeholder="votre@paypal.com"
                     value={settings.paypal_email || ''}
@@ -1945,10 +1936,11 @@ export default function AdminPage() {
                     { key: 'crypto_ltc', label: 'Litecoin (LTC)', color: '#345D9D', symbol: 'Ł' },
                   ].map(c => (
                     <div key={c.key} className="form-field" style={{ marginBottom: 0 }}>
-                      <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 8, color: c.color, textTransform: 'none', letterSpacing: 0, fontSize: '0.85rem', fontWeight: 700 }}>
+                      <label className="form-label" htmlFor={`setting-${c.key}`} style={{ display: 'flex', alignItems: 'center', gap: 8, color: c.color, textTransform: 'none', letterSpacing: 0, fontSize: '0.85rem', fontWeight: 700 }}>
                         <span style={{ fontSize: '1.2rem' }}>{c.symbol}</span> {c.label}
                       </label>
                       <input
+                        id={`setting-${c.key}`}
                         type="text"
                         placeholder={`Adresse ${c.label.split(' ')[0]}…`}
                         value={settings[c.key] || ''}
@@ -1963,7 +1955,7 @@ export default function AdminPage() {
 
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                 <button onClick={saveSettings} className="btn btn-primary btn-lg">
-                  💾 Sauvegarder tous les paramètres
+                  <Save size={16} aria-hidden="true" /> Enregistrer les paramètres
                 </button>
               </div>
             </div>
@@ -1976,6 +1968,7 @@ export default function AdminPage() {
                 <h2>Journal d&apos;audit</h2>
                 <p>Historique des actions effectuées dans le panel admin — 200 dernières entrées.</p>
               </div>
+              {auditError && <p className="error-box" role="alert">{auditError}</p>}
               <div className="glass-panel admin-card fade-in-up">
                 <div className="admin-card-head" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -1989,7 +1982,7 @@ export default function AdminPage() {
                 </div>
                 {auditLogs.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '40px 16px', color: 'var(--text-muted)' }}>
-                    <p>Aucune action enregistrée pour le moment.</p>
+                    <p>{auditError ? 'Journal indisponible. Réessayez.' : !auditLoaded ? 'Chargement du journal…' : 'Aucune action enregistrée pour le moment.'}</p>
                     <p style={{ fontSize: '0.8rem', marginTop: 8 }}>Les actions seront enregistrées dès la prochaine opération admin.</p>
                   </div>
                 ) : (
@@ -2043,10 +2036,11 @@ export default function AdminPage() {
             </div>
           )}
 
-        {/* Modal global – accessible depuis tous les onglets */}
+        </fieldset>
+        {/* Native modal dialogs keep focus within the open form. */}
         {showShortcuts && (
-          <div className="modal-overlay" onClick={() => setShowShortcuts(false)}>
-            <div className="glass-panel modal-content" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="shortcuts-title">
+          <AdminDialog title="Raccourcis clavier" onClose={() => setShowShortcuts(false)}>
+            <div className="modal-content">
               <div className="admin-card-head" id="shortcuts-title">
                 <div className="icon-bubble">⌨</div>
                 Raccourcis clavier
@@ -2070,66 +2064,69 @@ export default function AdminPage() {
                 <button className="btn btn-outline btn-sm" onClick={() => setShowShortcuts(false)}>Fermer</button>
               </div>
             </div>
-          </div>
+          </AdminDialog>
         )}
 
         {editStock && (
-          <div className="modal-overlay" onClick={() => setEditStock(null)}>
-            <div className="glass-panel modal-content" onClick={e => e.stopPropagation()}>
+          <AdminDialog title="Modifier le compte en stock" onClose={() => setEditStock(null)}>
+            <div className="modal-content">
               <div className="admin-card-head">
                 <div className="icon-bubble">📝</div>
                 Modifier le compte en stock
               </div>
               <form onSubmit={saveStock}>
+                <fieldset className="admin-workspace" disabled={loading || !!loadError || mutationBusy}>
                 <div className="info-box" style={{ marginBottom: 14 }}>
                   <div className="info-box-title">🔄 Mettre à jour les identifiants</div>
-                  <div className="info-box-text">Si un client a résilié, modifiez l&apos;email/mot de passe ci-dessous et décrémentez « Places occupées » pour libérer un slot.</div>
+                  <div className="info-box-text">Retirez d’abord l’accès chez le fournisseur. Avec le suivi activé, confirmez ensuite la révocation dans Vérifications et suivi ; ne libérez pas la place manuellement.</div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
                   <div className="form-field">
-                    <label className="form-label">Prix location (€)</label>
-                    <input type="number" step="0.01" required value={editStock.price}
+                    <label className="form-label" htmlFor="edit-stock-price">Prix location (€)</label>
+                    <input id="edit-stock-price" type="number" min="0.01" step="0.01" required value={editStock.price}
                       onChange={e => setEditStock(s => s ? { ...s, price: +e.target.value } : s)}
                       className="dash-input" />
                   </div>
                   <div className="form-field">
-                    <label className="form-label">Places occupées</label>
-                    <input type="number" required min="0" value={editStock.filledSlots}
+                    <label className="form-label" htmlFor="edit-stock-filled">Places occupées</label>
+                    <input id="edit-stock-filled" type="number" required readOnly={schemaEnabled} min="0" value={editStock.filledSlots}
                       onChange={e => setEditStock(s => s ? { ...s, filledSlots: +e.target.value } : s)}
                       className="dash-input" />
                   </div>
                   <div className="form-field">
-                    <label className="form-label">Places max</label>
-                    <input type="number" required min="1" value={editStock.maxSlots}
+                    <label className="form-label" htmlFor="edit-stock-capacity">Places max</label>
+                    <input id="edit-stock-capacity" type="number" required min="1" value={editStock.maxSlots}
                       onChange={e => setEditStock(s => s ? { ...s, maxSlots: +e.target.value } : s)}
                       className="dash-input" />
                   </div>
                 </div>
                 <div className="form-field">
-                  <label className="form-label">🔑 Email / Mot de passe / Lien d&apos;invitation</label>
-                  <textarea rows={4} required value={editStock.details}
+                  <label className="form-label" htmlFor="edit-stock-details">Identifiants ou lien d&apos;invitation</label>
+                  <textarea id="edit-stock-details" rows={4} required value={editStock.details}
                     onChange={e => setEditStock(s => s ? { ...s, details: e.target.value } : s)}
                     className="dash-input"
                     placeholder="email@example.com / motdepasse (Profil 3)"
                     style={{ resize: 'vertical', minHeight: 100, fontFamily: "'SF Mono',Menlo,monospace", fontSize: '0.85rem' }} />
                 </div>
                 <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
-                  <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>💾 Sauvegarder</button>
+                  <button type="submit" className="btn btn-primary" style={{ flex: 1 }}><Save size={16} aria-hidden="true" /> Enregistrer</button>
                   <button type="button" onClick={() => setEditStock(null)} className="btn btn-ghost" style={{ flex: 1 }}>Annuler</button>
                 </div>
+                </fieldset>
               </form>
             </div>
-          </div>
+          </AdminDialog>
         )}
 
         {editOrder && (
-          <div className="modal-overlay" onClick={() => setEditOrder(null)}>
-            <div className="glass-panel modal-content" onClick={e => e.stopPropagation()}>
+          <AdminDialog title="Modifier les informations client" onClose={() => setEditOrder(null)}>
+            <div className="modal-content">
               <div className="admin-card-head">
                 <div className="icon-bubble">✏️</div>
                 Modifier les infos client
               </div>
               <form onSubmit={saveOrder}>
+                <fieldset className="admin-workspace" disabled={loading || !!loadError || mutationBusy}>
                 <div className="info-box" style={{ marginBottom: 14 }}>
                   <div className="info-box-title">📝 Corriger les coordonnées</div>
                   <div className="info-box-text">
@@ -2137,8 +2134,9 @@ export default function AdminPage() {
                   </div>
                 </div>
                 <div className="form-field">
-                  <label className="form-label">Adresse e-mail du client</label>
+                  <label className="form-label" htmlFor="edit-order-email">Adresse e-mail du client</label>
                   <input
+                    id="edit-order-email"
                     type="email"
                     required
                     value={editOrder.clientEmail}
@@ -2149,8 +2147,9 @@ export default function AdminPage() {
                 </div>
                 {editOrder.serviceId === 'youtube' && (
                   <div className="form-field">
-                    <label className="form-label">▶️ Adresse e-mail YouTube (Google)</label>
+                    <label className="form-label" htmlFor="edit-order-youtube">Adresse e-mail YouTube (Google)</label>
                     <input
+                      id="edit-order-youtube"
                       type="email"
                       value={editOrder.youtubeEmail || ''}
                       onChange={e => setEditOrder(o => o ? { ...o, youtubeEmail: e.target.value } : o)}
@@ -2162,16 +2161,17 @@ export default function AdminPage() {
                     </p>
                   </div>
                 )}
-                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', background: 'rgba(15,23,42,0.5)', padding: '10px 12px', borderRadius: 8, marginBottom: 14 }}>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', background: '#f0f3f4', padding: '10px 12px', borderRadius: 5, marginBottom: 14 }}>
                   Commande : <code style={{ color: 'var(--text-gray)' }}>{editOrder.id.slice(0, 8)}</code> · Service : <strong style={{ color: 'var(--text-gray)' }}>{editOrder.service.name}</strong>
                 </div>
                 <div style={{ display: 'flex', gap: 10 }}>
-                  <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>💾 Sauvegarder</button>
+                  <button type="submit" className="btn btn-primary" style={{ flex: 1 }}><Save size={16} aria-hidden="true" /> Enregistrer</button>
                   <button type="button" onClick={() => setEditOrder(null)} className="btn btn-ghost" style={{ flex: 1 }}>Annuler</button>
                 </div>
+                </fieldset>
               </form>
             </div>
-          </div>
+          </AdminDialog>
         )}
 
         {catalogOpen && (() => {
@@ -2181,17 +2181,17 @@ export default function AdminPage() {
             (!q || p.name.toLowerCase().includes(q) || p.tagline.toLowerCase().includes(q))
           );
           return (
-            <div className="modal-overlay" onClick={() => setCatalogOpen(false)}>
-              <div className="glass-panel modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 920, width: '92vw', maxHeight: '88vh', display: 'flex', flexDirection: 'column' }}>
+            <AdminDialog title="Catalogue de modèles" onClose={() => setCatalogOpen(false)}>
+              <div className="modal-content catalog-modal" style={{ display: 'flex', flexDirection: 'column' }}>
                 <div className="admin-card-head">
                   <div className="icon-bubble">📚</div>
                   Catalogue de services
-                  <button type="button" onClick={() => setCatalogOpen(false)} className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto' }}>✕</button>
                 </div>
 
                 <input
                   type="text"
                   value={catalogSearch}
+                  aria-label="Rechercher un modèle de service"
                   onChange={e => setCatalogSearch(e.target.value)}
                   className="dash-input"
                   placeholder="🔍 Rechercher un service (Netflix, Spotify, VPN…)"
@@ -2202,6 +2202,7 @@ export default function AdminPage() {
                   <button
                     type="button"
                     onClick={() => setCatalogCat('all')}
+                    aria-pressed={catalogCat === 'all'}
                     className={`btn btn-sm ${catalogCat === 'all' ? 'btn-primary' : 'btn-ghost'}`}
                   >Tous</button>
                   {CATALOG_CATEGORIES.map(c => (
@@ -2209,6 +2210,7 @@ export default function AdminPage() {
                       key={c.id}
                       type="button"
                       onClick={() => setCatalogCat(c.id)}
+                      aria-pressed={catalogCat === c.id}
                       className={`btn btn-sm ${catalogCat === c.id ? 'btn-primary' : 'btn-ghost'}`}
                     >{c.icon} {c.label}</button>
                   ))}
@@ -2221,7 +2223,7 @@ export default function AdminPage() {
                   {filtered.map(p => {
                     const count = services.filter(s => s.id === p.id || s.id.startsWith(p.id + '-')).length;
                     return (
-                      <div key={p.id} style={{ background: 'rgba(15,23,42,0.5)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <div key={p.id} style={{ background: '#f4f6f6', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                           <div style={{ width: 38, height: 38, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', background: p.gradient, flexShrink: 0 }}>{p.icon}</div>
                           <div style={{ minWidth: 0 }}>
@@ -2237,16 +2239,17 @@ export default function AdminPage() {
                           <button
                             type="button"
                             onClick={() => publishPreset(p)}
-                            disabled={catalogBusy === p.id}
+                            disabled={!!catalogBusy || mutationBusy || loading || !!loadError}
                             className="btn btn-primary btn-sm"
                             style={{ flex: 1 }}
-                          >{catalogBusy === p.id ? '…' : (count > 0 ? '⚡ Ajouter une autre fiche' : '⚡ Ajouter')}</button>
+                          ><Plus size={15} aria-hidden="true" /> {catalogBusy === p.id ? 'Enregistrement…' : (count > 0 ? 'Autre fiche' : 'Ajouter')}</button>
                           <button
                             type="button"
                             onClick={() => fillFromPreset(p)}
                             className="btn btn-ghost btn-sm"
-                            title="Pré-remplir le formulaire pour ajuster les tarifs"
-                          >✏️</button>
+                            title={`Pré-remplir le formulaire : ${p.name}`}
+                            aria-label={`Pré-remplir le formulaire : ${p.name}`}
+                          ><Pencil size={15} aria-hidden="true" /></button>
                         </div>
                       </div>
                     );
@@ -2257,7 +2260,7 @@ export default function AdminPage() {
                   ⚡ <strong>Ajouter</strong> publie le service immédiatement · ✏️ pré-remplit le formulaire pour ajuster les tarifs avant publication.
                 </div>
               </div>
-            </div>
+            </AdminDialog>
           );
         })()}
         </main>
@@ -2269,8 +2272,8 @@ export default function AdminPage() {
 /* ─── ServiceEditCard (accordion) ───────────────────────────────────────── */
 function ServiceEditCard({ svc, onSave, onToggle, onDelete, onEditStock, onAddStock }: {
   svc: Service;
-  onSave: (svc: Service) => void;
-  onToggle: (id: string, active: boolean) => void;
+  onSave: (svc: Service) => Promise<boolean>;
+  onToggle: (id: string, active: boolean) => Promise<boolean>;
   onDelete: (id: string, name: string) => void;
   onEditStock: (st: StockAccount) => void;
   onAddStock: (serviceId: string, price: string, maxSlots: string, details: string) => Promise<boolean>;
@@ -2286,72 +2289,74 @@ function ServiceEditCard({ svc, onSave, onToggle, onDelete, onEditStock, onAddSt
   }, [svc]);
 
   const handleSaveAll = async () => {
+    if (adding) return;
     setAdding(true);
+    try {
+    if ((addPrice || addSlots || addDetails) && !(addPrice && addSlots && addDetails)) return;
+    if (!(await onSave(local))) return;
     if (addPrice && addSlots && addDetails) {
       const ok = await onAddStock(svc.id, addPrice, addSlots, addDetails);
       if (ok) { setAddPrice(''); setAddSlots(''); setAddDetails(''); }
     }
-    onSave(local);
-    setAdding(false);
+    } finally { setAdding(false); }
   };
 
   return (
     <div className="glass-panel svc-edit-card" style={{ padding: 0, overflow: 'hidden' }}>
       {/* ── Collapsed header (always visible) ── */}
-      <div
-        style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', cursor: 'pointer', userSelect: 'none' }}
+      <button type="button" className="admin-service-summary" aria-expanded={expanded} aria-controls={`service-edit-${svc.id}`}
         onClick={() => setExpanded(x => !x)}
       >
         <span style={{ width: 32, height: 32, borderRadius: 9, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', background: svc.gradient, boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.25)', flexShrink: 0 }}>
           {svc.icon}
         </span>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-white)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{svc.name}</div>
-          <div style={{ fontSize: '0.73rem', color: 'var(--text-muted)', marginTop: 1 }}>
+        <span style={{ flex: 1, minWidth: 0 }}>
+          <strong style={{ display: 'block', fontSize: '0.92rem', color: 'var(--text-white)' }}>{svc.name}</strong>
+          <span style={{ display: 'block', fontSize: '0.73rem', color: 'var(--text-muted)', marginTop: 1 }}>
             {fmt(svc.price)}/mois · {svc.stocks?.length || 0} compte{(svc.stocks?.length || 0) > 1 ? 's' : ''} · {svc.stocks?.reduce((a, s) => a + s.filledSlots, 0) || 0}/{svc.stocks?.reduce((a, s) => a + s.maxSlots, 0) || 0} slots
-          </div>
-        </div>
+          </span>
+        </span>
         <span className="badge-pill" style={{ flexShrink: 0, background: local.active ? 'rgba(16,185,129,0.13)' : 'rgba(255,255,255,0.06)', color: local.active ? 'var(--accent-green)' : 'var(--text-muted)', border: `1px solid ${local.active ? 'rgba(16,185,129,0.25)' : 'rgba(255,255,255,0.08)'}` }}>
           {local.active ? '● Actif' : '○ Inactif'}
         </span>
-        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', flexShrink: 0, transition: 'transform 0.2s', transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
-      </div>
+        <ChevronDown size={18} style={{ flexShrink: 0, transform: expanded ? 'rotate(180deg)' : undefined }} aria-hidden="true" />
+      </button>
 
       {/* ── Expanded form ── */}
       {expanded && (
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', padding: '14px 16px 16px' }}>
+        <div id={`service-edit-${svc.id}`} style={{ borderTop: '1px solid var(--border-subtle)', padding: '14px 16px 16px' }}>
           {/* Action buttons at top */}
           <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
             <button onClick={handleSaveAll} disabled={adding} className="btn btn-primary btn-sm" style={{ flex: '1.6', minWidth: 0 }}>
-              {adding ? '⏳ Sauvegarde…' : '💾 Sauvegarder'}
+              <Save size={16} aria-hidden="true" />{adding ? 'Sauvegarde…' : 'Sauvegarder'}
             </button>
-            <button onClick={() => { setLocal(l => ({ ...l, active: !l.active })); onToggle(svc.id, !local.active); }} className={`toggle ${local.active ? 'on' : ''}`} title={local.active ? 'Désactiver' : 'Activer'} style={{ flexShrink: 0 }} />
+            <button role="switch" aria-checked={local.active} aria-label={`Activer ${svc.name}`} onClick={async () => { const active = !local.active; if (await onToggle(svc.id, active)) setLocal(l => ({ ...l, active })); }} className={`toggle ${local.active ? 'on' : ''}`} title={local.active ? 'Désactiver' : 'Activer'} style={{ flexShrink: 0 }} />
             <button onClick={() => onDelete(svc.id, svc.name)} className="btn btn-danger btn-sm" style={{ flex: 1, minWidth: 0 }}>
-              🗑 Supprimer
+              <Trash2 size={16} aria-hidden="true" /> Supprimer
             </button>
           </div>
 
           {/* Fields */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
             <div className="form-field" style={{ marginBottom: 0, gridColumn: '1 / -1' }}>
-              <label className="form-label">Nom affiché</label>
-              <input type="text" value={local.name} onChange={e => setLocal(l => ({ ...l, name: e.target.value }))} className="dash-input" />
+              <label className="form-label" htmlFor={`edit-${svc.id}-name`}>Nom affiché</label>
+              <input id={`edit-${svc.id}-name`} type="text" value={local.name} onChange={e => setLocal(l => ({ ...l, name: e.target.value }))} className="dash-input" />
             </div>
             <div className="form-field" style={{ marginBottom: 0, gridColumn: '1 / -1' }}>
-              <label className="form-label">Phrase d&apos;accroche</label>
-              <input type="text" value={local.tagline} onChange={e => setLocal(l => ({ ...l, tagline: e.target.value }))} className="dash-input" />
+              <label className="form-label" htmlFor={`edit-${svc.id}-tagline`}>Phrase d&apos;accroche</label>
+              <input id={`edit-${svc.id}-tagline`} type="text" value={local.tagline} onChange={e => setLocal(l => ({ ...l, tagline: e.target.value }))} className="dash-input" />
             </div>
             <div className="form-field" style={{ marginBottom: 0 }}>
-              <label className="form-label">Prix (€)</label>
-              <input type="number" step="0.01" value={local.price} onChange={e => setLocal(l => ({ ...l, price: +e.target.value }))} className="dash-input" />
+              <label className="form-label" htmlFor={`edit-${svc.id}-price`}>Prix (€)</label>
+              <input id={`edit-${svc.id}-price`} type="number" min="0.01" step="0.01" value={local.price} onChange={e => setLocal(l => ({ ...l, price: +e.target.value }))} className="dash-input" />
             </div>
             <div className="form-field" style={{ marginBottom: 0 }}>
-              <label className="form-label">Public (€)</label>
-              <input type="number" step="0.01" value={local.original} onChange={e => setLocal(l => ({ ...l, original: +e.target.value }))} className="dash-input" />
+              <label className="form-label" htmlFor={`edit-${svc.id}-original`}>Référence (€)</label>
+              <input id={`edit-${svc.id}-original`} type="number" min="0.01" step="0.01" value={local.original} onChange={e => setLocal(l => ({ ...l, original: +e.target.value }))} className="dash-input" />
             </div>
             <div className="form-field" style={{ marginBottom: 0 }}>
-              <label className="form-label">Places max</label>
-              <input type="number" value={local.maxSlots} onChange={e => setLocal(l => ({ ...l, maxSlots: +e.target.value }))} className="dash-input" />
+              <label className="form-label" htmlFor={`edit-${svc.id}-slots`}>Places max</label>
+              <input id={`edit-${svc.id}-slots`} type="number" min="1" value={local.maxSlots} onChange={e => setLocal(l => ({ ...l, maxSlots: +e.target.value }))} className="dash-input" />
             </div>
           </div>
 
@@ -2360,8 +2365,9 @@ function ServiceEditCard({ svc, onSave, onToggle, onDelete, onEditStock, onAddSt
             <summary style={{ cursor: 'pointer', fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600, padding: '6px 0', userSelect: 'none', listStyle: 'none' }}>
               🎯 Normaliser selon le catalogue…
             </summary>
-            <div style={{ background: 'rgba(168,85,247,0.06)', border: '1px solid rgba(168,85,247,0.2)', borderRadius: 10, padding: '10px 12px', marginTop: 8 }}>
+            <div style={{ padding: '10px 0', marginTop: 8 }}>
               <select
+                aria-label={`Modèle de référence pour ${svc.name}`}
                 value=""
                 onChange={e => {
                   const preset = SERVICE_CATALOG.find(p => p.id === e.target.value);
@@ -2380,7 +2386,7 @@ function ServiceEditCard({ svc, onSave, onToggle, onDelete, onEditStock, onAddSt
                 ))}
               </select>
               <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: 6, fontStyle: 'italic' }}>
-                Aligne le nom, l&apos;accroche, l&apos;icône et les caractéristiques sur le modèle officiel. Prix et places restent inchangés.
+                Modèle interne à vérifier auprès du fournisseur. Prix et places restent inchangés ; aucune autorisation commerciale n’est créée.
               </div>
             </div>
           </details>
@@ -2393,36 +2399,34 @@ function ServiceEditCard({ svc, onSave, onToggle, onDelete, onEditStock, onAddSt
             {svc.stocks && svc.stocks.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
                 {svc.stocks.map(st => (
-                  <div key={st.id} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 10, padding: 10 }}>
+                  <div key={st.id} style={{ borderBottom: '1px solid var(--border-subtle)', padding: '10px 0' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
                       <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: "'SF Mono',Menlo,monospace" }}>
                         #{st.id.slice(0, 6)} · {st.filledSlots}/{st.maxSlots} slots · {fmt(st.price)}/mois
                       </span>
                       <button onClick={() => onEditStock(st)} className="btn btn-primary btn-sm" style={{ padding: '4px 10px', fontSize: '0.74rem' }}>
-                        📝 Modifier
+                        <Pencil size={15} aria-hidden="true" /> Modifier
                       </button>
                     </div>
                     <div style={{ fontFamily: "'SF Mono',Menlo,monospace", fontSize: '0.74rem', color: 'var(--text-gray)', wordBreak: 'break-all', lineHeight: 1.5 }}>
-                      {st.details.length > 80 ? st.details.slice(0, 80) + '…' : st.details}
+                      Identifiants masqués · consultation dans Stocks
                     </div>
                   </div>
                 ))}
               </div>
             )}
-            <div style={{ background: 'rgba(168,85,247,0.06)', border: '1px dashed rgba(168,85,247,0.25)', borderRadius: 10, padding: 12 }}>
-              <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-soft)', marginBottom: 8 }}>➕ Ajouter un compte de stock</div>
+            <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 12 }}>
+              <div style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-soft)', marginBottom: 8 }}>Nouveau compte de stock</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
-                <input type="number" step="0.01" placeholder="Prix (€)" value={addPrice}
+                <input aria-label={`Prix du nouveau stock ${svc.name}`} type="number" min="0.01" step="0.01" placeholder="Prix (€)" value={addPrice}
                   onChange={e => setAddPrice(e.target.value)} className="dash-input" style={{ fontSize: '0.78rem', padding: '7px 9px' }} />
-                <input type="number" min="1" placeholder="Places max" value={addSlots}
+                <input aria-label={`Places du nouveau stock ${svc.name}`} type="number" min="1" placeholder="Places max" value={addSlots}
                   onChange={e => setAddSlots(e.target.value)} className="dash-input" style={{ fontSize: '0.78rem', padding: '7px 9px' }} />
               </div>
-              <textarea rows={2} placeholder="Identifiants : email@example.com / motdepasse" value={addDetails}
+              <textarea aria-label={`Identifiants du nouveau stock ${svc.name}`} rows={2} placeholder="Identifiants ou lien d’invitation" value={addDetails}
                 onChange={e => setAddDetails(e.target.value)} className="dash-input"
                 style={{ resize: 'vertical', minHeight: 50, fontSize: '0.78rem', padding: '7px 9px', fontFamily: "'SF Mono',Menlo,monospace" }} />
-              <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: 6, fontStyle: 'italic' }}>
-                Remplissez ces 3 champs pour ajouter un compte lors du clic sur « Sauvegarder ».
-              </div>
+              {(addPrice || addSlots || addDetails) && !(addPrice && addSlots && addDetails) && <p role="alert" className="error-box">Renseignez le prix, les places et les identifiants avant d’enregistrer.</p>}
             </div>
           </div>
         </div>
