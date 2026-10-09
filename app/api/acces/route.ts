@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import crypto from 'crypto';
 import { enforceRateLimit } from '@/lib/rateLimit';
+import { readJsonObject } from '@/lib/requestJson';
 import {
   createSiteAccessToken,
   SITE_ACCESS_COOKIE,
@@ -36,14 +37,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true });
   }
 
-  let code = '';
-  try {
-    ({ code } = await request.json());
-  } catch {
-    code = '';
-  }
+  const parsed = await readJsonObject(request);
+  if (!parsed.ok) return parsed.response;
+  const { code } = parsed.value;
 
-  if (typeof code === 'string' && code.length > 0 && timingSafeEqualStr(code, accessCode)) {
+  if (typeof code === 'string' && code.length > 0 && code.length <= 128 && timingSafeEqualStr(code, accessCode)) {
     const token = createSiteAccessToken();
     if (!token) {
       return NextResponse.json(

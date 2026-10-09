@@ -4,6 +4,7 @@ import { generateVerificationToken } from '@/lib/clientAuth';
 import { sendResetPasswordEmail } from '@/lib/nodemailer';
 import { enforceRateLimit } from '@/lib/rateLimit';
 import { normalizeEmail } from '@/lib/checkoutValidation';
+import { readJsonObject } from '@/lib/requestJson';
 
 export const dynamic = 'force-dynamic';
 const errorMessage = (error: unknown) => {
@@ -18,7 +19,9 @@ export async function POST(request: Request) {
     const limited = await enforceRateLimit(request, 'forgot-password', 5, 3600, true);
     if (limited) return limited;
 
-    const { email } = await request.json();
+    const parsed = await readJsonObject(request);
+    if (!parsed.ok) return parsed.response;
+    const { email } = parsed.value;
     const normalized = normalizeEmail(email);
     if (!normalized) {
       return NextResponse.json({ error: 'Email requis' }, { status: 400 });
@@ -34,12 +37,13 @@ export async function POST(request: Request) {
     const resetToken = generateVerificationToken();
     const resetTokenExp = new Date(Date.now() + 60 * 60 * 1000); // 1h
 
-    await prisma.customer.update({
-      where: { id: customer.id },
+    // Do not send a new credential to an address superseded by a concurrent change.
+    const issued = await prisma.customer.updateMany({
+      where: { id: customer.id, email: normalized, passwordHash: customer.passwordHash, sessionVersion: customer.sessionVersion },
       data: { resetToken, resetTokenExp },
     });
 
-    sendResetPasswordEmail(normalized, resetToken).catch(err =>
+    if (issued.count === 1) sendResetPasswordEmail(normalized, resetToken).catch(err =>
       console.error('[forgot-password] email error:', err)
     );
 

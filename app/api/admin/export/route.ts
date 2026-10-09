@@ -11,7 +11,7 @@ function escapeCsv(value: string | number | null | undefined): string {
   let str = String(value);
   // Anti-injection de formule : Excel/LibreOffice exécutent les cellules
   // commençant par = + - @ (ex: =cmd|...). On neutralise avec une apostrophe.
-  if (/^[=+\-@\t\r]/.test(str)) {
+  if (/^[\t\r\n]/.test(str) || /^[\s\u0000-\u001f]*[=+\-@]/u.test(str)) {
     str = "'" + str;
   }
   if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {

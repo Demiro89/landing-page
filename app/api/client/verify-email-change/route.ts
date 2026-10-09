@@ -42,6 +42,9 @@ export async function GET(request: NextRequest) {
         pendingEmail: null,
         emailChangeToken: null,
         emailChangeTokenExp: null,
+        resetToken: null,
+        resetTokenExp: null,
+        verificationToken: null,
         sessionVersion: { increment: 1 },
       },
     });

@@ -4,8 +4,10 @@ import { hashPassword, generateVerificationToken } from '@/lib/clientAuth';
 import { sendVerificationEmail } from '@/lib/nodemailer';
 import { enforceRateLimit } from '@/lib/rateLimit';
 import { normalizeEmail } from '@/lib/checkoutValidation';
+import { readJsonObject } from '@/lib/requestJson';
 
 export const dynamic = 'force-dynamic';
+const registrationResponse = () => NextResponse.json({ success: true, message: 'Consultez votre boîte e-mail pour la suite. Si vous avez déjà un compte, connectez-vous ou réinitialisez votre mot de passe.' });
 const errorMessage = (error: unknown) => {
   // Journalise l'erreur réelle côté serveur ; n'expose jamais les détails au client
   // (les messages Prisma révèlent le schéma : tables, colonnes, contraintes).
@@ -15,10 +17,12 @@ const errorMessage = (error: unknown) => {
 
 export async function POST(request: Request) {
   try {
-    const limited = await enforceRateLimit(request, 'register', 5, 3600);
+    const limited = await enforceRateLimit(request, 'register', 5, 3600, true);
     if (limited) return limited;
 
-    const { email, password } = await request.json();
+    const parsed = await readJsonObject(request);
+    if (!parsed.ok) return parsed.response;
+    const { email, password } = parsed.value;
     if (!email || !password) {
       return NextResponse.json({ error: 'Email et mot de passe requis' }, { status: 400 });
     }
@@ -31,12 +35,12 @@ export async function POST(request: Request) {
 
     const normalized = normalizeEmail(email);
     if (!normalized) return NextResponse.json({ error: 'Adresse email invalide' }, { status: 400 });
+    const passwordHash = hashPassword(password);
     const existing = await prisma.customer.findUnique({ where: { email: normalized } });
     if (existing) {
-      return NextResponse.json({ error: 'Un compte existe déjà avec cet email' }, { status: 409 });
+      return registrationResponse();
     }
 
-    const passwordHash = hashPassword(password);
     const verificationToken = generateVerificationToken();
 
     await prisma.customer.create({
@@ -52,8 +56,9 @@ export async function POST(request: Request) {
       console.error('[register] verification email error:', err)
     );
 
-    return NextResponse.json({ success: true, message: 'Compte créé. Vérifiez votre email pour activer votre compte.' });
+    return registrationResponse();
   } catch (error: unknown) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') return registrationResponse();
     console.error('[register]', error);
     return NextResponse.json({ error: errorMessage(error) }, { status: 500 });
   }

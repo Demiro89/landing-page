@@ -101,7 +101,7 @@ test('every protected admin handler refuses unauthenticated requests before acce
       handlers++;
     }
   }
-  assert.equal(handlers, 16);
+  assert.equal(handlers, 17);
 });
 
 test('password change updates credentials and revokes sessions in one conditional transaction', async () => {
@@ -115,7 +115,7 @@ test('password change updates credentials and revokes sessions in one conditiona
       findUniqueOrThrow: async () => ({ sessionVersion: 5 }),
     } }) } },
   })('app/api/client/change-password/route.ts');
-  const request = () => new Request('http://localhost/api/client/change-password', { method: 'POST', body: JSON.stringify({ currentPassword: 'OldPassword1', newPassword: 'NewPassword2' }) });
+  const request = () => new Request('http://localhost/api/client/change-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ currentPassword: 'OldPassword1', newPassword: 'NewPassword2' }) });
   assert.equal((await POST(request())).status, 200);
   assert.equal(issued, 1); assert.equal(writes, 1);
   conflict = true;
@@ -137,7 +137,7 @@ test('password reset consumes a valid unexpired token and revokes old sessions a
       } }),
     } },
   })('app/api/client/reset-password/route.ts');
-  const request = value => new Request('http://localhost/api/client/reset-password', { method: 'POST', body: JSON.stringify({ token: value, password: 'NewPassword2' }) });
+  const request = value => new Request('http://localhost/api/client/reset-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: value, password: 'NewPassword2' }) });
   assert.equal((await POST(request('invalid'))).status, 400);
   assert.equal((await POST(request(token))).status, 200);
   assert.equal((await POST(request(token))).status, 400);
@@ -159,7 +159,7 @@ test('email change refuses a stale password/session and never claims provider re
     '@/lib/nodemailer': { sendEmailChangeVerificationEmail: async () => { sends++; return { success: delivered }; } },
     '@/lib/prisma': { prisma: { customer: { findUnique: async () => null, updateMany: async input => { assert.deepEqual(input.where, { id: customer.id, passwordHash: customer.passwordHash, sessionVersion: customer.sessionVersion }); return { count: conflict ? 0 : 1 }; } } } },
   })('app/api/client/change-email/route.ts');
-  const request = () => new Request('http://localhost/api/client/change-email', { method: 'POST', body: JSON.stringify({ currentPassword: 'Password1', newEmail: 'new@example.test' }) });
+  const request = () => new Request('http://localhost/api/client/change-email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ currentPassword: 'Password1', newEmail: 'new@example.test' }) });
   assert.equal((await POST(request())).status, 409); assert.equal(sends, 0);
   conflict = false;
   assert.equal((await POST(request())).status, 503);

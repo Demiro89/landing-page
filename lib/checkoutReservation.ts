@@ -3,7 +3,7 @@ import { prisma } from './prisma';
 import { lockStock, heldPlaces, AvailabilityError } from './stockReservations';
 import { encrypt } from './crypto';
 
-export async function reserveCheckout(attemptId: string, data: Prisma.OrderUncheckedCreateInput) {
+export async function reserveCheckout(attemptId: unknown, data: Prisma.OrderUncheckedCreateInput) {
   if (typeof attemptId !== 'string' || !/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(attemptId)) throw new AvailabilityError('Rechargez la page avant de commander.');
   return prisma.$transaction(async tx => {
     const stock = await lockStock(tx, data.stockAccountId);

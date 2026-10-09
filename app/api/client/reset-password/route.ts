@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { hashPassword, setSession } from '@/lib/clientAuth';
 import { enforceRateLimit } from '@/lib/rateLimit';
+import { readJsonObject } from '@/lib/requestJson';
 
 export const dynamic = 'force-dynamic';
 const errorMessage = (error: unknown) => {
@@ -16,7 +17,9 @@ export async function POST(request: Request) {
     const limited = await enforceRateLimit(request, 'reset-password', 10, 3600, true);
     if (limited) return limited;
 
-    const { token, password } = await request.json();
+    const parsed = await readJsonObject(request);
+    if (!parsed.ok) return parsed.response;
+    const { token, password } = parsed.value;
     if (typeof token !== 'string' || !/^[a-f0-9]{64}$/.test(token) || !password) {
       return NextResponse.json({ error: 'Token et mot de passe requis' }, { status: 400 });
     }
@@ -42,6 +45,7 @@ export async function POST(request: Request) {
           resetToken: null,
           resetTokenExp: null,
           emailVerified: true,
+          verificationToken: null,
           loginAttempts: 0,
           lockedUntil: null,
           sessionVersion: { increment: 1 },

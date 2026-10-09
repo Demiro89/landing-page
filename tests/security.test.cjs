@@ -220,7 +220,7 @@ test('client support responses omit access details and reject another explicit o
   assert.equal(history.thread.order.details, undefined);
   assert.equal(JSON.stringify(history).includes('encrypted-secret'), false);
   order.customerId = 'another-owner';
-  assert.equal((await GET(req)).status, 403);
+  assert.equal((await GET(req)).status, 404);
 });
 
 test('2FA rejects replacement of an active factor and forged setup secrets', async () => {
