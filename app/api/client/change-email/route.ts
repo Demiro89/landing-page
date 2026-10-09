@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { enforceRateLimit } from '@/lib/rateLimit';
 import { sendEmailChangeVerificationEmail } from '@/lib/nodemailer';
 import { normalizeEmail } from '@/lib/checkoutValidation';
+import { readJsonObject } from '@/lib/requestJson';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,7 +17,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Authentification requise' }, { status: 401 });
   }
 
-  const { newEmail, currentPassword } = await request.json();
+  const parsed = await readJsonObject(request);
+  if (!parsed.ok) return parsed.response;
+  const { newEmail, currentPassword } = parsed.value;
 
   const normalized = normalizeEmail(newEmail);
   if (!normalized || typeof currentPassword !== 'string' || !currentPassword || currentPassword.length > 128) {

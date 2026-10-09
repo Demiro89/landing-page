@@ -49,9 +49,20 @@ const supportThreads = [0, 3].map(index => ({ id: adminOrders[index].id, orderId
 const server = http.createServer((req, res) => {
   if (process.env.FIXTURE_DEBUG === 'true') console.log(req.method, req.url);
   const url = new URL(req.url, `http://127.0.0.1:${previewPort}`);
-  const mode = url.searchParams.get('fixture') || /fixture-mode=(empty|error|soldout|reminders|admin|login)/.exec(req.headers.cookie || '')?.[1] || 'normal';
+  const mode = url.searchParams.get('fixture') || /fixture-mode=(empty|error|soldout|reminders|admin|login|client)/.exec(req.headers.cookie || '')?.[1] || 'normal';
   const json = (data, status = 200) => { res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(data)); };
   if (url.pathname.startsWith('/api/')) {
+    if (url.pathname === '/api/admin/credentials' && req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => { body += chunk; if (body.length > 8192) req.destroy(); });
+      req.on('end', () => {
+        try {
+          const stock = stocks.find(stock => stock.id === JSON.parse(body).stockId);
+          return stock ? json({ success: true, details: stock.details, updatedAt: stock.updatedAt }) : json({ error: 'Fixture introuvable' }, 404);
+        } catch { return json({ error: 'JSON invalide' }, 400); }
+      });
+      return;
+    }
     if (req.method !== 'GET') return json({ error: 'Demonstration locale : aucune operation effectuee.' }, 503);
     const empty = mode === 'empty';
     if (mode === 'error') return json({ error: 'Erreur simulee' }, 503);
@@ -59,9 +70,9 @@ const server = http.createServer((req, res) => {
       '/api/services': { success: true, services: empty ? [] : services.map(s => ({ ...s, availableStockId: mode === 'soldout' ? null : stocks.find(v => v.serviceId === s.id)?.id || null, availableSlots: mode === 'soldout' ? 0 : stocks.filter(v => v.serviceId === s.id).reduce((n, v) => n + v.maxSlots - v.filledSlots, 0) })) },
       '/api/stocks/public': { success: true, stocks: empty || mode === 'soldout' ? [] : stocks.map(s => ({ id: s.id, serviceId: s.serviceId, price: s.price, maxSlots: s.maxSlots, filledSlots: s.filledSlots, service: s.service })) },
       '/api/settings/public': { success: true, settings },
-      '/api/client/me': { authenticated: false },
+      '/api/client/me': mode === 'client' ? { authenticated: true, customer: { id: 'fixture-customer', email: 'client@example.test', emailVerified: true }, orders: [] } : { authenticated: false },
       '/api/admin/auth': { authenticated: mode !== 'login' },
-      '/api/admin/stock': { success: true, schemaEnabled: mode === 'admin', services: empty ? [] : services.map(s => ({ ...s, stocks: stocks.filter(v => v.serviceId === s.id) })), orders: mode === 'admin' ? adminOrders : mode === 'reminders' ? unpaidOrders : [], kpis: { totalRevenue: 0, totalCogs: 0, totalInvestment: empty ? 0 : 36, netProfit: 0, marginPercentage: 0 } },
+      '/api/admin/stock': { success: true, schemaEnabled: mode === 'admin', services: empty ? [] : services.map(s => ({ ...s, stocks: stocks.filter(v => v.serviceId === s.id).map(stock => ({ ...stock, details: '' })) })), orders: (mode === 'admin' ? adminOrders : mode === 'reminders' ? unpaidOrders : []).map(order => ({ ...order, details: '', stockAccount: { ...order.stockAccount, details: '' } })), kpis: { totalRevenue: 0, totalCogs: 0, totalInvestment: empty ? 0 : 36, netProfit: 0, marginPercentage: 0 } },
       '/api/admin/settings': { success: true, settings },
       '/api/admin/clients': { success: true, clients: mode === 'admin' ? adminOrders.map(order => ({ email: order.clientEmail, firstOrderDate: new Date(order.date).toLocaleDateString('fr-FR'), orderCount: 1, activeOrders: Number(order.status === 'active'), totalSpent: ['active', 'unpaid', 'cancelled_pending'].includes(order.status) ? order.total : 0 })) : [] },
       '/api/admin/2fa': { success: true, enabled: false },

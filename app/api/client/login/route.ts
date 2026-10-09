@@ -1,13 +1,15 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { verifyPassword, setSession } from '@/lib/clientAuth';
+import { verifyPassword, setSession, DUMMY_PASSWORD_HASH } from '@/lib/clientAuth';
 import { enforceRateLimit } from '@/lib/rateLimit';
 import { normalizeEmail } from '@/lib/checkoutValidation';
+import { readJsonObject } from '@/lib/requestJson';
 
 export const dynamic = 'force-dynamic';
 
 const MAX_ATTEMPTS = 5;
 const LOCK_DURATION_MS = 15 * 60 * 1000; // 15 minutes
+const rejected = () => NextResponse.json({ error: 'Identifiants incorrects ou connexion temporairement indisponible. Réessayez plus tard ou réinitialisez votre mot de passe.' }, { status: 401 });
 
 const errorMessage = (error: unknown) => {
   // Journalise l'erreur réelle côté serveur ; n'expose jamais les détails au client
@@ -21,7 +23,9 @@ export async function POST(request: Request) {
     const limited = await enforceRateLimit(request, 'login', 8, 900, true);
     if (limited) return limited;
 
-    const { email, password } = await request.json();
+    const parsed = await readJsonObject(request);
+    if (!parsed.ok) return parsed.response;
+    const { email, password } = parsed.value;
     if (!email || !password) {
       return NextResponse.json({ error: 'Email et mot de passe requis' }, { status: 400 });
     }
@@ -31,46 +35,32 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Identifiants invalides' }, { status: 400 });
     }
     const customer = await prisma.customer.findUnique({ where: { email: normalized } });
+    const passwordValid = verifyPassword(password, customer?.passwordHash ?? DUMMY_PASSWORD_HASH);
 
     if (!customer) {
-      return NextResponse.json({ error: 'Identifiants incorrects' }, { status: 401 });
+      return rejected();
     }
 
     // Vérifier si le compte est verrouillé
     if (customer.lockedUntil && customer.lockedUntil > new Date()) {
-      const minutesLeft = Math.ceil((customer.lockedUntil.getTime() - Date.now()) / 60000);
-      return NextResponse.json({
-        error: `Compte temporairement verrouillé suite à trop de tentatives. Réessayez dans ${minutesLeft} minute${minutesLeft > 1 ? 's' : ''}.`,
-        locked: true,
-      }, { status: 429 });
+      return rejected();
     }
 
-    if (!verifyPassword(password, customer.passwordHash)) {
-      const newAttempts = customer.loginAttempts + 1;
-      const shouldLock = newAttempts >= MAX_ATTEMPTS;
-
-      await prisma.customer.update({
-        where: { id: customer.id },
-        data: {
-          // On NE réinitialise PAS le compteur au verrouillage : sinon l'attaquant
-          // récupérerait 5 essais neufs à chaque fenêtre de 15 min. Le compteur n'est
-          // remis à zéro qu'après une connexion réussie ou une réinitialisation du mot de passe.
-          loginAttempts: newAttempts,
-          lockedUntil: shouldLock ? new Date(Date.now() + LOCK_DURATION_MS) : customer.lockedUntil,
-        },
+    if (!passwordValid) {
+      await prisma.$transaction(async tx => {
+        // The atomic increment also locks the row until the lockout decision is committed.
+        const changed = await tx.customer.updateMany({
+          where: { id: customer.id, passwordHash: customer.passwordHash, sessionVersion: customer.sessionVersion, loginAttempts: { lt: 2147483647 } },
+          data: { loginAttempts: { increment: 1 } },
+        });
+        if (changed.count !== 1) return null;
+        const current = await tx.customer.findUniqueOrThrow({ where: { id: customer.id }, select: { loginAttempts: true } });
+        if (current.loginAttempts >= MAX_ATTEMPTS) await tx.customer.update({
+          where: { id: customer.id }, data: { lockedUntil: new Date(Date.now() + LOCK_DURATION_MS) },
+        });
+        return current.loginAttempts;
       });
-
-      if (shouldLock) {
-        return NextResponse.json({
-          error: 'Compte verrouillé 15 minutes suite à 5 tentatives échouées.',
-          locked: true,
-        }, { status: 429 });
-      }
-
-      const remaining = MAX_ATTEMPTS - newAttempts;
-      return NextResponse.json({
-        error: `Identifiants incorrects. ${remaining} tentative${remaining > 1 ? 's' : ''} restante${remaining > 1 ? 's' : ''} avant verrouillage.`,
-      }, { status: 401 });
+      return rejected();
     }
 
     if (!customer.emailVerified) {
@@ -81,10 +71,11 @@ export async function POST(request: Request) {
     }
 
     // Connexion réussie : réinitialiser le compteur
-    await prisma.customer.update({
-      where: { id: customer.id },
+    const authenticated = await prisma.customer.updateMany({
+      where: { id: customer.id, passwordHash: customer.passwordHash, sessionVersion: customer.sessionVersion, emailVerified: true },
       data: { loginAttempts: 0, lockedUntil: null },
     });
+    if (authenticated.count !== 1) return rejected();
 
     await setSession(customer.id, customer.sessionVersion);
     return NextResponse.json({

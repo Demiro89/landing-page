@@ -9,6 +9,7 @@ import { enforceRateLimit } from '@/lib/rateLimit';
 import { verifyTotpAndGetCounter } from '@/lib/totp';
 import { decrypt } from '@/lib/crypto';
 import { lockAdminTotp } from '@/lib/adminTotp';
+import { readJsonObject } from '@/lib/requestJson';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,7 +31,9 @@ function timingSafeEqualStr(a: string, b: string): boolean {
  */
 export async function POST(request: Request) {
   try {
-    const { password, action, totp } = await request.json();
+    const parsed = await readJsonObject(request);
+    if (!parsed.ok) return parsed.response;
+    const { password, action, totp } = parsed.value;
 
     // Gestion de la déconnexion
     if (action === 'logout') {

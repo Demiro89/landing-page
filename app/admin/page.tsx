@@ -4,11 +4,13 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { SERVICE_CATALOG, CATALOG_CATEGORIES, type ServicePreset } from '@/lib/serviceCatalog';
-import { Menu, X, LogOut, Keyboard, ArrowLeft, LayoutDashboard, ClipboardCheck, Package, Clapperboard, Users, Ticket, CircleAlert, Ban, MessagesSquare, Settings2, History, ShieldCheck, RefreshCw, ArrowUpRight, Download, Eye, EyeOff, Copy, Pencil, Save, Trash2, Check, Send, ChevronDown, Plus } from 'lucide-react';
+import { Menu, X, LogOut, Keyboard, ArrowLeft, LayoutDashboard, ClipboardCheck, Package, Clapperboard, Users, Ticket, CircleAlert, Ban, MessagesSquare, Settings2, History, ShieldCheck, RefreshCw, ArrowUpRight, Download, Pencil, Save, Trash2, Check, Send, ChevronDown, Plus } from 'lucide-react';
 import OperationsPanel, { type OperationsTab } from '@/components/admin/OperationsPanel';
 import AdminActivityChart from '@/components/admin/AdminActivityChart';
 import OrderStatus from '@/components/admin/OrderStatus';
 import AdminDialog from '@/components/admin/AdminDialog';
+import StockCredentials from '@/components/admin/StockCredentials';
+import { readStockCredentials } from '@/lib/adminCredentials';
 import { useAdminActions } from '@/components/admin/useAdminActions';
 import { adminResponse } from '@/lib/adminResponse';
 import { hasValidatedInitialAmount, isStripeOrder, matchesOrderSearch } from '@/lib/adminPresentation';
@@ -123,7 +125,6 @@ export default function AdminPage() {
   const [ordersSearch, setOrdersSearch] = useState('');
   const [clientsSearch, setClientsSearch] = useState('');
   const [ordersPage, setOrdersPage] = useState(0);
-  const [showCredIds, setShowCredIds] = useState<Set<string>>(new Set());
   const [kpiRange, setKpiRange] = useState<'all' | 'month' | 'quarter' | 'year'>('all');
   const [busyOrderId, setBusyOrderId] = useState<string | null>(null);
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
@@ -166,7 +167,7 @@ export default function AdminPage() {
   const [operationsTab, setOperationsTab] = useState<OperationsTab>('Offres');
   const navigate = (page: AdminPage, tab: OperationsTab = 'Offres') => {
     setOperationsTab(tab);
-    setActivePage(page); setMobileNavOpen(false); setShowCredIds(new Set());
+    setActivePage(page); setMobileNavOpen(false);
     mainRef.current?.focus();
     window.scrollTo({ top: 0 });
   };
@@ -203,7 +204,6 @@ export default function AdminPage() {
       setTwoFaEnabled(twoFaRes.enabled);
       setLoadError('');
       setLastLoadedAt(new Date());
-      setShowCredIds(new Set());
       return true;
     } catch { setLoadError('Chargement impossible. Les données affichées peuvent être anciennes. Réessayez avant toute modification.'); return false; }
     finally { setLoading(false); }
@@ -640,9 +640,16 @@ export default function AdminPage() {
     else toast('Erreur lors de la sauvegarde.');
   };
 
-  const copyCreds = async (txt: string) => {
-    try { await navigator.clipboard.writeText(txt); toast('Identifiants copiés'); }
-    catch { toast('Copie impossible.'); }
+  const openStockEditor = async (stock: StockAccount) => {
+    try {
+      const credentials = await readStockCredentials(stock.id);
+      if (credentials.updatedAt !== stock.updatedAt) {
+        toast('Ce compte a changé. Les données vont être actualisées.');
+        await loadAll();
+        return;
+      }
+      setEditStock({ ...stock, details: credentials.details });
+    } catch (error) { toast(error instanceof Error ? error.message : 'Consultation indisponible.'); }
   };
   const changeOrder = async (action: string, orderId: string, message: string, extra: Record<string, unknown> = {}) => {
     const response = await adminFetch('/api/admin/stock', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, orderId, ...extra }) });
@@ -1119,10 +1126,10 @@ export default function AdminPage() {
                           <span>Remplissage : <strong>{st.filledSlots}/{st.maxSlots}</strong></span>
                           {st.filledSlots < st.maxSlots && <><span>·</span><span style={{ color: 'var(--accent-green)' }}><strong>{st.maxSlots - st.filledSlots} slot{st.maxSlots - st.filledSlots > 1 ? 's' : ''} libre{st.maxSlots - st.filledSlots > 1 ? 's' : ''}</strong></span></>}
                         </div>
-                        <details className="admin-credentials"><summary><Eye size={15} aria-hidden="true" /> Consulter les identifiants</summary><pre>{st.details}</pre></details>
+                        <StockCredentials stockId={st.id} />
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
-                        <button onClick={() => setEditStock(st)} className="btn btn-ghost btn-sm"><Pencil size={15} aria-hidden="true" /> Modifier</button>
+                        <button onClick={() => void openStockEditor(st)} className="btn btn-ghost btn-sm"><Pencil size={15} aria-hidden="true" /> Modifier</button>
                         <button onClick={() => deleteStock(st.id)} className="btn btn-danger btn-sm"><Trash2 size={15} aria-hidden="true" /> Retirer</button>
                       </div>
                     </div>
@@ -1199,7 +1206,7 @@ export default function AdminPage() {
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {services.map(svc => (
-                    <ServiceEditCard key={svc.id} svc={svc} onSave={saveService} onToggle={toggleService} onDelete={deleteService} onEditStock={setEditStock} onAddStock={addStockInline} />
+                    <ServiceEditCard key={svc.id} svc={svc} onSave={saveService} onToggle={toggleService} onDelete={deleteService} onEditStock={openStockEditor} onAddStock={addStockInline} />
                   ))}
                 </div>
               </div>
@@ -1248,29 +1255,7 @@ export default function AdminPage() {
                                   {stock.filledSlots}/{stock.maxSlots} slots occupés · {fmt(stock.price)}/mois
                                 </span>
                               </div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, maxWidth: '100%' }}>
-                                <code style={{ fontSize: '0.72rem', background: '#eaf0ee', padding: '6px 10px', borderRadius: 4, color: 'var(--secondary)', fontFamily: "'SF Mono',Menlo,monospace", minWidth: 0, maxWidth: 260, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                  {showCredIds.has(stock.id)
-                                    ? (stock.details.length > 50 ? stock.details.slice(0, 50) + '…' : stock.details)
-                                    : '🔑 ••••••••••••••••'}
-                                </code>
-                                <button
-                                  onClick={() => setShowCredIds(prev => { const next = new Set(prev); if (next.has(stock.id)) next.delete(stock.id); else next.add(stock.id); return next; })}
-                                  className="btn btn-ghost btn-sm"
-                                  style={{ fontSize: '0.7rem', padding: '4px 8px' }}
-                                  title={showCredIds.has(stock.id) ? 'Masquer' : 'Afficher les identifiants'}
-                                  aria-label={showCredIds.has(stock.id) ? 'Masquer les identifiants' : 'Afficher les identifiants'}
-                                >
-                                  {showCredIds.has(stock.id) ? <EyeOff size={16} aria-hidden="true" /> : <Eye size={16} aria-hidden="true" />}
-                                </button>
-                                <button
-                                  onClick={() => copyCreds(stock.details)}
-                                  className="btn btn-ghost btn-sm"
-                                  style={{ fontSize: '0.7rem', padding: '4px 8px' }}
-                                  title="Copier les identifiants du compte"
-                                  aria-label="Copier les identifiants du compte"
-                                ><Copy size={16} aria-hidden="true" /></button>
-                              </div>
+                              <StockCredentials stockId={stock.id} />
                             </div>
 
                             {stockOrders.length === 0 ? (

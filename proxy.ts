@@ -16,7 +16,7 @@ function forbidden() {
   );
 }
 
-function withCsp(request: NextRequest): NextResponse {
+function withCsp(request: NextRequest, earlyResponse?: NextResponse): NextResponse {
   const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
   const isProd = process.env.NODE_ENV === 'production';
 
@@ -44,9 +44,10 @@ function withCsp(request: NextRequest): NextResponse {
   requestHeaders.set('x-nonce', nonce);
   requestHeaders.set('Content-Security-Policy', csp);
 
-  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  const response = earlyResponse ?? NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set('Content-Security-Policy', csp);
-  if (request.nextUrl.pathname.startsWith('/commande/')) {
+  if (earlyResponse || request.nextUrl.pathname.startsWith('/commande/') || request.nextUrl.pathname.startsWith('/api/') ||
+      ['token', 'reset', 'resetToken', 'session_id'].some(key => request.nextUrl.searchParams.has(key))) {
     response.headers.set('Referrer-Policy', 'no-referrer');
     response.headers.set('Cache-Control', 'private, no-store');
   }
@@ -70,23 +71,23 @@ export async function proxy(request: NextRequest) {
     if (!isGatePath && !hasAccess) {
       // Les appels API renvoient un 403 JSON ; les pages sont redirigées vers /acces.
       if (pathname.startsWith('/api')) {
-        return NextResponse.json({ error: 'Accès restreint.' }, { status: 403 });
+        return withCsp(request, NextResponse.json({ error: 'Accès restreint.' }, { status: 403 }));
       }
-      return NextResponse.redirect(new URL('/acces', request.url));
+      return withCsp(request, NextResponse.redirect(new URL('/acces', request.url)));
     }
 
     // Déjà autorisé mais encore sur la page d'accès → renvoyer à l'accueil.
     if (pathname === '/acces' && hasAccess) {
-      return NextResponse.redirect(new URL('/', request.url));
+      return withCsp(request, NextResponse.redirect(new URL('/', request.url)));
     }
   }
 
   /* ── Admin route protection ── */
   if (pathname.startsWith('/admin')) {
-    if (!pathname.startsWith('/admin/login')) {
+    if (pathname !== '/admin/login') {
       const token = request.cookies.get(ADMIN_COOKIE)?.value;
       if (!(await authenticateAdminToken(token))) {
-        return NextResponse.redirect(new URL('/admin/login', request.url));
+        return withCsp(request, NextResponse.redirect(new URL('/admin/login', request.url)));
       }
     }
     // Admin pages continue to withCsp below
@@ -98,15 +99,15 @@ export async function proxy(request: NextRequest) {
       const source = request.headers.get('origin') || request.headers.get('referer');
 
       // Fail-closed: mutating requests without a verifiable origin are rejected.
-      if (!source) return forbidden();
+      if (!source) return withCsp(request, forbidden());
 
       let sourceOrigin: string;
       try {
         sourceOrigin = new URL(source).origin;
       } catch {
-        return forbidden();
+        return withCsp(request, forbidden());
       }
-      if (sourceOrigin !== request.nextUrl.origin) return forbidden();
+      if (sourceOrigin !== request.nextUrl.origin) return withCsp(request, forbidden());
     }
   }
 

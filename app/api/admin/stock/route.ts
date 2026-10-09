@@ -114,12 +114,12 @@ export async function GET() {
     const netProfit = totalRevenue - totalCogs;
     const marginPercentage = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
 
-    // Déchiffre les identifiants avant de les renvoyer à l'interface admin.
+    // Bulk lists never carry stock or order credentials, including nested relations.
     const safeServices = services.map((s) => ({
       ...s,
-      stocks: s.stocks.map((st) => ({ ...st, details: decrypt(st.details) })),
+      stocks: s.stocks.map((st) => ({ ...st, details: '' })),
     }));
-    const safeOrders = orders.map((o) => ({ ...o, details: decrypt(o.details) }));
+    const safeOrders = orders.map((o) => ({ ...o, details: '', stockAccount: o.stockAccount ? { ...o.stockAccount, details: '' } : null }));
 
     return NextResponse.json({
       success: true,

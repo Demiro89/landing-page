@@ -6,7 +6,7 @@ process.env.ADMIN_SECRET_TOKEN = 'test-admin-secret-with-more-than-32-characters
 process.env.CLIENT_SESSION_SECRET = 'test-client-secret-with-more-than-32-characters';
 process.env.STRIPE_SECRET_KEY = 'sk_test_fixture_no_network';
 process.env.STRIPE_WEBHOOK_SECRET = 'whsec_fixture_no_network';
-const request = body => new Request('http://localhost/api/test', { method: 'POST', body: JSON.stringify(body) });
+const request = body => new Request('http://localhost/api/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 
 test('repeated cancellations release one slot, including concurrent state changes', async () => {
   let status = 'active';

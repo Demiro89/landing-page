@@ -236,7 +236,7 @@ export default function Home() {
       });
       const d = await r.json();
       if (d.success) {
-        setAuthMsg('✅ Compte créé ! Consultez votre email pour activer votre compte.');
+        setAuthMsg(d.message || 'Consultez votre boîte e-mail pour la suite.');
         setAuthPassword(''); setAuthPasswordConfirm('');
       } else {
         setAuthError(d.error || 'Erreur');
@@ -284,6 +284,7 @@ export default function Home() {
   };
 
   const [deleteConfirm, setDeleteConfirm] = useState('');
+  const [deletePassword, setDeletePassword] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
 
@@ -354,7 +355,7 @@ export default function Home() {
       const r = await fetch('/api/client/delete-account', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ confirmation: deleteConfirm }),
+        body: JSON.stringify({ confirmation: deleteConfirm, currentPassword: deletePassword }),
       });
       const d = await r.json();
       if (d.success) {
@@ -373,6 +374,7 @@ export default function Home() {
     } catch {
       setDeleteError('Erreur réseau');
     } finally {
+      setDeletePassword('');
       setDeleting(false);
     }
   };
@@ -1070,10 +1072,11 @@ export default function Home() {
                         Vos abonnements actifs ne seront <strong>pas annulés</strong> — ils restent gérés via votre adresse email. En revanche, vous perdrez l&apos;accès à votre Espace Client et à l&apos;historique de vos conversations support.
                       </p>
 
-                      <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-soft)', marginBottom: 6, fontWeight: 600 }}>
+                      <label htmlFor="delete-confirm" style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-soft)', marginBottom: 6, fontWeight: 600 }}>
                         Pour confirmer, tapez <code style={{ background: 'rgba(239,68,68,0.15)', color: 'var(--accent-red)', padding: '2px 8px', borderRadius: 4, fontFamily: 'monospace', fontWeight: 800 }}>supprimer</code> ci-dessous :
                       </label>
                       <input
+                        id="delete-confirm"
                         type="text"
                         value={deleteConfirm}
                         onChange={(e) => { setDeleteConfirm(e.target.value); setDeleteError(''); }}
@@ -1083,13 +1086,27 @@ export default function Home() {
                         disabled={deleting}
                       />
 
+                      <label htmlFor="delete-password" style={{ display: 'block', marginBottom: 6 }}>Mot de passe actuel</label>
+                      <input
+                        id="delete-password"
+                        type="password"
+                        value={deletePassword}
+                        onChange={e => setDeletePassword(e.target.value)}
+                        autoComplete="current-password"
+                        maxLength={128}
+                        className="input"
+                        style={{ width: '100%', marginBottom: 12 }}
+                        disabled={deleting}
+                        required
+                      />
+
                       {deleteError && (
                         <div className="msg-error" style={{ marginBottom: 12 }}>{deleteError}</div>
                       )}
 
                       <button
                         onClick={doDeleteAccount}
-                        disabled={deleting || deleteConfirm.trim().toLowerCase() !== 'supprimer'}
+                        disabled={deleting || !deletePassword || deleteConfirm.trim().toLowerCase() !== 'supprimer'}
                         className="btn"
                         style={{
                           width: '100%',

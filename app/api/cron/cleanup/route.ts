@@ -38,17 +38,10 @@ export async function GET(request: NextRequest) {
 
   // 3. Comptes non vérifiés créés il y a plus de 7 jours (sans commande)
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-  const unverifiedAccounts = await prisma.customer.findMany({
-    where: { emailVerified: false, createdAt: { lt: sevenDaysAgo } },
-    select: { id: true, _count: { select: { orders: true } } },
+  const deleted = await prisma.customer.deleteMany({
+    where: { emailVerified: false, createdAt: { lt: sevenDaysAgo }, orders: { none: {} } },
   });
-  const toDelete = unverifiedAccounts.filter(c => c._count.orders === 0).map(c => c.id);
-  if (toDelete.length > 0) {
-    const deleted = await prisma.customer.deleteMany({ where: { id: { in: toDelete } } });
-    results.deletedUnverifiedAccounts = deleted.count;
-  } else {
-    results.deletedUnverifiedAccounts = 0;
-  }
+  results.deletedUnverifiedAccounts = deleted.count;
 
   // 4. Fenêtres de rate limit expirées
   const expiredRateLimits = await prisma.rateLimit.deleteMany({
