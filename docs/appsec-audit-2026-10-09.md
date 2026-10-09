@@ -295,7 +295,13 @@ le composant des qu'un correctif compatible est publie, puis relancer l'audit co
   confirmation simultanee, changement d'email pendant un reset en cours, mauvais
   mots de passe simultanes, suppression avec ancienne/nouvelle session.
   Execution uniquement sur hote local et nom de base finissant par `_test`.
-  Resultat du pipeline a consigner apres l'execution distante.
+  **11/11 tests PostgreSQL reussis** dans GitHub Actions, dont ces cinq nouveaux
+  scenarios. Schema initial et SQL additif verifies sur cette base jetable.
+- [Pipeline GitHub verifie](https://github.com/Demiro89/landing-page/actions/runs/37894355112)
+  sur le commit `0c65ed824ea1cc546343b5de1485471983a27a76` : lint, 90 tests,
+  11 tests PostgreSQL et build reussis. L'unique etape en echec est l'audit complet
+  des dependances (DEP-01). Preview Vercel construite avec succes ; cela ne vaut
+  ni validation du parcours reel ni deploiement de production.
 - HTTP local sur le vrai serveur compile, sans base : redirection admin 307,
   origine etrangere 403, JSON null 400, credentials sans session 401, corps excessif
   413 ; CSP et no-store observes sur les cinq reponses. Next normalise ici l'origine
