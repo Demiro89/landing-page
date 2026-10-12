@@ -134,7 +134,7 @@ test('PostgreSQL: duplicate signed checkouts create one payment, one slot and on
   assert.equal((await db.stockAccount.findUniqueOrThrow({ where: { id: f.stock.id } })).filledSlots, 1, 'No resale until provider access is revoked');
   const revocation = await db.deliveryJob.findFirstOrThrow({ where: { orderId: f.order.id, kind: 'access_revocation' } });
   const operations = load('app/api/admin/operations/route.ts');
-  const confirm = () => operations.POST(new Request('http://localhost/api/admin/operations', { method: 'POST', body: JSON.stringify({ action: 'confirm_access_revoked', jobId: revocation.id, confirmed: true }) }));
+  const confirm = () => operations.POST(new Request('http://localhost/api/admin/operations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'confirm_access_revoked', jobId: revocation.id, confirmed: true }) }));
   const confirmations = await Promise.all([confirm(), confirm()]);
   assert.deepEqual(confirmations.map(response => response.status).sort(), [200, 409]);
   assert.equal((await db.stockAccount.findUniqueOrThrow({ where: { id: f.stock.id } })).filledSlots, 0);

@@ -59,7 +59,7 @@ export default function AdminReauthentication() {
         <input ref={totpInput} id="admin-reauth-totp" className="dash-input" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required value={totp} onChange={event => setTotp(event.target.value.replace(/\D/g, ''))} disabled={busy} />
       </>}
       {error && <p role="alert" className="error-box">{error}</p>}
-      <div className="admin-form-actions">
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
         <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => finish(false)}>Annuler</button>
         <button type="submit" className="btn btn-primary" disabled={busy || !password || (needsTotp && totp.length !== 6)}><ShieldCheck size={16} />{busy ? 'Vérification…' : 'Confirmer et poursuivre'}</button>
       </div>
