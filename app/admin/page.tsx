@@ -9,6 +9,7 @@ import OperationsPanel, { type OperationsTab } from '@/components/admin/Operatio
 import AdminActivityChart from '@/components/admin/AdminActivityChart';
 import OrderStatus from '@/components/admin/OrderStatus';
 import AdminDialog from '@/components/admin/AdminDialog';
+import AdminReauthentication from '@/components/admin/AdminReauthentication';
 import StockCredentials from '@/components/admin/StockCredentials';
 import { readStockCredentials } from '@/lib/adminCredentials';
 import { useAdminActions } from '@/components/admin/useAdminActions';
@@ -219,6 +220,7 @@ export default function AdminPage() {
       return node.tagName === 'INPUT' || node.tagName === 'TEXTAREA' || node.tagName === 'SELECT' || node.isContentEditable;
     };
     const onKey = (e: KeyboardEvent) => {
+      if (document.querySelector('dialog[open]')) return;
       // Échap : ferme l'aide et tout modal ouvert.
       if (e.key === 'Escape') {
         setMobileNavOpen(false);
@@ -704,6 +706,7 @@ export default function AdminPage() {
 
   return (
     <div className="admin-page">
+      <AdminReauthentication />
       <a className="admin-skip" href="#admin-content">Aller au contenu</a>
       <div className={`admin-notification${notification ? ' visible' : ''}`} role="status" aria-live="polite">{notification}</div>
 

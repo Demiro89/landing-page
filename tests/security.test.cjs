@@ -227,6 +227,7 @@ test('2FA rejects replacement of an active factor and forged setup secrets', asy
   const settings = new Map([['admin_totp_enabled', 'true']]);
   const tx = { $queryRaw: async () => [], setting: { findUnique: async ({ where }) => settings.has(where.key) ? { value: settings.get(where.key) } : null, upsert: async ({ where, create }) => { settings.set(where.key, create.value); } } };
   const load = createLoader({
+    '@/lib/adminFreshness': { requireRecentAdmin: async () => null },
     '@/lib/prisma': { prisma: { $transaction: async callback => callback(tx) } },
     '@/lib/adminAuth': { isAdminAuthenticated: async () => true },
     '@/lib/rateLimit': { enforceRateLimit: async () => null },

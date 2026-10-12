@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { hashPassword, setSession } from '@/lib/clientAuth';
 import { enforceRateLimit } from '@/lib/rateLimit';
 import { readJsonObject } from '@/lib/requestJson';
+import { readAccountToken } from '@/lib/accountTokens';
 
 export const dynamic = 'force-dynamic';
 const errorMessage = (error: unknown) => {
@@ -20,7 +21,8 @@ export async function POST(request: Request) {
     const parsed = await readJsonObject(request);
     if (!parsed.ok) return parsed.response;
     const { token, password } = parsed.value;
-    if (typeof token !== 'string' || !/^[a-f0-9]{64}$/.test(token) || !password) {
+    const credential = readAccountToken(token, 'reset');
+    if (!credential || !password) {
       return NextResponse.json({ error: 'Token et mot de passe requis' }, { status: 400 });
     }
     if (typeof password !== 'string' || password.length < 8 || password.length > 128 || !/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
@@ -30,7 +32,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const customer = await prisma.customer.findFirst({ where: { resetToken: token } });
+    const customer = await prisma.customer.findFirst({ where: { resetToken: credential.storedToken } });
     if (!customer || !customer.resetTokenExp || customer.resetTokenExp < new Date()) {
       return NextResponse.json({ error: 'Lien de réinitialisation invalide ou expiré' }, { status: 400 });
     }
@@ -39,7 +41,7 @@ export async function POST(request: Request) {
     // requêtes parallèles avec le même lien.
     const updated = await prisma.$transaction(async tx => {
       const consumed = await tx.customer.updateMany({
-        where: { id: customer.id, resetToken: token, resetTokenExp: { gt: new Date() } },
+        where: { id: customer.id, resetToken: credential.storedToken, resetTokenExp: { gt: new Date() } },
         data: {
           passwordHash: hashPassword(password),
           resetToken: null,

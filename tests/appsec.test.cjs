@@ -133,7 +133,7 @@ test('registration and failed login do not disclose whether an email is register
   const responses = [];
   const { POST: register } = createLoader({
     '@/lib/rateLimit': noLimit, '@/lib/clientAuth': { hashPassword: () => 'fixture-hash', generateVerificationToken: () => 'f'.repeat(64) },
-    '@/lib/nodemailer': { sendVerificationEmail: async () => {} },
+    '@/lib/accountEmail': { scheduleAccountEmail: () => {} },
     '@/lib/prisma': { prisma: { customer: { findUnique: async () => exists ? { id: 'customer' } : null, create: async () => ({ id: 'customer' }) } } },
   })('app/api/client/register/route.ts');
   for (const existing of [false, true]) { exists = existing; const response = await register(json({ email: 'test@example.test', password: 'Password1' })); responses.push([response.status, await response.json()]); }
@@ -211,6 +211,7 @@ test('admin bulk inventory and support queries no longer include credentials', a
 test('on-demand credentials fail closed on auth, limiting or audit failure and return only one account', async () => {
   let authenticated = false, limited = false, auditFails = false, reads = 0, decrypts = 0;
   const { POST } = createLoader({
+    '@/lib/adminFreshness': { requireRecentAdmin: async () => null },
     '@/lib/adminAuth': { isAdminAuthenticated: async () => authenticated },
     '@/lib/rateLimit': { enforceRateLimit: async (...args) => { assert.equal(args[4], true); return limited ? Response.json({}, { status: 429 }) : null; } },
     '@/lib/crypto': { decrypt: () => { decrypts++; return 'fixture-secret'; } },
@@ -240,7 +241,7 @@ test('cleanup rechecks verification and absence of orders in the delete itself',
     '@/lib/commerce': { remediationSchemaEnabled: () => false },
     '@/lib/prisma': { prisma: {
       customer: { updateMany: count, deleteMany: async input => { predicate = input.where; return { count: 0 }; } },
-      rateLimit: { deleteMany: count }, processedWebhookEvent: { deleteMany: count }, auditLog: { deleteMany: count },
+      rateLimit: { deleteMany: count }, setting: { deleteMany: count }, processedWebhookEvent: { deleteMany: count }, auditLog: { deleteMany: count },
     } },
   })('app/api/cron/cleanup/route.ts');
   assert.equal((await GET(new NextRequest('http://localhost/api/cron/cleanup'))).status, 200);

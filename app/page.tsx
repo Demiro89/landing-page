@@ -81,6 +81,7 @@ export default function Home() {
   const [authPasswordConfirm, setAuthPasswordConfirm] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [resendingVerif, setResendingVerif] = useState(false);
+  const [verificationRequested, setVerificationRequested] = useState(false);
   const [authError, setAuthError] = useState('');
   const [authMsg, setAuthMsg] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
@@ -144,9 +145,16 @@ export default function Home() {
         setView('dashboard');
         setAuthMsg('✅ Email confirmé ! Vous êtes connecté.');
         window.history.replaceState({}, '', '/espace-client');
-      } else if (params.get('verify') === 'invalid') {
+      } else if (params.has('verify')) {
         setView('dashboard');
         setAuthError('Lien de vérification invalide ou expiré.');
+        setVerificationRequested(true);
+        window.history.replaceState({}, '', '/espace-client');
+      }
+      if (params.has('emailChange')) {
+        setView('dashboard');
+        if (params.get('emailChange') === 'success') setAuthMsg('Adresse e-mail confirmée. Connectez-vous avec votre nouvelle adresse.');
+        else setAuthError('Ce changement d’adresse n’a pas pu être confirmé. Connectez-vous pour renouveler la demande.');
         window.history.replaceState({}, '', '/espace-client');
       }
       const rt = params.get('reset');
@@ -182,7 +190,7 @@ export default function Home() {
       });
       const d = await r.json();
       if (d.success) {
-        setAuthMsg('✅ Si cet email est associé à un compte, un lien de réinitialisation vient de vous être envoyé. Consultez votre boîte mail.');
+        setAuthMsg(d.message || 'Consultez votre boîte e-mail et les indésirables.');
       } else {
         setAuthError(d.error || 'Erreur');
       }
@@ -237,6 +245,7 @@ export default function Home() {
       const d = await r.json();
       if (d.success) {
         setAuthMsg(d.message || 'Consultez votre boîte e-mail pour la suite.');
+        setVerificationRequested(true);
         setAuthPassword(''); setAuthPasswordConfirm('');
       } else {
         setAuthError(d.error || 'Erreur');
@@ -259,6 +268,7 @@ export default function Home() {
         setAuthEmail(''); setAuthPassword(''); setAuthPasswordConfirm('');
       } else {
         setAuthError(d.error || 'Identifiants incorrects');
+        if (d.needsVerification) setVerificationRequested(true);
       }
     } catch { setAuthError('Le serveur est temporairement indisponible. Réessayez dans quelques instants.'); }
     finally { setAuthLoading(false); }
@@ -274,12 +284,16 @@ export default function Home() {
   };
 
   const resendVerification = async () => {
-    setResendingVerif(true);
+    setResendingVerif(true); setAuthError(''); setAuthMsg('');
     try {
-      const r = await fetch('/api/client/resend-verification', { method: 'POST' });
+      const r = await fetch('/api/client/resend-verification', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: authEmail }),
+      });
       const d = await r.json();
-      if (d.success) setAuthMsg('✅ Email de confirmation renvoyé. Consultez votre boîte mail.');
+      if (r.ok && d.success) setAuthMsg(d.message);
       else setAuthError(d.error || 'Erreur lors de l\'envoi.');
+    } catch { setAuthError('Demande indisponible. Réessayez dans quelques instants.');
     } finally { setResendingVerif(false); }
   };
 
@@ -551,20 +565,6 @@ export default function Home() {
                 {customer && (
                   <div className="dash-subtitle">
                     Connecté en tant que <strong style={{ color: 'var(--text-white)' }}>{customer.email}</strong>
-                    {!customer.emailVerified && (
-                      <>
-                        <span style={{ marginLeft: 10, padding: '2px 8px', borderRadius: 50, background: 'rgba(255,180,0,0.15)', color: 'var(--accent-yellow)', fontSize: '0.7rem', fontWeight: 700 }}>
-                          ⚠️ Email non vérifié
-                        </span>
-                        <button
-                          onClick={resendVerification}
-                          disabled={resendingVerif}
-                          style={{ marginLeft: 8, background: 'none', border: 'none', color: 'var(--secondary)', fontSize: '0.75rem', textDecoration: 'underline', cursor: 'pointer' }}
-                        >
-                          {resendingVerif ? '⏳ Envoi…' : 'Renvoyer l\'email'}
-                        </button>
-                      </>
-                    )}
                     <button onClick={doLogout} style={{ marginLeft: 10, color: 'var(--secondary)', fontSize: '0.78rem', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
                       Déconnexion
                     </button>
@@ -789,6 +789,13 @@ export default function Home() {
                       </form>
                     )}
 
+                    {authMode !== 'reset' && <div style={{ marginTop: 16 }}>
+                      {verificationRequested ? <form onSubmit={event => { event.preventDefault(); void resendVerification(); }} style={{ display: 'grid', gap: 10 }}>
+                        <label className="form-label" htmlFor="verification-email">Adresse e-mail à confirmer</label>
+                        <input id="verification-email" type="email" autoComplete="email" className="dash-input" required maxLength={254} value={authEmail} onChange={event => setAuthEmail(event.target.value)} />
+                        <button type="submit" className="btn btn-outline" disabled={resendingVerif || authLoading}>{resendingVerif ? 'Demande en cours…' : 'Renvoyer la confirmation'}</button>
+                      </form> : <button type="button" className="btn btn-ghost btn-sm" onClick={() => setVerificationRequested(true)}>E-mail de confirmation non reçu ?</button>}
+                    </div>}
                     {authError && (
                       <p className="msg-error" role="alert" style={{ marginTop: 12 }}>{authError}</p>
                     )}
@@ -1066,7 +1073,7 @@ export default function Home() {
                         ⚠️ Zone dangereuse — Supprimer mon compte
                       </div>
                       <p style={{ fontSize: '0.85rem', color: 'var(--text-soft)', lineHeight: 1.6, marginBottom: 8 }}>
-                        Cette action est <strong style={{ color: 'var(--accent-red)' }}>définitive et irréversible</strong>. Votre compte client, votre adresse email et votre mot de passe seront <strong>supprimés immédiatement</strong> de nos serveurs.
+                        Cette action est <strong style={{ color: 'var(--accent-red)' }}>définitive et irréversible</strong>. Votre profil de connexion et votre mot de passe seront supprimés. Certaines données liées aux commandes, aux factures et au support, dont votre adresse e-mail, restent conservées selon les durées indiquées dans notre <a href="/politique-confidentialite">politique de confidentialité</a>.
                       </p>
                       <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: 16 }}>
                         Vos abonnements actifs ne seront <strong>pas annulés</strong> — ils restent gérés via votre adresse email. En revanche, vous perdrez l&apos;accès à votre Espace Client et à l&apos;historique de vos conversations support.

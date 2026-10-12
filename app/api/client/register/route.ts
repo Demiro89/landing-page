@@ -1,12 +1,14 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { hashPassword, generateVerificationToken } from '@/lib/clientAuth';
-import { sendVerificationEmail } from '@/lib/nodemailer';
+import { hashPassword } from '@/lib/clientAuth';
+import { createAccountToken } from '@/lib/accountTokens';
+import { scheduleAccountEmail } from '@/lib/accountEmail';
 import { enforceRateLimit } from '@/lib/rateLimit';
 import { normalizeEmail } from '@/lib/checkoutValidation';
 import { readJsonObject } from '@/lib/requestJson';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 const registrationResponse = () => NextResponse.json({ success: true, message: 'Consultez votre boîte e-mail pour la suite. Si vous avez déjà un compte, connectez-vous ou réinitialisez votre mot de passe.' });
 const errorMessage = (error: unknown) => {
   // Journalise l'erreur réelle côté serveur ; n'expose jamais les détails au client
@@ -41,20 +43,17 @@ export async function POST(request: Request) {
       return registrationResponse();
     }
 
-    const verificationToken = generateVerificationToken();
+    const verification = createAccountToken('verification');
 
     await prisma.customer.create({
       data: {
         email: normalized,
         passwordHash,
-        verificationToken,
+        verificationToken: verification.storedToken,
       },
     });
 
-    // Envoyer l'email de vérification (non bloquant)
-    sendVerificationEmail(normalized, verificationToken).catch(err =>
-      console.error('[register] verification email error:', err)
-    );
+    scheduleAccountEmail('verification', normalized, verification.token);
 
     return registrationResponse();
   } catch (error: unknown) {

@@ -40,6 +40,7 @@ const load = createLoader({ './prisma': { prisma: db }, '@/lib/prisma': { prisma
   '@/lib/nodemailer': { sendOrderDetailsEmail: async () => {}, sendRenewalEmail: async () => {}, sendUnpaidReminderEmail: async () => {} },
   '@/lib/telegram': { sendTelegramNotification: async () => false },
   '@/lib/adminAuth': { isAdminAuthenticated: async () => true }, '@/lib/rateLimit': { enforceRateLimit: async () => null },
+  '@/lib/adminFreshness': { requireRecentAdmin: async () => null },
 });
 const { reserveCheckout } = load('lib/checkoutReservation.ts');
 const webhook = load('app/api/stripe/webhook/route.ts');

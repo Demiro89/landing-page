@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { isAdminAuthenticated } from '@/lib/adminAuth';
+import { requireRecentAdmin } from '@/lib/adminFreshness';
+import { readJsonObject } from '@/lib/requestJson';
 import { generateTotpSecret, totpUri, verifyTotpAndGetCounter } from '@/lib/totp';
 import { encrypt, decrypt } from '@/lib/crypto';
 import { enforceRateLimit } from '@/lib/rateLimit';
@@ -28,14 +30,18 @@ export async function POST(request: Request) {
   if (!(await isAdminAuthenticated())) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
   }
+  const recent = await requireRecentAdmin();
+  if (recent) return recent;
   try {
     // Limite les tentatives de codes TOTP (enable/disable) — fail-closed.
     const limited = await enforceRateLimit(request, 'admin-2fa', 10, 900, true);
     if (limited) return limited;
 
-    const body = await request.json();
+    const parsed = await readJsonObject(request);
+    if (!parsed.ok) return parsed.response;
+    const body = parsed.value;
     const { action } = body;
-    if (!['setup', 'enable', 'disable'].includes(action)) {
+    if (typeof action !== 'string' || !['setup', 'enable', 'disable'].includes(action)) {
       return NextResponse.json({ error: 'Action non reconnue' }, { status: 400 });
     }
     const result = await prisma.$transaction(async (tx) => {
@@ -84,9 +90,10 @@ export async function POST(request: Request) {
         const stored = await read('admin_totp_secret');
         const lastCounter = Number((await read('admin_totp_last_counter')) ?? -1);
         const counter = stored && typeof body.token === 'string' ? verifyTotpAndGetCounter(decrypt(stored), body.token) : null;
-        if (!enabled || counter === null || counter <= lastCounter) {
+        if (!enabled || counter === null) {
           return NextResponse.json({ error: 'Code incorrect.' }, { status: 400 });
         }
+        if (counter <= lastCounter) return NextResponse.json({ error: 'Code déjà utilisé. Attendez le prochain code de votre application puis réessayez.' }, { status: 400 });
         await write('admin_totp_enabled', 'false');
         await write('admin_totp_secret', '');
         await write('admin_totp_pending_secret', '');

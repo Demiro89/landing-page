@@ -33,6 +33,7 @@ test('admin transport never converts an HTTP, network or malformed response into
 
 function stockRoute(prisma, durable = false, extra = {}) {
   return createLoader({
+    '@/lib/adminFreshness': { requireRecentAdmin: async () => null },
     '@/lib/prisma': { prisma },
     '@/lib/adminAuth': { isAdminAuthenticated: async () => true },
     '@/lib/rateLimit': { enforceRateLimit: async (...args) => { assert.equal(args[4], true); return null; } },
@@ -156,7 +157,7 @@ test('email change refuses a stale password/session and never claims provider re
   const { POST } = createLoader({
     '@/lib/clientAuth': { getCurrentCustomer: async () => customer, verifyPassword: () => true, generateVerificationToken: () => 'b'.repeat(64) },
     '@/lib/rateLimit': { enforceRateLimit: async () => null },
-    '@/lib/nodemailer': { sendEmailChangeVerificationEmail: async () => { sends++; return { success: delivered }; } },
+    '@/lib/accountEmail': { deliverAccountEmail: async () => { sends++; return delivered; } },
     '@/lib/prisma': { prisma: { customer: { findUnique: async () => null, updateMany: async input => { assert.deepEqual(input.where, { id: customer.id, passwordHash: customer.passwordHash, sessionVersion: customer.sessionVersion }); return { count: conflict ? 0 : 1 }; } } } },
   })('app/api/client/change-email/route.ts');
   const request = () => new Request('http://localhost/api/client/change-email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ currentPassword: 'Password1', newEmail: 'new@example.test' }) });

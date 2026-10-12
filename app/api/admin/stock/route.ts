@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { sendOrderDetailsEmail, sendUnpaidReminderEmail } from '@/lib/nodemailer';
 import { sendTelegramNotification } from '@/lib/telegram';
 import { isAdminAuthenticated } from '@/lib/adminAuth';
+import { requireRecentAdmin } from '@/lib/adminFreshness';
 import { encrypt, decrypt } from '@/lib/crypto';
 import { createInvoiceForOrder } from '@/lib/invoice';
 import { writeAuditLog, clientIpFromRequest } from '@/lib/auditLog';
@@ -20,8 +21,8 @@ export const dynamic = 'force-dynamic';
 
 // Throttle commun aux mutations admin : limite les dégâts en cas de session
 // volée et les opérations en masse involontaires (60 écritures / minute).
-const writeRateLimit = (request: Request) =>
-  enforceRateLimit(request, 'admin-write', 60, 60, true);
+const writeRateLimit = async (request: Request) =>
+  await requireRecentAdmin() || await enforceRateLimit(request, 'admin-write', 60, 60, true);
 
 const checkAuth = isAdminAuthenticated;
 const errorMessage = (error: unknown) => {

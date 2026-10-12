@@ -10,6 +10,7 @@ import { verifyTotpAndGetCounter } from '@/lib/totp';
 import { decrypt } from '@/lib/crypto';
 import { lockAdminTotp } from '@/lib/adminTotp';
 import { readJsonObject } from '@/lib/requestJson';
+import { markAdminFresh, ADMIN_FRESH_COOKIE } from '@/lib/adminFreshness';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,8 +40,9 @@ export async function POST(request: Request) {
     if (action === 'logout') {
       const cookieStore = await cookies();
       let revocationFailed = false;
-      try { if (process.env.REMEDIATION_SCHEMA_ENABLED === 'true') await revokeAdminToken(cookieStore.get(ADMIN_COOKIE_NAME)?.value); }
+      try { await revokeAdminToken(cookieStore.get(ADMIN_COOKIE_NAME)?.value); }
       catch { revocationFailed = true; }
+      cookieStore.delete(ADMIN_FRESH_COOKIE);
       cookieStore.set({
         name: ADMIN_COOKIE_NAME,
         value: '',
@@ -58,6 +60,13 @@ export async function POST(request: Request) {
     if (limited) return limited;
     if (typeof password !== 'string' || password.length > 128 || (totp !== undefined && (typeof totp !== 'string' || !/^\d{6}$/.test(totp)))) {
       return NextResponse.json({ success: false, error: 'Identifiants invalides' }, { status: 400 });
+    }
+
+    if (action === 'reauth' && !(await isAdminAuthenticated())) {
+      return NextResponse.json({ error: 'Session expirée. Reconnectez-vous.' }, { status: 401 });
+    }
+    if (action !== undefined && action !== 'login' && action !== 'reauth') {
+      return NextResponse.json({ error: 'Action invalide.' }, { status: 400 });
     }
 
     // Gestion de la connexion — aucune valeur par défaut codée en dur.
@@ -116,15 +125,15 @@ export async function POST(request: Request) {
       });
       if (secondFactor) return secondFactor;
 
-      const sessionToken = await issueAdminSession();
+      const cookieStore = await cookies();
+      const sessionToken = action === 'reauth' ? cookieStore.get(ADMIN_COOKIE_NAME)?.value : await issueAdminSession();
       if (!sessionToken) {
         return NextResponse.json(
           { success: false, error: 'Configuration serveur incomplète.' },
           { status: 500 }
         );
       }
-      const cookieStore = await cookies();
-      cookieStore.set({
+      if (action !== 'reauth') cookieStore.set({
         name: ADMIN_COOKIE_NAME,
         value: sessionToken, // jeton signé HMAC, ne contient PAS le secret
         httpOnly: true,
@@ -133,6 +142,7 @@ export async function POST(request: Request) {
         sameSite: 'strict',
         maxAge: ADMIN_SESSION_TTL_SEC,
       });
+      await markAdminFresh(sessionToken);
 
       return NextResponse.json({ success: true, message: 'Authentification réussie' });
     }

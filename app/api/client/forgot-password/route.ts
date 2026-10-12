@@ -1,12 +1,14 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { generateVerificationToken } from '@/lib/clientAuth';
-import { sendResetPasswordEmail } from '@/lib/nodemailer';
+import { createAccountToken } from '@/lib/accountTokens';
+import { scheduleAccountEmail } from '@/lib/accountEmail';
 import { enforceRateLimit } from '@/lib/rateLimit';
 import { normalizeEmail } from '@/lib/checkoutValidation';
 import { readJsonObject } from '@/lib/requestJson';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
+const response = () => NextResponse.json({ success: true, message: 'Si cette adresse est associée à un compte, consultez votre boîte e-mail et les indésirables. Vous pouvez renouveler la demande si aucun message n’arrive.' });
 const errorMessage = (error: unknown) => {
   // Journalise l'erreur réelle côté serveur ; n'expose jamais les détails au client
   // (les messages Prisma révèlent le schéma : tables, colonnes, contraintes).
@@ -31,23 +33,20 @@ export async function POST(request: Request) {
 
     // Toujours répondre succès pour ne pas révéler si l'email existe
     if (!customer) {
-      return NextResponse.json({ success: true, message: 'Si cet email est associé à un compte, un lien de réinitialisation vient d\'être envoyé.' });
+      return response();
     }
 
-    const resetToken = generateVerificationToken();
-    const resetTokenExp = new Date(Date.now() + 60 * 60 * 1000); // 1h
+    const reset = createAccountToken('reset');
 
     // Do not send a new credential to an address superseded by a concurrent change.
     const issued = await prisma.customer.updateMany({
       where: { id: customer.id, email: normalized, passwordHash: customer.passwordHash, sessionVersion: customer.sessionVersion },
-      data: { resetToken, resetTokenExp },
+      data: { resetToken: reset.storedToken, resetTokenExp: reset.expiresAt },
     });
 
-    if (issued.count === 1) sendResetPasswordEmail(normalized, resetToken).catch(err =>
-      console.error('[forgot-password] email error:', err)
-    );
+    if (issued.count === 1) scheduleAccountEmail('reset', normalized, reset.token);
 
-    return NextResponse.json({ success: true, message: 'Si cet email est associé à un compte, un lien de réinitialisation vient d\'être envoyé.' });
+    return response();
   } catch (error: unknown) {
     console.error('[forgot-password]', error);
     return NextResponse.json({ error: errorMessage(error) }, { status: 500 });

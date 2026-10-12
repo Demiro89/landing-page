@@ -49,10 +49,32 @@ const supportThreads = [0, 3].map(index => ({ id: adminOrders[index].id, orderId
 const server = http.createServer((req, res) => {
   if (process.env.FIXTURE_DEBUG === 'true') console.log(req.method, req.url);
   const url = new URL(req.url, `http://127.0.0.1:${previewPort}`);
-  const mode = url.searchParams.get('fixture') || /fixture-mode=(empty|error|soldout|reminders|admin|login|client)/.exec(req.headers.cookie || '')?.[1] || 'normal';
+  const mode = url.searchParams.get('fixture') || /fixture-mode=(empty|error|soldout|reminders|admin|login|client|reauth|account)/.exec(req.headers.cookie || '')?.[1] || 'normal';
   const json = (data, status = 200) => { res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(data)); };
   if (url.pathname.startsWith('/api/')) {
+    if (mode === 'account' && url.pathname === '/api/client/resend-verification' && req.method === 'POST') {
+      req.resume();
+      return json({ success: true, message: 'Si ce compte attend une confirmation, consultez votre boîte e-mail et les indésirables.' });
+    }
+    if (mode === 'reauth' && url.pathname === '/api/admin/auth' && req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => { body += chunk; if (body.length > 8192) req.destroy(); });
+      req.on('end', () => {
+        try {
+          const data = JSON.parse(body);
+          if (data.action !== 'reauth' || data.password !== 'DemoPassword1') return json({ error: 'Mot de passe de démonstration incorrect.' }, 401);
+          if (data.totp !== '123456') return json({ needsTotp: true, error: 'Code de démonstration requis.' }, 401);
+          res.setHeader('Set-Cookie', 'fixture-fresh=true; Path=/; HttpOnly; SameSite=Strict');
+          return json({ success: true });
+        } catch { return json({ error: 'JSON invalide' }, 400); }
+      });
+      return;
+    }
     if (url.pathname === '/api/admin/credentials' && req.method === 'POST') {
+      if (mode === 'reauth' && !/fixture-fresh=true/.test(req.headers.cookie || '')) {
+        req.resume();
+        return json({ code: 'ADMIN_REAUTH_REQUIRED', error: 'Confirmez votre identité pour poursuivre cette action.' }, 403);
+      }
       let body = '';
       req.on('data', chunk => { body += chunk; if (body.length > 8192) req.destroy(); });
       req.on('end', () => {
@@ -84,9 +106,9 @@ const server = http.createServer((req, res) => {
     return json(endpoints[url.pathname] || { error: 'API non simulee' }, endpoints[url.pathname] ? 200 : 404);
   }
   if (req.method !== 'GET' && req.method !== 'HEAD') return json({ error: 'Lecture seule' }, 405);
-  const exp = String(Date.now() + 600000);
-  const signature = crypto.createHmac('sha256', 'audit-local-admin-secret-not-for-production').update(exp).digest('hex');
-  const upstream = http.request({ hostname: '127.0.0.1', port: nextPort, path: req.url, method: req.method, headers: { ...req.headers, host: `127.0.0.1:${nextPort}`, cookie: `ADMIN_SECRET_TOKEN=${exp}.${signature}` } }, upstreamRes => {
+  const payload = `${process.env.PREVIEW_ADMIN_EXPIRES}.${'a'.repeat(64)}`;
+  const signature = crypto.createHmac('sha256', 'audit-local-admin-secret-not-for-production').update(payload).digest('hex');
+  const upstream = http.request({ hostname: '127.0.0.1', port: nextPort, path: req.url, method: req.method, headers: { ...req.headers, host: `127.0.0.1:${nextPort}`, cookie: `ADMIN_SECRET_TOKEN=${payload}.${signature}` } }, upstreamRes => {
     const headers = { ...upstreamRes.headers };
     if (url.searchParams.has('fixture')) headers['set-cookie'] = `fixture-mode=${mode}; Path=/; HttpOnly; SameSite=Strict`;
     delete headers['set-cookie2'];

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { isAdminAuthenticated } from '@/lib/adminAuth';
+import { requireRecentAdmin } from '@/lib/adminFreshness';
 import { prisma } from '@/lib/prisma';
 import { decrypt } from '@/lib/crypto';
 import { enforceRateLimit } from '@/lib/rateLimit';
@@ -8,6 +9,8 @@ import { clientIpFromRequest } from '@/lib/auditLog';
 
 export async function POST(request: Request) {
   if (!(await isAdminAuthenticated())) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
+  const recent = await requireRecentAdmin();
+  if (recent) return recent;
   const limited = await enforceRateLimit(request, 'admin-credentials', 30, 300, true);
   if (limited) return limited;
   const parsed = await readJsonObject(request);

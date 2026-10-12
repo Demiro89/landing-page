@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { setSession } from '@/lib/clientAuth';
+import { readAccountToken } from '@/lib/accountTokens';
 
 export const dynamic = 'force-dynamic';
 
@@ -8,11 +9,12 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const token = searchParams.get('token');
-    if (!token || !/^[a-f0-9]{64}$/.test(token)) {
+    const credential = readAccountToken(token, 'verification');
+    if (!credential) {
       return NextResponse.redirect(new URL('/?verify=missing', request.url));
     }
 
-    const customer = await prisma.customer.findFirst({ where: { verificationToken: token } });
+    const customer = await prisma.customer.findFirst({ where: { verificationToken: credential.storedToken } });
     if (!customer) {
       return NextResponse.redirect(new URL('/?verify=invalid', request.url));
     }
@@ -22,8 +24,8 @@ export async function GET(request: Request) {
     const verified = await prisma.$transaction(async tx => {
       const consumed = await tx.customer.updateMany({
         where: {
-          id: customer.id, verificationToken: token, emailVerified: false,
-          createdAt: { gt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+          id: customer.id, verificationToken: credential.storedToken, emailVerified: false,
+          ...(credential.legacy ? { createdAt: { gt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } } : {}),
         },
         data: {
           emailVerified: true, verificationToken: null, sessionVersion: { increment: 1 },

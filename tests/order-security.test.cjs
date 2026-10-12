@@ -32,6 +32,7 @@ test('repeated cancellations release one slot, including concurrent state change
 
 test('admin settings reject secret keys, non-boolean gateways and malformed payloads', async () => {
   const { PUT } = createLoader({
+    '@/lib/adminFreshness': { requireRecentAdmin: async () => null },
     '@/lib/prisma': { prisma: {} },
     '@/lib/adminAuth': { isAdminAuthenticated: async () => true },
     '@/lib/rateLimit': { enforceRateLimit: async () => null },
@@ -41,15 +42,17 @@ test('admin settings reject secret keys, non-boolean gateways and malformed payl
   }
 });
 
-test('admin logout clears the cookie without consulting an unavailable database', async () => {
-  let cleared = false;
+test('admin logout clears both cookies and reports unavailable server revocation without calling the limiter', async () => {
+  let cleared = false, freshCleared = false;
   const { POST } = createLoader({
-    'next/headers': { cookies: async () => ({ set: cookie => { cleared = cookie.maxAge === 0; } }) },
+    'next/headers': { cookies: async () => ({ get: () => ({ value: 'fixture' }), delete: key => { freshCleared = key === 'sm_admin_fresh'; }, set: cookie => { cleared = cookie.maxAge === 0; } }) },
+    '@/lib/revocableAdminSession': { revokeAdminToken: async () => { throw new Error('DB down'); } },
     '@/lib/prisma': { prisma: {} },
     '@/lib/rateLimit': { enforceRateLimit: async () => { throw new Error('Database must not be called'); } },
   })('app/api/admin/auth/route.ts');
-  assert.equal((await POST(request({ action: 'logout' }))).status, 200);
+  assert.equal((await POST(request({ action: 'logout' }))).status, 503);
   assert.equal(cleared, true);
+  assert.equal(freshCleared, true);
 });
 
 function webhookFixture(event, overrides = {}) {
