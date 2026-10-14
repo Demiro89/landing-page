@@ -4,6 +4,7 @@ import { runDeliveryJobs } from '@/lib/deliveryWorker';
 import { remediationSchemaEnabled } from '@/lib/commerce';
 import { enqueueOrderJob } from '@/lib/durableOrders';
 import { isCronAuthorized } from '@/lib/cronAuth';
+import { expiredVerificationTokens } from '@/lib/accountTokens';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,23 +39,19 @@ export async function GET(request: NextRequest) {
 
   // 3. Comptes non vérifiés créés il y a plus de 7 jours (sans commande)
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-  const unverifiedAccounts = await prisma.customer.findMany({
-    where: { emailVerified: false, createdAt: { lt: sevenDaysAgo } },
-    select: { id: true, _count: { select: { orders: true } } },
+  const deleted = await prisma.customer.deleteMany({
+    where: { emailVerified: false, createdAt: { lt: sevenDaysAgo }, orders: { none: {} }, ...expiredVerificationTokens(now) },
   });
-  const toDelete = unverifiedAccounts.filter(c => c._count.orders === 0).map(c => c.id);
-  if (toDelete.length > 0) {
-    const deleted = await prisma.customer.deleteMany({ where: { id: { in: toDelete } } });
-    results.deletedUnverifiedAccounts = deleted.count;
-  } else {
-    results.deletedUnverifiedAccounts = 0;
-  }
+  results.deletedUnverifiedAccounts = deleted.count;
 
   // 4. Fenêtres de rate limit expirées
   const expiredRateLimits = await prisma.rateLimit.deleteMany({
     where: { windowEnd: { lt: now } },
   });
   results.expiredRateLimits = expiredRateLimits.count;
+
+  const expiredAdminSessions = await prisma.setting.deleteMany({ where: { key: { startsWith: 'admin_session:' }, value: { lt: String(now.getTime()) } } });
+  results.expiredAdminSessions = expiredAdminSessions.count;
 
   // 5. Événements webhook Stripe traités il y a plus de 90 jours
   const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);

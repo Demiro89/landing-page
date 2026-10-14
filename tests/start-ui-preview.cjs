@@ -5,7 +5,8 @@ const nextPort = process.env.PREVIEW_NEXT_PORT || '3100';
 
 // No real credential, database or payment can be reached from this UI preview.
 const env = { ...process.env,
-  SITE_ACCESS_CODE: '', ADMIN_SECRET_TOKEN: 'audit-local-admin-secret-not-for-production',
+  PREVIEW_ISOLATED: 'true', PREVIEW_ADMIN_EXPIRES: String(Date.now() + 24 * 3600000),
+  SITE_ACCESS_CODE: '', ADMIN_SECRET_TOKEN: 'audit-local-admin-secret-not-for-production', ADMIN_PASSWORD: 'DemoPassword1',
   CLIENT_SESSION_SECRET: 'ui-preview-client-secret-not-for-production',
   ENCRYPTION_KEY: 'ui-preview-encryption-key-not-for-production',
   DATABASE_URL: 'postgresql://fixture:fixture@127.0.0.1:5432/streammalin_ui_test',
@@ -15,7 +16,7 @@ const env = { ...process.env,
   COMMERCE_ENABLED: 'false', REMEDIATION_SCHEMA_ENABLED: 'false', DELIVERY_WORKER_ENABLED: 'false',
   NEXT_PUBLIC_APP_URL: `http://127.0.0.1:${previewPort}`, NEXT_TELEMETRY_DISABLED: '1',
 };
-const next = spawn(process.execPath, [require.resolve('next/dist/bin/next'), process.env.PREVIEW_PRODUCTION === 'true' ? 'start' : 'dev', '--hostname', '127.0.0.1', '--port', nextPort], { env, stdio: 'inherit', windowsHide: true });
+const next = spawn(process.execPath, ['--require', path.join(__dirname, 'preview-session.cjs'), require.resolve('next/dist/bin/next'), process.env.PREVIEW_PRODUCTION === 'true' ? 'start' : 'dev', '--hostname', '127.0.0.1', '--port', nextPort], { env, stdio: 'inherit', windowsHide: true });
 const fixture = spawn(process.execPath, [path.join(__dirname, 'ui-preview.cjs')], { env, stdio: 'inherit', windowsHide: true });
 function stop() { next.kill(); fixture.kill(); }
 process.on('SIGINT', stop); process.on('SIGTERM', stop);

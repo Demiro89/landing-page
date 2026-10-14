@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { setSession, bumpSessionVersion } from '@/lib/clientAuth';
+import { setSession } from '@/lib/clientAuth';
+import { readAccountToken } from '@/lib/accountTokens';
 
 export const dynamic = 'force-dynamic';
 
@@ -8,28 +9,38 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const token = searchParams.get('token');
-    if (!token) {
+    const credential = readAccountToken(token, 'verification');
+    if (!credential) {
       return NextResponse.redirect(new URL('/?verify=missing', request.url));
     }
 
-    const customer = await prisma.customer.findFirst({ where: { verificationToken: token } });
+    const customer = await prisma.customer.findFirst({ where: { verificationToken: credential.storedToken } });
     if (!customer) {
       return NextResponse.redirect(new URL('/?verify=invalid', request.url));
     }
 
     // Consommation atomique du token : si deux requêtes arrivent en parallèle
     // avec le même token, une seule passe (count = 1), l'autre est rejetée.
-    const consumed = await prisma.customer.updateMany({
-      where: { id: customer.id, verificationToken: token },
-      data: { emailVerified: true, verificationToken: null },
+    const verified = await prisma.$transaction(async tx => {
+      const consumed = await tx.customer.updateMany({
+        where: {
+          id: customer.id, verificationToken: credential.storedToken, emailVerified: false,
+          ...(credential.legacy ? { createdAt: { gt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } } : {}),
+        },
+        data: {
+          emailVerified: true, verificationToken: null, sessionVersion: { increment: 1 },
+          resetToken: null, resetTokenExp: null,
+        },
+      });
+      if (consumed.count !== 1) return null;
+      return tx.customer.findUniqueOrThrow({ where: { id: customer.id }, select: { sessionVersion: true } });
     });
-    if (consumed.count === 0) {
+    if (!verified) {
       return NextResponse.redirect(new URL('/?verify=invalid', request.url));
     }
 
     // Connecter automatiquement
-    const version = await bumpSessionVersion(customer.id);
-    await setSession(customer.id, version);
+    await setSession(customer.id, verified.sessionVersion);
 
     return NextResponse.redirect(new URL('/?verify=success', request.url));
   } catch (error: unknown) {

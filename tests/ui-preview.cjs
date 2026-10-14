@@ -22,12 +22,69 @@ const unpaidOrders = [1, 3].map(level => ({
   unpaidSince: now, lastReminderAt: now, reminderCount: level,
   paymentMethod: 'Carte bancaire (Stripe)', stripeSubscriptionId: 'sub_readonly_fixture',
 }));
+const adminOrders = ['active', 'pending', 'payment_review', 'unpaid', 'cancelled_pending', 'cancelled'].map((status, index) => ({
+  id: `demo-order-${index + 1}`, status, clientEmail: `client-${index + 1}@example.test`,
+  serviceId: services[index % 2].id, service: services[index % 2], stockAccountId: stocks[index % 2 === 0 ? 0 : 2].id,
+  stockAccount: stocks[index % 2 === 0 ? 0 : 2], price: services[index % 2].price, fee: 0, total: services[index % 2].price,
+  details: 'DEMONSTRATION - aucun acces reel', date: new Date(Date.now() - index * 86400000).toISOString(),
+  paymentMethod: index % 2 === 0 ? 'Carte bancaire (Stripe)' : 'PayPal', stripeSubscriptionId: index % 2 === 0 ? `sub_demo_${index}` : null,
+  unpaidSince: status === 'unpaid' ? now : null, reminderCount: status === 'unpaid' ? 1 : 0,
+  cancellationEffectiveAt: status.startsWith('cancelled') ? now : null,
+  acceptedTermsAt: now, acceptedWithdrawalWaiverAt: now, acceptedEligibilityAt: now, termsVersion: '2026-10-07.1',
+  acceptanceIp: '192.0.2.1', acceptanceUserAgent: 'Demonstration locale',
+}));
+const adminOperations = {
+  success: true, schemaEnabled: true,
+  jobs: [{ id: 'demo-job-1', orderId: 'demo-order-1', kind: 'delivery', status: 'pending', attempts: 0, lastError: null },
+    { id: 'demo-job-2', orderId: 'demo-order-3', kind: 'payment_review', status: 'needs_review', attempts: 1, lastError: 'Demonstration : verification prestataire necessaire.' },
+    { id: 'demo-job-3', orderId: 'demo-order-6', kind: 'access_revocation', status: 'needs_review', attempts: 0, lastError: null }],
+  payments: [{ id: 'demo-payment-1', orderId: 'demo-order-1', amountMinor: 549, paidAt: now, provider: 'stripe', providerPaymentId: 'pi_demo_non_reel', status: 'paid' }],
+  sessions: [{ createdAt: now, expiresAt: new Date(Date.now() + 3600000).toISOString() }],
+  withdrawals: [{ id: 'demo-withdrawal-1', orderId: 'demo-order-6', receivedAt: now, email: 'client-6@example.test' }],
+};
+const supportThreads = [0, 3].map(index => ({ id: adminOrders[index].id, orderId: adminOrders[index].id, title: 'Support demonstration', createdAt: now,
+  order: { clientEmail: adminOrders[index].clientEmail, service: adminOrders[index].service },
+  messages: [{ id: `demo-message-${index}`, sender: 'Vous', text: 'Bonjour, pouvez-vous verifier mon acces ? (demonstration)', createdAt: now }],
+}));
 const server = http.createServer((req, res) => {
   if (process.env.FIXTURE_DEBUG === 'true') console.log(req.method, req.url);
   const url = new URL(req.url, `http://127.0.0.1:${previewPort}`);
-  const mode = url.searchParams.get('fixture') || /fixture-mode=(empty|error|soldout|reminders)/.exec(req.headers.cookie || '')?.[1] || 'normal';
+  const mode = url.searchParams.get('fixture') || /fixture-mode=(empty|error|soldout|reminders|admin|login|client|reauth|account)/.exec(req.headers.cookie || '')?.[1] || 'normal';
   const json = (data, status = 200) => { res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(data)); };
   if (url.pathname.startsWith('/api/')) {
+    if (mode === 'account' && url.pathname === '/api/client/resend-verification' && req.method === 'POST') {
+      req.resume();
+      return json({ success: true, message: 'Si ce compte attend une confirmation, consultez votre boîte e-mail et les indésirables.' });
+    }
+    if (mode === 'reauth' && url.pathname === '/api/admin/auth' && req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => { body += chunk; if (body.length > 8192) req.destroy(); });
+      req.on('end', () => {
+        try {
+          const data = JSON.parse(body);
+          if (data.action !== 'reauth' || data.password !== 'DemoPassword1') return json({ error: 'Mot de passe de démonstration incorrect.' }, 401);
+          if (data.totp !== '123456') return json({ needsTotp: true, error: 'Code de démonstration requis.' }, 401);
+          res.setHeader('Set-Cookie', 'fixture-fresh=true; Path=/; HttpOnly; SameSite=Strict');
+          return json({ success: true });
+        } catch { return json({ error: 'JSON invalide' }, 400); }
+      });
+      return;
+    }
+    if (url.pathname === '/api/admin/credentials' && req.method === 'POST') {
+      if (mode === 'reauth' && !/fixture-fresh=true/.test(req.headers.cookie || '')) {
+        req.resume();
+        return json({ code: 'ADMIN_REAUTH_REQUIRED', error: 'Confirmez votre identité pour poursuivre cette action.' }, 403);
+      }
+      let body = '';
+      req.on('data', chunk => { body += chunk; if (body.length > 8192) req.destroy(); });
+      req.on('end', () => {
+        try {
+          const stock = stocks.find(stock => stock.id === JSON.parse(body).stockId);
+          return stock ? json({ success: true, details: stock.details, updatedAt: stock.updatedAt }) : json({ error: 'Fixture introuvable' }, 404);
+        } catch { return json({ error: 'JSON invalide' }, 400); }
+      });
+      return;
+    }
     if (req.method !== 'GET') return json({ error: 'Demonstration locale : aucune operation effectuee.' }, 503);
     const empty = mode === 'empty';
     if (mode === 'error') return json({ error: 'Erreur simulee' }, 503);
@@ -35,22 +92,23 @@ const server = http.createServer((req, res) => {
       '/api/services': { success: true, services: empty ? [] : services.map(s => ({ ...s, availableStockId: mode === 'soldout' ? null : stocks.find(v => v.serviceId === s.id)?.id || null, availableSlots: mode === 'soldout' ? 0 : stocks.filter(v => v.serviceId === s.id).reduce((n, v) => n + v.maxSlots - v.filledSlots, 0) })) },
       '/api/stocks/public': { success: true, stocks: empty || mode === 'soldout' ? [] : stocks.map(s => ({ id: s.id, serviceId: s.serviceId, price: s.price, maxSlots: s.maxSlots, filledSlots: s.filledSlots, service: s.service })) },
       '/api/settings/public': { success: true, settings },
-      '/api/client/me': { authenticated: false },
-      '/api/admin/auth': { authenticated: true },
-      '/api/admin/stock': { success: true, services: services.map(s => ({ ...s, stocks: stocks.filter(v => v.serviceId === s.id) })), orders: mode === 'reminders' ? unpaidOrders : [], kpis: { totalRevenue: 0, totalCogs: 0, totalInvestment: 36, netProfit: 0, marginPercentage: 0 } },
+      '/api/client/me': mode === 'client' ? { authenticated: true, customer: { id: 'fixture-customer', email: 'client@example.test', emailVerified: true }, orders: [] } : { authenticated: false },
+      '/api/admin/auth': { authenticated: mode !== 'login' },
+      '/api/admin/stock': { success: true, schemaEnabled: mode === 'admin', services: empty ? [] : services.map(s => ({ ...s, stocks: stocks.filter(v => v.serviceId === s.id).map(stock => ({ ...stock, details: '' })) })), orders: (mode === 'admin' ? adminOrders : mode === 'reminders' ? unpaidOrders : []).map(order => ({ ...order, details: '', stockAccount: { ...order.stockAccount, details: '' } })), kpis: { totalRevenue: 0, totalCogs: 0, totalInvestment: empty ? 0 : 36, netProfit: 0, marginPercentage: 0 } },
       '/api/admin/settings': { success: true, settings },
-      '/api/admin/clients': { success: true, clients: [] },
+      '/api/admin/clients': { success: true, clients: mode === 'admin' ? adminOrders.map(order => ({ email: order.clientEmail, firstOrderDate: new Date(order.date).toLocaleDateString('fr-FR'), orderCount: 1, activeOrders: Number(order.status === 'active'), totalSpent: ['active', 'unpaid', 'cancelled_pending'].includes(order.status) ? order.total : 0 })) : [] },
       '/api/admin/2fa': { success: true, enabled: false },
       '/api/admin/commercial-review': { success: true, commerceEnabled: false, schemaEnabled: false, services: services.map(service => ({ id: service.id, name: service.name, active: service.active, review: { status: 'unverified', authorizationReference: '', eligibility: service.eligibility, accessType: service.accessType, privacyNote: service.privacyNote, referenceUrl: '', referenceCheckedAt: '', referencePrice: null, comparableReference: false } })) },
-      '/api/admin/operations': { success: true, schemaEnabled: false, jobs: [], payments: [], sessions: [], withdrawals: [] },
-      '/api/chat': { success: true, threads: [] },
+      '/api/admin/operations': mode === 'admin' ? adminOperations : { success: true, schemaEnabled: false, jobs: [], payments: [], sessions: [], withdrawals: [] },
+      '/api/admin/audit': { success: true, logs: mode === 'admin' ? [{ id: 'demo-audit-1', action: 'order.validate', entityType: 'order', entityId: 'demo-order-1', description: 'DEMONSTRATION : validation de paiement', ip: '192.0.2.1', createdAt: now }] : [] },
+      '/api/chat': { success: true, threads: mode === 'admin' ? supportThreads : [] },
     };
     return json(endpoints[url.pathname] || { error: 'API non simulee' }, endpoints[url.pathname] ? 200 : 404);
   }
   if (req.method !== 'GET' && req.method !== 'HEAD') return json({ error: 'Lecture seule' }, 405);
-  const exp = String(Date.now() + 600000);
-  const signature = crypto.createHmac('sha256', 'audit-local-admin-secret-not-for-production').update(exp).digest('hex');
-  const upstream = http.request({ hostname: '127.0.0.1', port: nextPort, path: req.url, method: req.method, headers: { ...req.headers, host: `127.0.0.1:${nextPort}`, cookie: `ADMIN_SECRET_TOKEN=${exp}.${signature}` } }, upstreamRes => {
+  const payload = `${process.env.PREVIEW_ADMIN_EXPIRES}.${'a'.repeat(64)}`;
+  const signature = crypto.createHmac('sha256', 'audit-local-admin-secret-not-for-production').update(payload).digest('hex');
+  const upstream = http.request({ hostname: '127.0.0.1', port: nextPort, path: req.url, method: req.method, headers: { ...req.headers, host: `127.0.0.1:${nextPort}`, cookie: `ADMIN_SECRET_TOKEN=${payload}.${signature}` } }, upstreamRes => {
     const headers = { ...upstreamRes.headers };
     if (url.searchParams.has('fixture')) headers['set-cookie'] = `fixture-mode=${mode}; Path=/; HttpOnly; SameSite=Strict`;
     delete headers['set-cookie2'];

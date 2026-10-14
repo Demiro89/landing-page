@@ -5,6 +5,7 @@ import { sendCancellationEmail } from '@/lib/nodemailer';
 import { sendTelegramNotification } from '@/lib/telegram';
 import { enforceRateLimit } from '@/lib/rateLimit';
 import { ownsOrder } from '@/lib/orderAccess';
+import { readJsonObject } from '@/lib/requestJson';
 import Stripe from 'stripe';
 
 export const dynamic = 'force-dynamic';
@@ -12,7 +13,7 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: Request) {
   try {
     // Limite le spam de résiliations (et l'envoi d'emails associé).
-    const limited = await enforceRateLimit(request, 'cancel-order', 10, 600);
+    const limited = await enforceRateLimit(request, 'cancel-order', 10, 600, true);
     if (limited) return limited;
 
     const customer = await getCurrentCustomer();
@@ -20,10 +21,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { orderId } = body as { orderId: string };
+    const parsed = await readJsonObject(request);
+    if (!parsed.ok) return parsed.response;
+    const { orderId } = parsed.value;
 
-    if (!orderId) {
+    if (typeof orderId !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(orderId)) {
       return NextResponse.json({ error: 'orderId requis' }, { status: 400 });
     }
 
@@ -38,7 +40,7 @@ export async function POST(request: Request) {
 
     // Vérifier que la commande appartient bien au customer connecté
     if (!ownsOrder(order, customer)) {
-      return NextResponse.json({ error: 'Accès non autorisé' }, { status: 403 });
+      return NextResponse.json({ error: 'Commande introuvable' }, { status: 404 });
     }
 
     // Vérifier que la commande est bien active

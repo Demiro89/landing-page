@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import LegalPage from '@/components/LegalPage';
+import PublicShell from '@/components/PublicShell';
 import OfferDetails from '@/components/OfferDetails';
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
@@ -9,5 +9,5 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function OfferPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  return <LegalPage title="Détails de l’offre" updatedAt={null}><OfferDetails id={id} /></LegalPage>;
+  return <PublicShell><OfferDetails key={id} id={id} /></PublicShell>;
 }

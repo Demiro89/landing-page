@@ -1,9 +1,12 @@
+import 'server-only';
 import crypto from 'crypto';
 import { cookies } from 'next/headers';
 import { prisma } from './prisma';
 
 const SESSION_COOKIE = 'sm_client_session';
 const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 jours
+// Not a credential: missing accounts still incur the normal password-check cost.
+export const DUMMY_PASSWORD_HASH = `00000000000000000000000000000000:${crypto.scryptSync('not-an-account-password', '00000000000000000000000000000000', 64).toString('hex')}`;
 
 // Le secret de session est obligatoire : aucune valeur par défaut.
 // Sans lui, n'importe qui pourrait forger un cookie de session valide.
@@ -46,6 +49,7 @@ function verifyToken(token: string): { customerId: string; version: number } | n
   const parts = token.split('.');
   if (parts.length !== 4) return null;
   const [customerId, versionStr, expStr, sig] = parts;
+  if (!/^[A-Za-z0-9_-]{1,64}$/.test(customerId) || !/^[a-f0-9]{64}$/.test(sig)) return null;
   const payload = `${customerId}.${versionStr}.${expStr}`;
   // Comparaison à temps constant pour empêcher toute attaque temporelle sur la signature.
   const sigBuf = Buffer.from(sig, 'hex');

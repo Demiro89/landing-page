@@ -10,6 +10,7 @@ import { AvailabilityError } from '@/lib/stockReservations';
 import { validateCheckout } from '@/lib/checkoutValidation';
 import { clientIp } from '@/lib/clientIp';
 import { isGatewayEnabled } from '@/lib/paymentSettings';
+import { readJsonObject } from '@/lib/requestJson';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,7 +30,9 @@ export async function POST(request: Request) {
     const limited = await enforceRateLimit(request, 'checkout-manual', 10, 600, true);
     if (limited) return limited;
 
-    const body = await request.json();
+    const parsed = await readJsonObject(request);
+    if (!parsed.ok) return parsed.response;
+    const body = parsed.value;
     const input = validateCheckout(body);
     if ('error' in input) return NextResponse.json({ error: input.error }, { status: 400 });
     const { serviceId, stockAccountId, email: cleanedEmail, youtubeEmail } = input;
@@ -46,7 +49,7 @@ export async function POST(request: Request) {
     if (!(await isGatewayEnabled(paymentMethod))) {
       return NextResponse.json({ error: 'Ce moyen de paiement est indisponible.' }, { status: 503 });
     }
-    const destinationKey = paymentMethod === 'paypal' ? 'paypal_email' : ['btc', 'eth', 'usdt', 'ltc'].includes(body.cryptoCoin) ? `crypto_${body.cryptoCoin}` : null;
+    const destinationKey = paymentMethod === 'paypal' ? 'paypal_email' : typeof body.cryptoCoin === 'string' && ['btc', 'eth', 'usdt', 'ltc'].includes(body.cryptoCoin) ? `crypto_${body.cryptoCoin}` : null;
     if (!destinationKey || !(await prisma.setting.findUnique({ where: { key: destinationKey } }))?.value) {
       return NextResponse.json({ error: 'Ce moyen de paiement n’est pas configuré.' }, { status: 503 });
     }

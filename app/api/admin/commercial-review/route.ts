@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { isAdminAuthenticated } from '@/lib/adminAuth';
+import { requireRecentAdmin } from '@/lib/adminFreshness';
 import { getCommercialReviews, parseCommercialReview, commerceEnabled, remediationSchemaEnabled } from '@/lib/commerce';
 import { enforceRateLimit } from '@/lib/rateLimit';
 import { clientIpFromRequest } from '@/lib/auditLog';
@@ -15,6 +16,8 @@ export async function GET() {
 
 export async function PUT(request: Request) {
   if (!(await isAdminAuthenticated())) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
+  const recent = await requireRecentAdmin();
+  if (recent) return recent;
   const limited = await enforceRateLimit(request, 'admin-commercial-review', 20, 60, true);
   if (limited) return limited;
   try {

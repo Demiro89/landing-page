@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server';
-import { getCurrentCustomer, verifyPassword, generateVerificationToken } from '@/lib/clientAuth';
+import { getCurrentCustomer, verifyPassword } from '@/lib/clientAuth';
 import { prisma } from '@/lib/prisma';
 import { enforceRateLimit } from '@/lib/rateLimit';
-import { sendEmailChangeVerificationEmail } from '@/lib/nodemailer';
+import { createAccountToken } from '@/lib/accountTokens';
+import { deliverAccountEmail } from '@/lib/accountEmail';
 import { normalizeEmail } from '@/lib/checkoutValidation';
+import { readJsonObject } from '@/lib/requestJson';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 export async function POST(request: Request) {
   const limited = await enforceRateLimit(request, 'change-email', 3, 3600, true);
@@ -16,7 +19,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Authentification requise' }, { status: 401 });
   }
 
-  const { newEmail, currentPassword } = await request.json();
+  const parsed = await readJsonObject(request);
+  if (!parsed.ok) return parsed.response;
+  const { newEmail, currentPassword } = parsed.value;
 
   const normalized = normalizeEmail(newEmail);
   if (!normalized || typeof currentPassword !== 'string' || !currentPassword || currentPassword.length > 128) {
@@ -41,21 +46,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Cette adresse email est déjà utilisée par un autre compte' }, { status: 409 });
   }
 
-  const token = generateVerificationToken();
-  const exp = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  const change = createAccountToken('email-change');
 
-  await prisma.customer.update({
-    where: { id: customer.id },
+  const changed = await prisma.customer.updateMany({
+    where: { id: customer.id, passwordHash: customer.passwordHash, sessionVersion: customer.sessionVersion },
     data: {
       pendingEmail: normalized,
-      emailChangeToken: token,
-      emailChangeTokenExp: exp,
+      emailChangeToken: change.storedToken,
+      emailChangeTokenExp: change.expiresAt,
     },
   });
-
-  sendEmailChangeVerificationEmail(normalized, token).catch((err) =>
-    console.error('[change-email] send error:', err)
-  );
-
-  return NextResponse.json({ success: true, message: 'Un email de confirmation a été envoyé à votre nouvelle adresse.' });
+  if (changed.count !== 1) return NextResponse.json({ error: 'Le compte a changé. Reconnectez-vous avant de réessayer.' }, { status: 409 });
+  const sent = await deliverAccountEmail('email-change', normalized, change.token);
+  if (!sent) return NextResponse.json({ error: 'L’envoi de la confirmation n’a pas pu être confirmé. Votre adresse actuelle reste inchangée. Réessayez dans quelques instants.' }, { status: 503 });
+  return NextResponse.json({ success: true, message: 'Le message de confirmation a été accepté par le prestataire. Vérifiez la nouvelle boîte e-mail, y compris les indésirables.' });
 }

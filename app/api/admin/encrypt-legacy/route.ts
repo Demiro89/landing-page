@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { isAdminAuthenticated } from '@/lib/adminAuth';
+import { requireRecentAdmin } from '@/lib/adminFreshness';
 import { encrypt, isEncrypted } from '@/lib/crypto';
 
 export const dynamic = 'force-dynamic';
@@ -14,6 +15,8 @@ export async function POST() {
   if (!(await isAdminAuthenticated())) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
   }
+  const recent = await requireRecentAdmin();
+  if (recent) return recent;
   try {
     let stocksDone = 0;
     let ordersDone = 0;

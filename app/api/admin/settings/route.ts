@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { isAdminAuthenticated } from '@/lib/adminAuth';
+import { requireRecentAdmin } from '@/lib/adminFreshness';
 import { writeAuditLog, clientIpFromRequest } from '@/lib/auditLog';
 import { enforceRateLimit } from '@/lib/rateLimit';
 
@@ -56,7 +57,9 @@ export async function PUT(request: Request) {
   if (!(await checkAuth())) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
   }
-  const limited = await enforceRateLimit(request, 'admin-write', 60, 60);
+  const recent = await requireRecentAdmin();
+  if (recent) return recent;
+  const limited = await enforceRateLimit(request, 'admin-write', 60, 60, true);
   if (limited) return limited;
   try {
     const body = await request.json();

@@ -40,6 +40,7 @@ const load = createLoader({ './prisma': { prisma: db }, '@/lib/prisma': { prisma
   '@/lib/nodemailer': { sendOrderDetailsEmail: async () => {}, sendRenewalEmail: async () => {}, sendUnpaidReminderEmail: async () => {} },
   '@/lib/telegram': { sendTelegramNotification: async () => false },
   '@/lib/adminAuth': { isAdminAuthenticated: async () => true }, '@/lib/rateLimit': { enforceRateLimit: async () => null },
+  '@/lib/adminFreshness': { requireRecentAdmin: async () => null },
 });
 const { reserveCheckout } = load('lib/checkoutReservation.ts');
 const webhook = load('app/api/stripe/webhook/route.ts');
@@ -133,7 +134,7 @@ test('PostgreSQL: duplicate signed checkouts create one payment, one slot and on
   assert.equal((await db.stockAccount.findUniqueOrThrow({ where: { id: f.stock.id } })).filledSlots, 1, 'No resale until provider access is revoked');
   const revocation = await db.deliveryJob.findFirstOrThrow({ where: { orderId: f.order.id, kind: 'access_revocation' } });
   const operations = load('app/api/admin/operations/route.ts');
-  const confirm = () => operations.POST(new Request('http://localhost/api/admin/operations', { method: 'POST', body: JSON.stringify({ action: 'confirm_access_revoked', jobId: revocation.id, confirmed: true }) }));
+  const confirm = () => operations.POST(new Request('http://localhost/api/admin/operations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'confirm_access_revoked', jobId: revocation.id, confirmed: true }) }));
   const confirmations = await Promise.all([confirm(), confirm()]);
   assert.deepEqual(confirmations.map(response => response.status).sort(), [200, 409]);
   assert.equal((await db.stockAccount.findUniqueOrThrow({ where: { id: f.stock.id } })).filledSlots, 0);
@@ -208,6 +209,28 @@ test('PostgreSQL: unpaid reminders commit with order state, retry once, and beco
   await runDeliveryJobs();
   assert.equal(transport.calls.length, 0);
   assert.equal(await db.deliveryJob.count({ where: { id: { in: pending.map(job => job.id) }, status: 'skipped', lastError: 'reminder_obsolete' } }), 3);
+});
+
+test('PostgreSQL: concurrent manual regularizations create one payment proof, and a used receipt cannot settle another unpaid episode', async () => {
+  const f = await fixture();
+  await db.$transaction([
+    db.order.update({ where: { id: f.order.id }, data: { status: 'unpaid', paymentMethod: 'PayPal', unpaidSince: new Date() } }),
+    db.stockAccount.update({ where: { id: f.stock.id }, data: { filledSlots: 1 } }),
+    db.stockReservation.update({ where: { id: f.reservation.id }, data: { status: 'consumed', consumedAt: new Date() } }),
+  ]);
+  const admin = load('app/api/admin/stock/route.ts');
+  const reference = `manual_${crypto.randomUUID()}`;
+  const regularize = () => admin.PUT(new Request('http://localhost/api/admin/stock', { method: 'PUT', body: JSON.stringify({ action: 'mark_paid', orderId: f.order.id, paymentReference: reference }) }));
+  const results = await Promise.all([regularize(), regularize()]);
+  assert.deepEqual(results.map(response => response.status).sort(), [200, 409]);
+  assert.equal(await db.paymentRecord.count({ where: { orderId: f.order.id } }), 1);
+  const proof = await db.paymentRecord.findFirstOrThrow({ where: { orderId: f.order.id } });
+  assert.equal(proof.providerPaymentId, reference); assert.equal(proof.amountMinor, 300);
+  assert.equal((await db.order.findUniqueOrThrow({ where: { id: f.order.id } })).status, 'active');
+  await db.order.update({ where: { id: f.order.id }, data: { status: 'unpaid', unpaidSince: new Date() } });
+  assert.equal((await regularize()).status, 409);
+  assert.equal((await db.order.findUniqueOrThrow({ where: { id: f.order.id } })).status, 'unpaid');
+  assert.equal(await db.paymentRecord.count({ where: { orderId: f.order.id } }), 1);
 });
 
 test.after(async () => {

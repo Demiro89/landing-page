@@ -9,6 +9,7 @@ import { isGatewayEnabled } from '@/lib/paymentSettings';
 import { assertOfferSaleAllowed, CommerceUnavailableError } from '@/lib/commerce';
 import { reserveCheckout } from '@/lib/checkoutReservation';
 import { AvailabilityError } from '@/lib/stockReservations';
+import { readJsonObject } from '@/lib/requestJson';
 
 export const dynamic = 'force-dynamic';
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.streammalin.fr';
@@ -17,7 +18,9 @@ export async function POST(request: Request) {
   try {
     const limited = await enforceRateLimit(request, 'checkout-stripe', 15, 600, true);
     if (limited) return limited;
-    const body = await request.json();
+    const parsed = await readJsonObject(request);
+    if (!parsed.ok) return parsed.response;
+    const body = parsed.value;
     const input = validateCheckout(body);
     if ('error' in input) return NextResponse.json({ error: input.error }, { status: 400 });
     await assertOfferSaleAllowed(input.serviceId);

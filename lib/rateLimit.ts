@@ -23,7 +23,10 @@ export async function enforceRateLimit(
   windowSec: number,
   failClosed = false
 ): Promise<NextResponse | null> {
-  const key = `${name}:${clientIp(request)}`;
+  return enforceKeyRateLimit(`${name}:${clientIp(request)}`, max, windowSec, failClosed);
+}
+
+export async function enforceKeyRateLimit(key: string, max: number, windowSec: number, failClosed = false): Promise<NextResponse | null> {
   const now = new Date();
 
   const windowEnd = new Date(now.getTime() + windowSec * 1000);

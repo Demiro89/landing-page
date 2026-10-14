@@ -1,6 +1,7 @@
 import { Resend } from 'resend';
 import { escapeHtml } from './html';
 import { unpaidReminderMessage } from './unpaidReminders';
+import type { AccountEmailSendOptions } from './accountEmail';
 
 // Le fallback évite une erreur au build quand la clé est absente (mode simulation) ;
 // chaque fonction vérifie RESEND_API_KEY avant tout envoi réel.
@@ -105,7 +106,7 @@ export async function sendOrderDetailsEmail(
   }
 }
 
-export async function sendResetPasswordEmail(toEmail: string, token: string) {
+export async function sendResetPasswordEmail(toEmail: string, token: string, options?: AccountEmailSendOptions) {
   const resetUrl = `${APP_URL}/?reset=${encodeURIComponent(token)}`;
 
   if (!process.env.RESEND_API_KEY) {
@@ -140,10 +141,9 @@ export async function sendResetPasswordEmail(toEmail: string, token: string) {
   </div>
 </body>
 </html>`,
-    });
+    }, options);
 
     if (error) {
-      console.error('Resend reset error:', error);
       return { success: false, error };
     }
     return { success: true, messageId: data?.id };
@@ -279,7 +279,7 @@ export async function sendUnpaidReminderEmail(
   }
 }
 
-export async function sendVerificationEmail(toEmail: string, token: string) {
+export async function sendVerificationEmail(toEmail: string, token: string, options?: AccountEmailSendOptions) {
   const verifyUrl = `${APP_URL}/api/client/verify?token=${encodeURIComponent(token)}`;
 
   if (!process.env.RESEND_API_KEY) {
@@ -314,10 +314,9 @@ export async function sendVerificationEmail(toEmail: string, token: string) {
   </div>
 </body>
 </html>`,
-    });
+    }, options);
 
     if (error) {
-      console.error('Resend verify error:', error);
       return { success: false, error };
     }
     return { success: true, messageId: data?.id };
@@ -397,7 +396,7 @@ export async function sendRenewalEmail(
   }
 }
 
-export async function sendEmailChangeVerificationEmail(toEmail: string, token: string) {
+export async function sendEmailChangeVerificationEmail(toEmail: string, token: string, options?: AccountEmailSendOptions) {
   const verifyUrl = `${APP_URL}/api/client/verify-email-change?token=${encodeURIComponent(token)}`;
 
   if (!process.env.RESEND_API_KEY) {
@@ -432,7 +431,7 @@ export async function sendEmailChangeVerificationEmail(toEmail: string, token: s
   </div>
 </body>
 </html>`,
-    });
+    }, options);
     if (error) return { success: false, error };
     return { success: true, messageId: data?.id };
   } catch (err) {

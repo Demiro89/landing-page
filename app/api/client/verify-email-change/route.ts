@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { readAccountToken } from '@/lib/accountTokens';
 
 export const dynamic = 'force-dynamic';
 
@@ -8,12 +9,13 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://streammalin.fr';
 export async function GET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get('token');
 
-  if (!token) {
+  const credential = readAccountToken(token, 'email-change');
+  if (!credential) {
     return NextResponse.redirect(`${APP_URL}/?emailChange=invalid`);
   }
 
   const customer = await prisma.customer.findFirst({
-    where: { emailChangeToken: token },
+    where: { emailChangeToken: credential.storedToken },
   });
 
   if (!customer || !customer.pendingEmail || !customer.emailChangeTokenExp) {
@@ -36,12 +38,15 @@ export async function GET(request: NextRequest) {
   // requêtes parallèles avec le même lien.
   const consumed = await prisma.$transaction(async tx => {
     const claimed = await tx.customer.updateMany({
-      where: { id: customer.id, emailChangeToken: token },
+      where: { id: customer.id, emailChangeToken: credential.storedToken, emailChangeTokenExp: { gt: new Date() }, pendingEmail: newEmail },
       data: {
         email: newEmail,
         pendingEmail: null,
         emailChangeToken: null,
         emailChangeTokenExp: null,
+        resetToken: null,
+        resetTokenExp: null,
+        verificationToken: null,
         sessionVersion: { increment: 1 },
       },
     });

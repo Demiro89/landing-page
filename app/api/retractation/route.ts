@@ -5,12 +5,15 @@ import { prisma } from '@/lib/prisma';
 import { encrypt } from '@/lib/crypto';
 import { normalizeEmail } from '@/lib/checkoutValidation';
 import { enforceRateLimit } from '@/lib/rateLimit';
+import { readJsonObject } from '@/lib/requestJson';
 
 export async function POST(request: Request) {
   const limited = await enforceRateLimit(request, 'withdrawal', 5, 3600, true);
   if (limited) return limited;
   try {
-    const body = await request.json();
+    const parsed = await readJsonObject(request);
+    if (!parsed.ok) return parsed.response;
+    const body = parsed.value;
     const email = normalizeEmail(body.email);
     const text = (value: unknown, max: number) => typeof value === 'string' ? value.trim().slice(0, max) : '';
     const name = text(body.name, 150);

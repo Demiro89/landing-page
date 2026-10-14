@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { isAdminAuthenticated } from '@/lib/adminAuth';
 import { enforceRateLimit } from '@/lib/rateLimit';
+import { hasValidatedInitialAmount } from '@/lib/adminPresentation';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,7 +11,7 @@ function escapeCsv(value: string | number | null | undefined): string {
   let str = String(value);
   // Anti-injection de formule : Excel/LibreOffice exécutent les cellules
   // commençant par = + - @ (ex: =cmd|...). On neutralise avec une apostrophe.
-  if (/^[=+\-@\t\r]/.test(str)) {
+  if (/^[\t\r\n]/.test(str) || /^[\s\u0000-\u001f]*[=+\-@]/u.test(str)) {
     str = "'" + str;
   }
   if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
@@ -47,7 +48,7 @@ export async function GET(request: NextRequest) {
       orderBy: { date: 'desc' },
     });
 
-    const header = row(['ID', 'Date', 'Service', 'Client', 'Moyen de paiement', 'Net (€)', 'Total (€)', 'Statut', 'Facturation suivante']);
+    const header = row(['ID', 'Date', 'Service', 'Client', 'Moyen de paiement', 'Prix initial (€)', 'Total initial (€)', 'Statut', 'Facturation suivante']);
     const lines = orders.map((o) =>
       row([
         o.id,
@@ -88,11 +89,11 @@ export async function GET(request: NextRequest) {
       const email = o.clientEmail.toLowerCase();
       if (!map[email]) map[email] = { firstDate: fmtDate(o.date), count: 0, spent: 0, active: 0 };
       map[email].count += 1;
-      map[email].spent += o.total;
+      if (hasValidatedInitialAmount(o.status)) map[email].spent += o.total;
       if (o.status === 'active') map[email].active += 1;
     }
 
-    const header = row(['Email', '1ère commande', 'Nb commandes', 'Commandes actives', 'Total dépensé (€)']);
+    const header = row(['Email', '1ère commande', 'Nb commandes', 'Commandes actives', 'Montants initiaux validés hors renouvellements et remboursements (€)']);
     const lines = Object.entries(map)
       .sort((a, b) => b[1].spent - a[1].spent)
       .map(([email, d]) =>

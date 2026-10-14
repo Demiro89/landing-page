@@ -6,7 +6,7 @@ process.env.ADMIN_SECRET_TOKEN = 'test-admin-secret-with-more-than-32-characters
 process.env.CLIENT_SESSION_SECRET = 'test-client-secret-with-more-than-32-characters';
 process.env.STRIPE_SECRET_KEY = 'sk_test_fixture_no_network';
 process.env.STRIPE_WEBHOOK_SECRET = 'whsec_fixture_no_network';
-const request = body => new Request('http://localhost/api/test', { method: 'POST', body: JSON.stringify(body) });
+const request = body => new Request('http://localhost/api/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 
 test('repeated cancellations release one slot, including concurrent state changes', async () => {
   let status = 'active';
@@ -32,6 +32,7 @@ test('repeated cancellations release one slot, including concurrent state change
 
 test('admin settings reject secret keys, non-boolean gateways and malformed payloads', async () => {
   const { PUT } = createLoader({
+    '@/lib/adminFreshness': { requireRecentAdmin: async () => null },
     '@/lib/prisma': { prisma: {} },
     '@/lib/adminAuth': { isAdminAuthenticated: async () => true },
     '@/lib/rateLimit': { enforceRateLimit: async () => null },
@@ -41,15 +42,17 @@ test('admin settings reject secret keys, non-boolean gateways and malformed payl
   }
 });
 
-test('admin logout clears the cookie without consulting an unavailable database', async () => {
-  let cleared = false;
+test('admin logout clears both cookies and reports unavailable server revocation without calling the limiter', async () => {
+  let cleared = false, freshCleared = false;
   const { POST } = createLoader({
-    'next/headers': { cookies: async () => ({ set: cookie => { cleared = cookie.maxAge === 0; } }) },
+    'next/headers': { cookies: async () => ({ get: () => ({ value: 'fixture' }), delete: key => { freshCleared = key === 'sm_admin_fresh'; }, set: cookie => { cleared = cookie.maxAge === 0; } }) },
+    '@/lib/revocableAdminSession': { revokeAdminToken: async () => { throw new Error('DB down'); } },
     '@/lib/prisma': { prisma: {} },
     '@/lib/rateLimit': { enforceRateLimit: async () => { throw new Error('Database must not be called'); } },
   })('app/api/admin/auth/route.ts');
-  assert.equal((await POST(request({ action: 'logout' }))).status, 200);
+  assert.equal((await POST(request({ action: 'logout' }))).status, 503);
   assert.equal(cleared, true);
+  assert.equal(freshCleared, true);
 });
 
 function webhookFixture(event, overrides = {}) {
@@ -109,8 +112,10 @@ test('email changes preserve legacy order ownership and revoke sessions atomical
     order: { updateMany: async query => { actions.push(query); return { count: 1 }; } },
   };
   const { GET } = createLoader({ '@/lib/prisma': { prisma: { customer: { findFirst: async () => customer, findUnique: async () => null }, $transaction: async callback => callback(tx) } } })('app/api/client/verify-email-change/route.ts');
-  const response = await GET(new NextRequest('http://localhost/api/client/verify-email-change?token=fixture'));
+  const response = await GET(new NextRequest(`http://localhost/api/client/verify-email-change?token=${'a'.repeat(64)}`));
   assert.equal(response.status, 307);
   assert.equal(actions[0].data.sessionVersion.increment, 1);
+  assert.ok(actions[0].where.emailChangeTokenExp.gt instanceof Date);
+  assert.equal(actions[0].where.pendingEmail, customer.pendingEmail);
   assert.deepEqual(actions[1], { where: { clientEmail: customer.email, customerId: null }, data: { customerId: customer.id } });
 });

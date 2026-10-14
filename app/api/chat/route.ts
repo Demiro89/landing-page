@@ -5,6 +5,7 @@ import { isAdminAuthenticated } from '@/lib/adminAuth';
 import { getCurrentCustomer } from '@/lib/clientAuth';
 import { enforceRateLimit } from '@/lib/rateLimit';
 import { ownsOrder } from '@/lib/orderAccess';
+import { readJsonObject } from '@/lib/requestJson';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,7 +37,7 @@ export async function GET(request: Request) {
       const threads = await prisma.chatThread.findMany({
         include: {
           messages: { orderBy: { createdAt: 'asc' } },
-          order: { include: { service: true } },
+          order: { select: { id: true, clientEmail: true, service: true } },
         },
         orderBy: { createdAt: 'desc' },
       });
@@ -64,7 +65,7 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: 'Fil de discussion introuvable' }, { status: 404 });
       }
       if (!thread.order || !ownsOrder(thread.order, customer)) {
-        return NextResponse.json({ error: 'Accès refusé' }, { status: 403 });
+        return NextResponse.json({ error: 'Fil de discussion introuvable' }, { status: 404 });
       }
       // Support history must never be a second endpoint for stock credentials.
       const { order: threadOrder, ...history } = thread;
@@ -76,7 +77,7 @@ export async function GET(request: Request) {
       where: { orderId },
       include: {
         messages: { orderBy: { createdAt: 'asc' } },
-        order: { include: { service: true } },
+        order: { select: { id: true, clientEmail: true, service: true } },
       },
     });
     if (!thread) {
@@ -94,12 +95,17 @@ export async function GET(request: Request) {
  */
 export async function POST(request: Request) {
   try {
-    const limited = await enforceRateLimit(request, 'chat', 30, 300);
+    const limited = await enforceRateLimit(request, 'chat', 30, 300, true);
     if (limited) return limited;
 
-    const { orderId, text, sender } = await request.json();
+    const isAdmin = await isAdminAuthenticated();
+    const customer = isAdmin ? null : await getCurrentCustomer();
+    if (!isAdmin && !customer) return NextResponse.json({ error: 'Authentification requise' }, { status: 401 });
+    const parsed = await readJsonObject(request, 16000);
+    if (!parsed.ok) return parsed.response;
+    const { orderId, text, sender } = parsed.value;
 
-    if (!orderId || !text || !sender) {
+    if (typeof orderId !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(orderId) || !text || !sender) {
       return NextResponse.json({ error: 'Paramètres manquants' }, { status: 400 });
     }
 
@@ -119,8 +125,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Expéditeur invalide' }, { status: 400 });
     }
 
-    const isAdmin = await isAdminAuthenticated();
-
     // Seul l'admin connecté peut signer un message "Support StreamMalin" (vérification insensible à la casse).
     if (sender.toLowerCase().includes('support') && !isAdmin) {
       return NextResponse.json({ error: 'Non autorisé à envoyer ce type de message' }, { status: 403 });
@@ -136,14 +140,8 @@ export async function POST(request: Request) {
     }
 
     // Contrôle de propriété : un client ne peut écrire que dans ses propres fils.
-    if (!isAdmin) {
-      const customer = await getCurrentCustomer();
-      if (!customer) {
-        return NextResponse.json({ error: 'Authentification requise' }, { status: 401 });
-      }
-      if (!ownsOrder(order, customer)) {
-        return NextResponse.json({ error: 'Accès refusé' }, { status: 403 });
-      }
+    if (!isAdmin && (!customer || !ownsOrder(order, customer))) {
+      return NextResponse.json({ error: 'Commande correspondante introuvable' }, { status: 404 });
     }
 
     // S'assurer que le fil existe.
