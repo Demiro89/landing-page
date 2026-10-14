@@ -1,7 +1,32 @@
 # Comptes, e-mails et confirmation administrateur
 
 Date : 12 octobre 2026 ; resultats finalises le 14 octobre 2026. Branche : `codex/account-email-hardening`, PR #85.
-Suite de la PR #84, base `codex/appsec-hardening`. Les PR #82, #83 et #84 restent des prerequis tant qu'elles ne sont pas fusionnees. Ne pas fusionner cette suite dans une branche intermediaire par inadvertance.
+Initialement une suite de la PR #84. Le 14 octobre, a la demande de fusion,
+la PR #85 est reorientee vers `main` et consolide les commits de #82, #83 et #84.
+Une seule fusion finale doit livrer l'ensemble sans deploiements intermediaires.
+
+## Cloture de l'alerte de developpement, 14 octobre
+
+Les resultats historiques plus bas sont conserves pour la tracabilite. L'alerte
+braces n'est plus presente dans l'arbre installe : l'implementation vulnerable
+est retiree, sans exception dans l'audit et sans desactiver les regles ESLint.
+
+- Remplacement limite au plugin Next 16.3.8, via `tooling/next-lint-glob`, par
+  tinyglobby 0.2.17. L'adaptateur preserve les dossiers litteraux et empeche
+  l'expansion implicite en sous-dossiers ; les autres appels sont refuses.
+- Pas de changement de version de Next, React ou Prisma, ni de dependance runtime.
+- Installation propre `npm ci` reussie ; audit complet : zero alerte connue.
+- Tests locaux : 104/104, dont deux tests de compatibilite et des regles ESLint
+  reelles ; lint et compilation de production reussis.
+- Controle final GitHub sur la base `main` requis avant merge, avec les 15 tests
+  PostgreSQL sur base jetable. Le resultat et le commit exact figurent dans la PR.
+- Pas de migration de production ni activation des ventes. Les essais de
+  reception reelle d'e-mails et la reconnexion admin restent a verifier apres
+  deploiement. Ce rapport ne constitue pas une certification de securite.
+
+Fichiers supplementaires : `.gitignore`, `eslint.config.mjs`, `package.json`,
+`package-lock.json`, `tests/lint-dependencies.test.cjs` et les trois fichiers
+`package.json`, `index.cjs`, `README.md` de `tooling/next-lint-glob`.
 
 ## Diagnostic et corrections
 
