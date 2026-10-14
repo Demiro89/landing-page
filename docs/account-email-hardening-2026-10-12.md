@@ -1,6 +1,6 @@
 # Comptes, e-mails et confirmation administrateur
 
-Date : 12 octobre 2026. Branche : `codex/account-email-hardening`.
+Date : 12 octobre 2026 ; resultats finalises le 14 octobre 2026. Branche : `codex/account-email-hardening`, PR #85.
 Suite de la PR #84, base `codex/appsec-hardening`. Les PR #82, #83 et #84 restent des prerequis tant qu'elles ne sont pas fusionnees. Ne pas fusionner cette suite dans une branche intermediaire par inadvertance.
 
 ## Diagnostic et corrections
@@ -24,7 +24,7 @@ Suite de la PR #84, base `codex/appsec-hardening`. Les PR #82, #83 et #84 resten
 
 ### Compatibilite et limites
 
-- Aucune migration Prisma ni modification du schema. Aucun acces a la base de production, envoi reel, paiement, activation de vente, merge ou deploiement effectue.
+- Aucune migration Prisma ni modification du schema. Aucun acces a la base de production, envoi reel, paiement, activation de vente, merge ou deploiement de production effectue. La previsualisation Vercel automatique est reussie.
 - Les anciens liens de 64 caracteres restent lisibles jusqu'a leur expiration historique ; aucune nouvelle valeur en clair n'est emise. Ce changement ne transforme pas retroactivement les anciennes valeurs.
 - Le nettoyage des comptes non verifies preserve une confirmation renvoyee recemment, meme pour un ancien compte.
 - Les trois tentatives d'e-mail sont bornees a une execution serveur, pas une file persistante resistante a une panne du processus. Une acceptation par le prestataire ne prouve pas une reception en boite principale. Le renvoi reste accessible.
@@ -34,22 +34,23 @@ Suite de la PR #84, base `codex/appsec-hardening`. Les PR #82, #83 et #84 resten
 
 - `npm test` : 102/102 reussis, dont 12 nouveaux tests de durcissement.
 - `npm run lint` : reussi.
-- `npm run build` : reussi, compilation de production et TypeScript.
+- `npm run build` : reussi, compilation de production et TypeScript ; relance locale finale reussie le 14 octobre.
 - `git diff --check` : reussi.
 - `npm audit --omit=dev --audit-level=high` : aucune alerte connue.
 - `npm audit --audit-level=high` : cinq alertes elevees dans une meme chaine de dependances de developpement (braces, micromatch, fast-glob, plugin Next ESLint, configuration Next ESLint).
-- Quatre nouveaux tests PostgreSQL prepares : parcours complet avec vrais hachages et sessions, renvois simultanes, nettoyage des confirmations, revocation sans migration commerciale. Resultat CI a completer dans la PR.
-- Navigateur isole : annulation de confirmation sans divulgation, mot de passe puis TOTP, reprise de la consultation verifies. Verification finale des espacements et du parcours client en cours.
+- PostgreSQL : 15/15 reussis, aucun test ignore, dont quatre nouveaux : parcours complet avec vrais hachages et sessions, renvois simultanes, nettoyage des confirmations, revocation sans migration commerciale. L'ancien test de confirmation du retrait d'acces declare maintenant son corps JSON, comme le navigateur ; la validation serveur reste stricte.
+- Navigateur isole : annulation de confirmation sans divulgation, mot de passe puis TOTP, reprise de la consultation, focus des champs et renvoi de confirmation sans connexion verifies. Controle des interfaces sur ordinateur et mobile (390 pixels CSS), sans debordement horizontal du formulaire client. Captures locales dans `artifacts/account-hardening/` ; aucune donnee reelle.
+- [Pipeline #19](https://github.com/Demiro89/landing-page/actions/runs/38228484585), commit de code `4a085a1828164315476d7a2efb554fd0af63b03e` : lint, 102 tests unitaires, 15 tests PostgreSQL et build reussis. Seul l'audit des dependances de developpement echoue. Previsualisation Vercel du meme commit reussie. Le commit suivant ne fait que finaliser ce rapport.
 
 ### Alerte de dependance encore ouverte
 
-[GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm), CVE-2026-93687 : debordement de pile avec des motifs braces profondement imbriques. La fiche officielle indique toujours aucune version corrigee au controle de cette livraison.
+[GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm), CVE-2026-93687 : debordement de pile avec des motifs braces profondement imbriques. La fiche officielle n'indiquait aucune version corrigee au controle du 12 octobre.
 
-La correction forcee proposee par npm retrograderait `eslint-config-next` vers 14.2.35 alors que le projet utilise Next 16.3.8. Cette retrogradation incompatible n'est pas appliquee. Aucun contournement, exclusion d'audit ou faux correctif ajoute. La verification CI globale demeure susceptible d'echouer sur cet audit ; ne pas annoncer tous les controles verts.
+La correction forcee proposee par npm retrograderait `eslint-config-next` vers 14.2.35 alors que le projet utilise Next 16.3.8. Cette retrogradation incompatible n'est pas appliquee. Aucun contournement, exclusion d'audit ou faux correctif ajoute. La verification CI globale echoue sur cet audit ; ne pas annoncer tous les controles verts.
 
 ## Avant fusion et deploiement
 
-- [ ] Valider les nouveaux tests PostgreSQL dans la base jetable CI.
+- [x] Valider les nouveaux tests PostgreSQL dans la base jetable CI.
 - [ ] Respecter l'ordre des PR precedentes, reorienter cette PR vers main ensuite et relancer les controles.
 - [ ] Traiter explicitement l'alerte de developpement ouverte, sans neutraliser l'audit.
 - [ ] Sur une preproduction autorisee, verifier reception des trois types d'e-mail, liens expires/rejoues et navigation apres confirmation.
