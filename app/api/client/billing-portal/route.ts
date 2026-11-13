@@ -5,10 +5,6 @@ import { getCurrentCustomer } from '@/lib/clientAuth';
 
 export const dynamic = 'force-dynamic';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_mock', {
-  apiVersion: '2026-04-22.dahlia',
-});
-
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 const errorMessage = (error: unknown) => {
   // Journalise l'erreur réelle côté serveur ; n'expose jamais les détails au client
@@ -42,6 +38,12 @@ export async function POST() {
     if (!stripeCustomerId) {
       return NextResponse.json({ error: 'Aucun abonnement Stripe associé à ce compte. Veuillez d\'abord activer le prélèvement automatique sur l\'un de vos abonnements.' }, { status: 400 });
     }
+
+    const key = process.env.STRIPE_SECRET_KEY;
+    if (!key || key === 'sk_test_mock') {
+      return NextResponse.json({ error: 'Stripe est temporairement indisponible.' }, { status: 503 });
+    }
+    const stripe = new Stripe(key, { apiVersion: '2026-04-22.dahlia' });
 
     const session = await stripe.billingPortal.sessions.create({
       customer: stripeCustomerId,

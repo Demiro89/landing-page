@@ -15,14 +15,14 @@
   "dependencies": {
     "@prisma/client": "5.13.0",
     "lucide-react": "^1.16.0",
-    "next": "16.3.8",
+    "next": "16.4.6",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "resend": "^6.12.3",
     "stripe": "^22.1.1"
   },
   "overrides": {
-    "@next/eslint-plugin-next@16.3.8": {
+    "@next/eslint-plugin-next@16.4.6": {
       "fast-glob": "$fast-glob"
     }
   },
@@ -32,7 +32,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.3.8",
+    "eslint-config-next": "16.4.6",
     "fast-glob": "file:tooling/next-lint-glob",
     "prisma": "5.13.0",
     "tailwindcss": "^4",

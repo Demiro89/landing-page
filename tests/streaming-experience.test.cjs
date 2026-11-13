@@ -188,3 +188,44 @@ test('contact fails closed on rate limiting, missing configuration and transport
     else process.env.RESEND_API_KEY = previous;
   }
 });
+
+
+test('public sitemap includes contact and private/gate routes remain noindex and disallowed', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const root = path.resolve(__dirname, '..');
+  const sitemapSource = fs.readFileSync(path.join(root, 'app/sitemap.ts'), 'utf8');
+  const robotsSource = fs.readFileSync(path.join(root, 'app/robots.ts'), 'utf8');
+  const accesLayoutSource = fs.readFileSync(path.join(root, 'app/acces/layout.tsx'), 'utf8');
+  assert.ok(sitemapSource.includes("path: '/contact'"));
+  for (const hidden of ['/acces', '/admin', '/checkout', '/espace-client']) {
+    assert.ok(!sitemapSource.includes(`'${hidden}'`));
+    assert.ok(robotsSource.includes(`'${hidden}'`));
+  }
+  assert.match(accesLayoutSource, /index:\s*false/);
+  assert.match(accesLayoutSource, /follow:\s*false/);
+});
+
+test('billing portal fails closed with 503 when STRIPE_SECRET_KEY is missing', async () => {
+  const previous = process.env.STRIPE_SECRET_KEY;
+  try {
+    delete process.env.STRIPE_SECRET_KEY;
+    const { POST } = createLoader({
+      '@/lib/prisma': {
+        prisma: {
+          order: { findFirst: async () => null },
+          customer: { update: async () => ({}) },
+        },
+      },
+      '@/lib/clientAuth': {
+        getCurrentCustomer: async () => ({ id: 'cust_1', email: 'client@example.test', stripeCustomerId: 'cus_123' }),
+      },
+      stripe: class MockStripe {},
+    })('app/api/client/billing-portal/route.ts');
+    const res = await POST();
+    assert.equal(res.status, 503);
+  } finally {
+    if (previous === undefined) delete process.env.STRIPE_SECRET_KEY;
+    else process.env.STRIPE_SECRET_KEY = previous;
+  }
+});

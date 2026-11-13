@@ -1,7 +1,7 @@
 # Next lint directory lookup
 
 This private development-only adapter replaces the `fast-glob` dependency of
-`@next/eslint-plugin-next@16.3.8`. The pinned plugin only calls
+`@next/eslint-plugin-next@16.4.6`. The pinned plugin only calls
 `globSync(pattern, { onlyDirectories: true })` in `getRootDirs`.
 
 The original dependency pulled in `braces`, affected by
