@@ -41,39 +41,40 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   return (
     <main className="invoice-screen">
       <style>{`
-        .invoice-screen { background: #f7f6f3; min-height: 100vh; padding: 32px 16px; color: #16181d; }
+        .invoice-screen { background: #f6f2ea; min-height: 100vh; padding: 34px 16px; color: #161412; }
         .invoice-toolbar { max-width: 800px; margin: 0 auto 18px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
         .invoice-print-btn, .invoice-home-link {
-          font-family: var(--font-inter), system-ui, sans-serif; font-size: 14px; font-weight: 600;
-          padding: 10px 18px; border-radius: 8px; cursor: pointer; border: none; text-decoration: none;
+          font-family: var(--font-sans), system-ui, sans-serif; font-size: 14px; font-weight: 600;
+          padding: 10px 18px; border-radius: 10px; cursor: pointer; border: none; text-decoration: none;
           min-height: 44px; display: inline-flex; align-items: center;
         }
-        .invoice-print-btn { background: #2345c7; color: #fff; }
-        .invoice-home-link { background: #fff; color: #16181d; border: 1px solid #cbc7be; }
+        .invoice-print-btn { background: #161412; color: #fffdf9; }
+        .invoice-print-btn:hover { background: #c4452b; }
+        .invoice-home-link { background: #fffdf9; color: #161412; border: 1px solid #c9c0b1; }
         .invoice-sheet {
-          max-width: 800px; margin: 0 auto; background: #fff; color: #16181d;
-          font-family: var(--font-inter), 'Helvetica Neue', Arial, sans-serif; padding: 48px 52px;
-          box-shadow: 0 6px 28px rgba(22, 24, 29, 0.07); border: 1px solid #e3e1dc; border-radius: 14px;
+          max-width: 800px; margin: 0 auto; background: #fffdf9; color: #161412;
+          font-family: var(--font-sans), 'Helvetica Neue', Arial, sans-serif; padding: 48px 52px;
+          box-shadow: 0 8px 30px rgba(22, 20, 18, 0.07); border: 1px solid #dfd8cb; border-radius: 16px;
         }
-        .invoice-sheet h1 { font-family: var(--font-outfit), system-ui, sans-serif; font-size: 26px; margin: 0; letter-spacing: -0.01em; }
-        .inv-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; border-bottom: 2px solid #16181d; padding-bottom: 20px; margin-bottom: 24px; }
-        .inv-brand { font-family: var(--font-outfit), system-ui, sans-serif; font-size: 22px; font-weight: 800; color: #2345c7; }
-        .inv-meta { text-align: right; font-size: 13px; color: #525866; line-height: 1.6; }
+        .invoice-sheet h1 { font-family: var(--font-display), system-ui, sans-serif; font-size: 26px; margin: 0; letter-spacing: -0.02em; }
+        .inv-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; border-bottom: 2px solid #161412; padding-bottom: 20px; margin-bottom: 24px; }
+        .inv-brand { font-family: var(--font-display), system-ui, sans-serif; font-size: 22px; font-weight: 800; color: #c4452b; letter-spacing: -0.02em; }
+        .inv-meta { text-align: right; font-size: 13px; color: #5c564e; line-height: 1.6; }
         .inv-parties { display: flex; gap: 32px; flex-wrap: wrap; margin-bottom: 28px; }
         .inv-party { flex: 1 1 240px; min-width: 0; }
-        .inv-party-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #525866; margin-bottom: 6px; }
-        .inv-party p { margin: 2px 0; font-size: 13px; line-height: 1.55; color: #16181d; overflow-wrap: anywhere; }
+        .inv-party-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #5c564e; margin-bottom: 6px; }
+        .inv-party p { margin: 2px 0; font-size: 13px; line-height: 1.55; color: #161412; overflow-wrap: anywhere; }
         .inv-table-wrap { width: 100%; overflow-x: auto; margin-bottom: 22px; }
         .inv-table { width: 100%; min-width: 480px; border-collapse: collapse; }
-        .inv-table th { background: #16181d; color: #fff; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; padding: 10px 12px; text-align: left; }
+        .inv-table th { background: #161412; color: #fffdf9; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; padding: 10px 12px; text-align: left; }
         .inv-table th.num, .inv-table td.num { text-align: right; }
-        .inv-table td { padding: 12px; font-size: 13px; border-bottom: 1px solid #e3e1dc; color: #16181d; }
+        .inv-table td { padding: 12px; font-size: 13px; border-bottom: 1px solid #dfd8cb; color: #161412; }
         .inv-totals { margin-left: auto; width: 280px; max-width: 100%; }
-        .inv-totals .row { display: flex; justify-content: space-between; padding: 7px 0; font-size: 13px; color: #2e3542; }
-        .inv-totals .row.grand { border-top: 2px solid #16181d; margin-top: 6px; padding-top: 12px; font-size: 16px; font-weight: 800; }
-        .inv-note { margin-top: 26px; padding: 14px 16px; background: #eef2ff; border-left: 3px solid #2345c7; border-radius: 0 8px 8px 0; font-size: 12px; color: #2e3542; line-height: 1.6; }
-        .inv-footer { margin-top: 28px; border-top: 1px solid #e3e1dc; padding-top: 16px; font-size: 11px; color: #525866; line-height: 1.6; text-align: center; }
-        .inv-status { display: inline-block; background: #e9f6ef; color: #166547; font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 999px; }
+        .inv-totals .row { display: flex; justify-content: space-between; padding: 7px 0; font-size: 13px; color: #38332d; }
+        .inv-totals .row.grand { border-top: 2px solid #161412; margin-top: 6px; padding-top: 12px; font-size: 16px; font-weight: 800; }
+        .inv-note { margin-top: 26px; padding: 14px 16px; background: #fbeee9; border-left: 3px solid #c4452b; border-radius: 0 10px 10px 0; font-size: 12px; color: #38332d; line-height: 1.6; }
+        .inv-footer { margin-top: 28px; border-top: 1px solid #dfd8cb; padding-top: 16px; font-size: 11px; color: #5c564e; line-height: 1.6; text-align: center; }
+        .inv-status { display: inline-block; background: #e9f4ee; color: #1e5c42; font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 999px; }
         @media (max-width: 640px) {
           .invoice-screen { padding: 16px 12px; }
           .invoice-sheet { padding: 22px 18px; }
@@ -83,7 +84,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
         @media print {
           .invoice-screen { background: #fff; padding: 0; }
           .invoice-toolbar { display: none; }
-          .invoice-sheet { box-shadow: none; border: none; max-width: 100%; padding: 24px; }
+          .invoice-sheet { box-shadow: none; border: none; max-width: 100%; padding: 24px; background: #fff; }
         }
       `}</style>
 

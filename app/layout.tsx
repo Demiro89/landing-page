@@ -1,11 +1,12 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter, Outfit } from 'next/font/google';
+import { Bricolage_Grotesque, Plus_Jakarta_Sans, Newsreader } from 'next/font/google';
 import { headers } from 'next/headers';
 import { APP_URL } from '@/lib/appUrl';
 import './globals.css';
 
-const inter = Inter({ subsets: ['latin'], display: 'swap', variable: '--font-inter' });
-const outfit = Outfit({ subsets: ['latin'], display: 'swap', variable: '--font-outfit' });
+const bricolage = Bricolage_Grotesque({ subsets: ['latin'], display: 'swap', variable: '--font-display' });
+const jakarta = Plus_Jakarta_Sans({ subsets: ['latin'], display: 'swap', variable: '--font-sans' });
+const newsreader = Newsreader({ subsets: ['latin'], style: ['normal', 'italic'], display: 'swap', variable: '--font-serif' });
 
 const TITLE = 'StreamMalin | Location d’abonnements streaming';
 const DESCRIPTION =
@@ -36,7 +37,7 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  themeColor: '#f7f6f3',
+  themeColor: '#f6f2ea',
 };
 
 const jsonLd = {
@@ -56,7 +57,7 @@ export default async function RootLayout({
   const nonce = (await headers()).get('x-nonce') ?? undefined;
 
   return (
-    <html lang="fr" className={`${inter.variable} ${outfit.variable} scroll-smooth`}>
+    <html lang="fr" className={`${bricolage.variable} ${jakarta.variable} ${newsreader.variable} scroll-smooth`}>
       {/* Le fond et la couleur de texte sont définis dans globals.css (variables de thème). */}
       <body className="relative min-h-screen font-sans antialiased overflow-x-hidden">
         {/* Application Content */}

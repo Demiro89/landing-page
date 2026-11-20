@@ -7,16 +7,10 @@ import {
   ArrowRight,
   Calculator,
   ChevronDown,
-  CreditCard,
-  FileText,
-  Headphones,
-  Layers,
   LayoutGrid,
   Music2,
   RefreshCw,
-  ShieldCheck,
   Tv,
-  UserRound,
 } from 'lucide-react';
 import OfferCard from './OfferCard';
 import Footer from './Footer';
@@ -66,6 +60,24 @@ const questions = [
   ],
 ];
 
+const steps = [
+  [
+    '01',
+    'Vérifiez votre offre',
+    'Consultez le type d’accès, le prix et l’éligibilité de votre compte avant de commander.',
+  ],
+  [
+    '02',
+    'Validez votre commande',
+    'Choisissez votre paiement et confirmez les conditions applicables sans ambiguïté sur le renouvellement.',
+  ],
+  [
+    '03',
+    'Retrouvez votre suivi',
+    'Vos accès sont transmis après validation ; suivi et assistance restent centralisés dans votre espace client.',
+  ],
+] as const;
+
 export default function StreamingStorefront({
   offers,
   loaded,
@@ -102,47 +114,52 @@ export default function StreamingStorefront({
     <>
     <main className="streaming-storefront">
       <section className="stream-hero">
-        <Image
-          src="/images/streammalin-cinema.webp"
-          alt=""
-          fill
-          sizes="100vw"
-          preload
-          className="stream-hero-image"
-        />
-        <div className="stream-container stream-hero-content">
-          <p className="stream-eyebrow">Films, séries &amp; musique</p>
-          <h1>Vos abonnements <br className="stream-hero-break" />streaming.</h1>
-          <p className="stream-hero-copy">
-            Louez un accès au mois à tarif clair. Consultez les disponibilités en direct, les modalités d’accès et résiliez quand vous le souhaitez.
-          </p>
-          <div className="stream-hero-actions">
-            <a className="btn btn-primary" href="#offres">
-              Voir les abonnements <ArrowRight size={17} aria-hidden="true" />
-            </a>
-            <a className="btn stream-hero-secondary" href="#comment">
-              Comment ça marche
-            </a>
+        <div className="stream-container stream-hero-grid">
+          <div className="stream-hero-copy-col">
+            <p className="stream-kicker">Films, séries &amp; musique</p>
+            <h1>
+              Vos abonnements <em className="editorial-serif">streaming</em>, en toute clarté.
+            </h1>
+            <p className="stream-hero-copy">
+              Louez un accès au mois à tarif transparent. Consultez les disponibilités en direct, les modalités d’accès et résiliez avant la prochaine échéance.
+            </p>
+            <div className="stream-hero-actions">
+              <a className="btn btn-primary" href="#offres">
+                Voir les abonnements <ArrowRight size={17} aria-hidden="true" />
+              </a>
+              <a className="stream-hero-link" href="#comment">
+                Comment ça marche
+              </a>
+            </div>
+            <div className="stream-hero-trust" aria-label="Engagements et informations">
+              <Link href="/cgv">Sans engagement · résiliable avant échéance</Link>
+              <Link href="/contact">Support en français</Link>
+              <Link href="/non-affiliation">Service indépendant des plateformes</Link>
+            </div>
+          </div>
+
+          <div className="stream-hero-media-col">
+            <div className="stream-hero-media">
+              <Image
+                src="/images/streammalin-cinema.webp"
+                alt=""
+                fill
+                sizes="(max-width: 900px) 100vw, 46vw"
+                preload
+                className="stream-hero-image"
+              />
+              <div className="stream-hero-caption">
+                <span className="stream-caption-dot" aria-hidden="true" />
+                <span>
+                  {loaded && streaming.length > 0
+                    ? `${streaming.length} plateformes référencées · Suivi dans l’espace client`
+                    : 'Catalogue mensuel · Suivi dans l’espace client'}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </section>
-
-      <div className="stream-reassurance">
-        <div className="stream-container stream-reassurance-grid">
-          <Link href="/cgv">
-            <span className="stream-reassurance-icon"><ShieldCheck size={17} aria-hidden="true" /></span>
-            <span>Sans engagement · résiliable avant échéance</span>
-          </Link>
-          <Link href="/contact">
-            <span className="stream-reassurance-icon"><Headphones size={17} aria-hidden="true" /></span>
-            <span>Support réactif en français</span>
-          </Link>
-          <Link href="/non-affiliation">
-            <span className="stream-reassurance-icon"><Layers size={17} aria-hidden="true" /></span>
-            <span>Service indépendant des plateformes</span>
-          </Link>
-        </div>
-      </div>
 
       <section
         id="offres"
@@ -151,11 +168,13 @@ export default function StreamingStorefront({
       >
         <div className="stream-section-head">
           <div>
+            <p className="stream-kicker">Catalogue</p>
             <h2 id="catalog-title">Les abonnements</h2>
-            <p>Prix mensuels et disponibilités par plateforme.</p>
+            <p>Prix mensuels, type d’accès et disponibilités par plateforme.</p>
           </div>
-          <a href="#calculateur" className="stream-help"><Calculator size={17} aria-hidden="true" /> Estimer mes économies</a>
+          <a href="#calculateur" className="stream-help"><Calculator size={16} aria-hidden="true" /> Estimer mes économies</a>
         </div>
+
         {loaded && !error && streaming.length > 0 && (
           <div className="stream-toolbar">
             <div className="stream-filters" role="group" aria-label="Catégorie d’abonnement">
@@ -165,7 +184,7 @@ export default function StreamingStorefront({
                 { id: 'music', label: 'Musique', Icon: Music2 },
               ] as const).map(({ id, label, Icon }) => (
                 <button key={id} type="button" aria-pressed={category === id} onClick={() => setCategory(id)}>
-                  <Icon size={16} aria-hidden="true" /> {label}
+                  <Icon size={15} aria-hidden="true" /> {label}
                 </button>
               ))}
             </div>
@@ -178,13 +197,14 @@ export default function StreamingStorefront({
             </div>
           </div>
         )}
+
         {!loaded ? (
           <>
             <p role="status" className="sr-only">
               Chargement des abonnements et des disponibilités…
             </p>
             <div className="stream-offer-grid" aria-hidden="true">
-              {[0, 1, 2].map((item) => (
+              {[0, 1, 2, 3].map((item) => (
                 <div key={item} className="offer-skeleton">
                   <div className="offer-skeleton-head">
                     <span className="offer-skeleton-mark" />
@@ -213,7 +233,6 @@ export default function StreamingStorefront({
           <>
             {!available && !(inStockOnly && categoryOffers.length > 0) && (
               <div className="stream-stock-note" role="status">
-                <Tv size={22} aria-hidden="true" />
                 <div>
                   <strong>Aucune place disponible actuellement.</strong>
                   <p>
@@ -267,47 +286,24 @@ export default function StreamingStorefront({
       </section>
 
       <section id="comment" className="stream-process">
-        <div className="stream-container">
-          <div className="stream-section-head">
-            <div>
-              <h2>Comment ça marche</h2>
-              <p>Un parcours clair en trois étapes, sans surprise sur le renouvellement.</p>
-            </div>
+        <div className="stream-container stream-process-grid">
+          <div className="stream-process-intro">
+            <p className="stream-kicker">En pratique</p>
+            <h2>Comment ça <em className="editorial-serif">fonctionne</em></h2>
+            <p>
+              Un parcours simple, sans engagement caché ni surcoût de mise en service.
+            </p>
           </div>
-          <ol className="stream-steps">
-            <li>
-              <div className="stream-step-head">
-                <span className="stream-step-num">01</span>
-                <span className="stream-step-icon"><FileText size={20} aria-hidden="true" /></span>
-              </div>
-              <h3>Vérifiez votre offre</h3>
-              <p>
-                Consultez le type d’accès, le prix et l’éligibilité de votre
-                compte avant de commander.
-              </p>
-            </li>
-            <li>
-              <div className="stream-step-head">
-                <span className="stream-step-num">02</span>
-                <span className="stream-step-icon"><CreditCard size={20} aria-hidden="true" /></span>
-              </div>
-              <h3>Validez votre commande</h3>
-              <p>
-                Choisissez votre paiement et confirmez les conditions
-                applicables.
-              </p>
-            </li>
-            <li>
-              <div className="stream-step-head">
-                <span className="stream-step-num">03</span>
-                <span className="stream-step-icon"><UserRound size={20} aria-hidden="true" /></span>
-              </div>
-              <h3>Retrouvez votre suivi</h3>
-              <p>
-                Accès transmis après validation, assistance et gestion dans
-                l’espace client.
-              </p>
-            </li>
+          <ol className="stream-steps-list">
+            {steps.map(([num, title, description]) => (
+              <li key={num}>
+                <span className="stream-step-num" aria-hidden="true">{num}</span>
+                <div>
+                  <h3>{title}</h3>
+                  <p>{description}</p>
+                </div>
+              </li>
+            ))}
           </ol>
         </div>
       </section>
@@ -315,7 +311,8 @@ export default function StreamingStorefront({
       <section id="calculateur" className="stream-section stream-container" aria-labelledby="simulator-title">
         <div className="stream-calculator">
           <div>
-            <h2 id="simulator-title">Estimer vos économies</h2>
+            <p className="stream-kicker">Simulateur</p>
+            <h2 id="simulator-title">Estimer vos <em className="editorial-serif">économies</em></h2>
             <p>Comparez les offres disponibles avec leurs tarifs publics de référence vérifiés.</p>
             <div className="stream-calculator-options" role="group" aria-label="Offres à comparer">
               {comparable.map((offer) => (
@@ -366,8 +363,9 @@ export default function StreamingStorefront({
         aria-labelledby="faq-title"
       >
         <div className="stream-faq-layout">
-          <div>
-            <h2 id="faq-title">Questions fréquentes</h2>
+          <div className="stream-faq-aside">
+            <p className="stream-kicker">Informations</p>
+            <h2 id="faq-title">Questions <em className="editorial-serif">fréquentes</em></h2>
             <p className="stream-faq-intro">Les réponses essentielles sur l’accès, le paiement et la résiliation.</p>
             <Link className="stream-help" href="/contact">
               Contacter le support <ArrowRight size={16} aria-hidden="true" />
@@ -377,8 +375,8 @@ export default function StreamingStorefront({
             {questions.map(([question, answer]) => (
               <details className="stream-faq-item" key={question}>
                 <summary>
-                  {question}
-                  <ChevronDown size={18} aria-hidden="true" />
+                  <span>{question}</span>
+                  <span className="stream-faq-plus" aria-hidden="true" />
                 </summary>
                 <p>{answer}</p>
               </details>

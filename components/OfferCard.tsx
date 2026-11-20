@@ -26,31 +26,44 @@ export default function OfferCard({ offer }: { offer: Offer }) {
 
   return (
     <article className="offer-card" data-service={offer.id.split('-')[0]} data-available={hasStock} aria-labelledby={`offer-${offer.id}`}>
-      <div className="offer-card-top">
-        <ServiceMark id={offer.id} name={offer.name} />
-        <div className="offer-identity">
-          <h3 id={`offer-${offer.id}`}>{offer.name}</h3>
-          <p className="offer-tagline">{prudentCommercialCopy(offer.tagline)}</p>
+      <div className="offer-card-header">
+        <div className="offer-card-top">
+          <ServiceMark id={offer.id} name={offer.name} />
+          <div className="offer-identity">
+            <h3 id={`offer-${offer.id}`}>{offer.name}</h3>
+            <p className="offer-tagline">{prudentCommercialCopy(offer.tagline)}</p>
+          </div>
+        </div>
+
+        <div className="offer-card-right">
+          {hasStock ? (
+            <p className="offer-price">
+              <strong>{formatEuro(offer.price)}</strong>
+              <span>/ mois</span>
+            </p>
+          ) : (
+            <span className="offer-availability">Complet</span>
+          )}
         </div>
       </div>
 
-      <div className="offer-price-row">
-        {hasStock && <p className="offer-price"><strong>{formatEuro(offer.price)}</strong><span>/ mois</span></p>}
-        <span className={`offer-availability ${hasStock ? 'available' : ''}`}>
-          {hasStock ? `${offer.availableSlots} place${offer.availableSlots > 1 ? 's' : ''} dispo.` : 'Indisponible'}
-        </span>
-      </div>
-
-      {showReference && (
-        <p className="offer-reference-row">
-          <span>Tarif public vérifié : <s>{formatEuro(offer.original)}</s></span>
-          {discountPct >= 1 && <span className="offer-discount-badge">-{discountPct} %</span>}
-        </p>
+      {hasStock && (
+        <div className="offer-meta-row">
+          <span className="offer-availability available">
+            {offer.availableSlots} place{offer.availableSlots > 1 ? 's' : ''} disponible{offer.availableSlots > 1 ? 's' : ''}
+          </span>
+          {showReference && (
+            <p className="offer-reference-row">
+              <span>Tarif public vérifié : <s>{formatEuro(offer.original)}</s></span>
+              {discountPct >= 1 && <span className="offer-discount-badge">-{discountPct} %</span>}
+            </p>
+          )}
+        </div>
       )}
 
       {accessNote && (
         <p className="offer-access-note">
-          <KeyRound size={13} aria-hidden="true" />
+          <KeyRound size={14} aria-hidden="true" />
           <span>{accessNote}</span>
         </p>
       )}
@@ -65,11 +78,13 @@ export default function OfferCard({ offer }: { offer: Offer }) {
 
       {hasStock ? (
         <Link href={detailsUrl} className="btn btn-primary offer-action" aria-label={`Voir l’offre ${offer.name}`}>
-          Voir cette offre <ArrowRight size={16} aria-hidden="true" />
+          <span>Voir cette offre</span>
+          <ArrowRight size={16} aria-hidden="true" />
         </Link>
       ) : (
         <Link className="offer-contact" href={detailsUrl} aria-label={`Détails et disponibilités pour ${offer.name}`}>
-          Voir les conditions <ArrowRight size={14} aria-hidden="true" />
+          <span>Voir les conditions</span>
+          <ArrowRight size={15} aria-hidden="true" />
         </Link>
       )}
     </article>

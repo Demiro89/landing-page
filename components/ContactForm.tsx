@@ -86,8 +86,8 @@ export default function ContactForm() {
     );
   return (
     <form className="contact-form" onSubmit={submit}>
-      <label htmlFor="contact-email">
-        Votre adresse e-mail
+      <div className="contact-field">
+        <label htmlFor="contact-email">Votre adresse e-mail</label>
         <input
           id="contact-email"
           name="email"
@@ -100,25 +100,29 @@ export default function ContactForm() {
           disabled={busy}
           placeholder="vous@exemple.com"
         />
-      </label>
-      <label htmlFor="contact-topic">
-        Votre question concerne
-        <select
-          id="contact-topic"
-          name="topic"
-          value={topic}
-          onChange={(event) => setTopic(event.target.value)}
-          disabled={busy}
-        >
+      </div>
+      <fieldset className="contact-topics" disabled={busy}>
+        <legend>Votre question concerne</legend>
+        <div className="contact-topic-grid">
           {Object.entries(CONTACT_TOPICS).map(([id, label]) => (
-            <option key={id} value={id}>
-              {label}
-            </option>
+            <label
+              key={id}
+              className={`contact-topic${topic === id ? ' is-selected' : ''}`}
+            >
+              <input
+                type="radio"
+                name="topic"
+                value={id}
+                checked={topic === id}
+                onChange={(event) => setTopic(event.target.value)}
+              />
+              <span>{label}</span>
+            </label>
           ))}
-        </select>
-      </label>
-      <label htmlFor="contact-message">
-        Votre message
+        </div>
+      </fieldset>
+      <div className="contact-field">
+        <label htmlFor="contact-message">Votre message</label>
         <textarea
           id="contact-message"
           name="message"
@@ -130,7 +134,7 @@ export default function ContactForm() {
           disabled={busy}
           placeholder="Précisez l’offre ou votre référence de commande, si vous en avez une."
         />
-      </label>
+      </div>
       <div className="contact-honeypot" aria-hidden="true">
         <label htmlFor="contact-website">
           Site web
