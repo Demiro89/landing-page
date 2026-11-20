@@ -220,9 +220,10 @@ test('billing portal fails closed with 503 when STRIPE_SECRET_KEY is missing', a
       '@/lib/clientAuth': {
         getCurrentCustomer: async () => ({ id: 'cust_1', email: 'client@example.test', stripeCustomerId: 'cus_123' }),
       },
+      '@/lib/rateLimit': { enforceRateLimit: async () => null },
       stripe: class MockStripe {},
     })('app/api/client/billing-portal/route.ts');
-    const res = await POST();
+    const res = await POST(new Request('http://localhost/api/client/billing-portal', { method: 'POST' }));
     assert.equal(res.status, 503);
   } finally {
     if (previous === undefined) delete process.env.STRIPE_SECRET_KEY;

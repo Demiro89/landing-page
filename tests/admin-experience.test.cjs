@@ -42,7 +42,7 @@ function stockRoute(prisma, durable = false, extra = {}) {
     ...extra,
   })('app/api/admin/stock/route.ts');
 }
-const mutation = body => new Request('http://localhost/api/admin/stock', { method: 'PUT', body: JSON.stringify(body) });
+const mutation = body => new Request('http://localhost/api/admin/stock', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 
 test('manual Stripe validation is rejected before any transaction in both rollout modes', async () => {
   for (const durable of [false, true]) {
@@ -82,6 +82,7 @@ test('client totals and exports exclude unvalidated orders rather than claiming 
   const { GET: exportClients } = createLoader({
     '@/lib/prisma': { prisma: { order: { findMany: async () => orders } } },
     '@/lib/adminAuth': { isAdminAuthenticated: async () => true },
+    '@/lib/adminFreshness': { requireRecentAdmin: async () => null },
     '@/lib/rateLimit': { enforceRateLimit: async () => null },
   })('app/api/admin/export/route.ts');
   const csv = await (await exportClients(new NextRequest('http://localhost/api/admin/export?type=clients'))).text();

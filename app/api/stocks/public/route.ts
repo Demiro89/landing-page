@@ -3,12 +3,11 @@ import { prisma } from '@/lib/prisma';
 import { commerceEnabled, getCommercialReviews } from '@/lib/commerce';
 import { prudentCommercialCopy } from '@/lib/offerPresentation';
 import { publicReservations } from '@/lib/stockReservations';
+import { logServerFailure } from '@/lib/securityLog';
 
 export const dynamic = 'force-dynamic';
 const errorMessage = (error: unknown) => {
-  // Journalise l'erreur réelle côté serveur ; n'expose jamais les détails au client
-  // (les messages Prisma révèlent le schéma : tables, colonnes, contraintes).
-  console.error('[api]', error);
+  logServerFailure('stocks/public', error);
   return 'Erreur serveur';
 };
 
@@ -49,7 +48,6 @@ export async function GET() {
       ...stock, filledSlots: stock.filledSlots + (held.get(stock.id) || 0), service: { ...stock.service, tagline: prudentCommercialCopy(stock.service.tagline) },
     })) });
   } catch (error: unknown) {
-    console.error('Erreur GET stocks/public:', error);
     return NextResponse.json({ error: errorMessage(error) }, { status: 500 });
   }
 }

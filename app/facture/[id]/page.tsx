@@ -1,16 +1,17 @@
 import React from 'react';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import { COMPANY, CURRENT_VAT_EXEMPTION_TEXT } from '@/lib/legalConfig';
 import { getCurrentCustomer } from '@/lib/clientAuth';
 import { isAdminAuthenticated } from '@/lib/adminAuth';
 import PrintButton from '@/components/PrintButton';
 import { ownsOrder } from '@/lib/orderAccess';
+import { formatEuro } from '@/lib/offerPresentation';
 
 export const dynamic = 'force-dynamic';
 
-const fmt = (n: number) => `${n.toFixed(2)} €`;
+const fmt = formatEuro;
 const fmtDate = (d: Date) =>
   new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
 
@@ -22,7 +23,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   // d'existence (timing / différence de réponse) sur des IDs de factures énumérables.
   const isAdmin = await isAdminAuthenticated();
   const customer = isAdmin ? null : await getCurrentCustomer();
-  if (!isAdmin && !customer) notFound();
+  if (!isAdmin && !customer) redirect('/espace-client');
 
   const invoice = await prisma.invoice.findUnique({
     where: { id },
@@ -38,43 +39,51 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   }
 
   return (
-    <div className="invoice-screen">
+    <main className="invoice-screen">
       <style>{`
-        .invoice-screen { background: #f1f1f4; min-height: 100vh; padding: 32px 16px; }
+        .invoice-screen { background: #f7f6f3; min-height: 100vh; padding: 32px 16px; color: #16181d; }
         .invoice-toolbar { max-width: 800px; margin: 0 auto 18px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
         .invoice-print-btn, .invoice-home-link {
-          font-family: system-ui, sans-serif; font-size: 14px; font-weight: 600;
+          font-family: var(--font-inter), system-ui, sans-serif; font-size: 14px; font-weight: 600;
           padding: 10px 18px; border-radius: 8px; cursor: pointer; border: none; text-decoration: none;
+          min-height: 44px; display: inline-flex; align-items: center;
         }
-        .invoice-print-btn { background: #7c3aed; color: #fff; }
-        .invoice-home-link { background: #fff; color: #333; border: 1px solid #ddd; display: inline-flex; align-items: center; }
+        .invoice-print-btn { background: #2345c7; color: #fff; }
+        .invoice-home-link { background: #fff; color: #16181d; border: 1px solid #cbc7be; }
         .invoice-sheet {
-          max-width: 800px; margin: 0 auto; background: #fff; color: #1a1a1a;
-          font-family: 'Helvetica Neue', Arial, sans-serif; padding: 48px 52px;
-          box-shadow: 0 8px 30px rgba(0,0,0,0.12); border-radius: 4px;
+          max-width: 800px; margin: 0 auto; background: #fff; color: #16181d;
+          font-family: var(--font-inter), 'Helvetica Neue', Arial, sans-serif; padding: 48px 52px;
+          box-shadow: 0 6px 28px rgba(22, 24, 29, 0.07); border: 1px solid #e3e1dc; border-radius: 14px;
         }
-        .invoice-sheet h1 { font-size: 26px; margin: 0; letter-spacing: -0.5px; }
-        .inv-head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #1a1a1a; padding-bottom: 20px; margin-bottom: 24px; }
-        .inv-brand { font-size: 22px; font-weight: 800; color: #7c3aed; }
-        .inv-meta { text-align: right; font-size: 13px; color: #444; line-height: 1.6; }
-        .inv-parties { display: flex; gap: 32px; margin-bottom: 28px; }
-        .inv-party { flex: 1; }
-        .inv-party-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #888; margin-bottom: 6px; }
-        .inv-party p { margin: 2px 0; font-size: 13px; line-height: 1.55; color: #222; }
-        .inv-table { width: 100%; border-collapse: collapse; margin-bottom: 22px; }
-        .inv-table th { background: #1a1a1a; color: #fff; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; padding: 10px 12px; text-align: left; }
+        .invoice-sheet h1 { font-family: var(--font-outfit), system-ui, sans-serif; font-size: 26px; margin: 0; letter-spacing: -0.01em; }
+        .inv-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; border-bottom: 2px solid #16181d; padding-bottom: 20px; margin-bottom: 24px; }
+        .inv-brand { font-family: var(--font-outfit), system-ui, sans-serif; font-size: 22px; font-weight: 800; color: #2345c7; }
+        .inv-meta { text-align: right; font-size: 13px; color: #525866; line-height: 1.6; }
+        .inv-parties { display: flex; gap: 32px; flex-wrap: wrap; margin-bottom: 28px; }
+        .inv-party { flex: 1 1 240px; min-width: 0; }
+        .inv-party-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #525866; margin-bottom: 6px; }
+        .inv-party p { margin: 2px 0; font-size: 13px; line-height: 1.55; color: #16181d; overflow-wrap: anywhere; }
+        .inv-table-wrap { width: 100%; overflow-x: auto; margin-bottom: 22px; }
+        .inv-table { width: 100%; min-width: 480px; border-collapse: collapse; }
+        .inv-table th { background: #16181d; color: #fff; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; padding: 10px 12px; text-align: left; }
         .inv-table th.num, .inv-table td.num { text-align: right; }
-        .inv-table td { padding: 12px; font-size: 13px; border-bottom: 1px solid #eee; color: #222; }
-        .inv-totals { margin-left: auto; width: 280px; }
-        .inv-totals .row { display: flex; justify-content: space-between; padding: 7px 0; font-size: 13px; color: #333; }
-        .inv-totals .row.grand { border-top: 2px solid #1a1a1a; margin-top: 6px; padding-top: 12px; font-size: 16px; font-weight: 800; }
-        .inv-note { margin-top: 26px; padding: 14px 16px; background: #f6f4ff; border-left: 3px solid #7c3aed; font-size: 12px; color: #444; line-height: 1.6; }
-        .inv-footer { margin-top: 28px; border-top: 1px solid #eee; padding-top: 16px; font-size: 11px; color: #888; line-height: 1.6; text-align: center; }
-        .inv-status { display: inline-block; background: #dcfce7; color: #15803d; font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 50px; }
+        .inv-table td { padding: 12px; font-size: 13px; border-bottom: 1px solid #e3e1dc; color: #16181d; }
+        .inv-totals { margin-left: auto; width: 280px; max-width: 100%; }
+        .inv-totals .row { display: flex; justify-content: space-between; padding: 7px 0; font-size: 13px; color: #2e3542; }
+        .inv-totals .row.grand { border-top: 2px solid #16181d; margin-top: 6px; padding-top: 12px; font-size: 16px; font-weight: 800; }
+        .inv-note { margin-top: 26px; padding: 14px 16px; background: #eef2ff; border-left: 3px solid #2345c7; border-radius: 0 8px 8px 0; font-size: 12px; color: #2e3542; line-height: 1.6; }
+        .inv-footer { margin-top: 28px; border-top: 1px solid #e3e1dc; padding-top: 16px; font-size: 11px; color: #525866; line-height: 1.6; text-align: center; }
+        .inv-status { display: inline-block; background: #e9f6ef; color: #166547; font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 999px; }
+        @media (max-width: 640px) {
+          .invoice-screen { padding: 16px 12px; }
+          .invoice-sheet { padding: 22px 18px; }
+          .inv-meta { text-align: left; }
+          .inv-totals { width: 100%; }
+        }
         @media print {
           .invoice-screen { background: #fff; padding: 0; }
           .invoice-toolbar { display: none; }
-          .invoice-sheet { box-shadow: none; max-width: 100%; padding: 24px; }
+          .invoice-sheet { box-shadow: none; border: none; max-width: 100%; padding: 24px; }
         }
       `}</style>
 
@@ -116,24 +125,26 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
           </div>
         </div>
 
-        <table className="inv-table">
-          <thead>
-            <tr>
-              <th>Description</th>
-              <th className="num">Qté</th>
-              <th className="num">Prix unitaire HT</th>
-              <th className="num">Total HT</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>{invoice.description}</td>
-              <td className="num">{invoice.quantity}</td>
-              <td className="num">{fmt(invoice.unitPriceHT)}</td>
-              <td className="num">{fmt(invoice.totalHT)}</td>
-            </tr>
-          </tbody>
-        </table>
+        <div className="inv-table-wrap">
+          <table className="inv-table">
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th className="num">Qté</th>
+                <th className="num">Prix unitaire HT</th>
+                <th className="num">Total HT</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>{invoice.description}</td>
+                <td className="num">{invoice.quantity}</td>
+                <td className="num">{fmt(invoice.unitPriceHT)}</td>
+                <td className="num">{fmt(invoice.totalHT)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
         <div className="inv-totals">
           <div className="row"><span>Total HT</span><span>{fmt(invoice.totalHT)}</span></div>
@@ -156,6 +167,6 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
           <div>StreamMalin est un service indépendant, non affilié aux plateformes citées.</div>
         </div>
       </div>
-    </div>
+    </main>
   );
 }

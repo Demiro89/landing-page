@@ -1,40 +1,35 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { commerceEnabled } from '@/lib/commerce';
+import { CRYPTO_COINS } from '@/lib/manualPayment';
+import { normalizeEmail } from '@/lib/checkoutValidation';
+import { logServerFailure } from '@/lib/securityLog';
 
 export const dynamic = 'force-dynamic';
 
-// Clés non sensibles, destinées à la page de paiement publique :
-// adresses crypto (que le client doit voir pour payer) et passerelles actives.
-const PUBLIC_KEYS = [
-  'crypto_btc', 'crypto_eth', 'crypto_usdt', 'crypto_ltc',
+const GATEWAY_KEYS = [
+  ...CRYPTO_COINS.map(coin => `crypto_${coin}`),
   'gateway_cb', 'gateway_paypal', 'gateway_crypto',
   'paypal_email',
 ];
 
-const DEFAULTS: Record<string, string> = {
-  crypto_btc: '', crypto_eth: '', crypto_usdt: '', crypto_ltc: '',
-  gateway_cb: 'false', gateway_paypal: 'false', gateway_crypto: 'false',
-  paypal_email: '',
-};
-
-/**
- * GET /api/settings/public : paramètres publics nécessaires au tunnel de paiement.
- * N'expose volontairement aucune clé sensible (commissions, etc.).
- */
 export async function GET() {
   try {
-    const rows = await prisma.setting.findMany({ where: { key: { in: PUBLIC_KEYS } } });
-    const settings: Record<string, string> = { ...DEFAULTS };
-    rows.forEach((r) => { settings[r.key] = r.value; });
-    if (!commerceEnabled()) {
-      settings.gateway_cb = settings.gateway_paypal = settings.gateway_crypto = 'false';
-    } else if (process.env.MANUAL_PAYMENTS_ENABLED !== 'true') {
-      settings.gateway_paypal = settings.gateway_crypto = 'false';
-    }
-    return NextResponse.json({ success: true, settings });
+    const enabled = commerceEnabled();
+    const rows = enabled ? await prisma.setting.findMany({ where: { key: { in: GATEWAY_KEYS } } }) : [];
+    const values = new Map(rows.map(({ key, value }) => [key, value]));
+    const manual = enabled && process.env.MANUAL_PAYMENTS_ENABLED === 'true';
+    const coins = manual && values.get('gateway_crypto') === 'true'
+      ? CRYPTO_COINS.filter(coin => Boolean(values.get(`crypto_${coin}`)?.trim())) : [];
+
+    return NextResponse.json({ success: true, settings: {
+      gateway_cb: String(values.get('gateway_cb') === 'true'),
+      gateway_paypal: String(manual && values.get('gateway_paypal') === 'true' && Boolean(normalizeEmail(values.get('paypal_email')))),
+      gateway_crypto: String(coins.length > 0),
+      crypto_coins: coins,
+    } }, { headers: { 'Cache-Control': 'private, no-store' } });
   } catch (error) {
-    console.error('Erreur GET settings public:', error);
+    logServerFailure('settings/public', error);
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
   }
 }

@@ -31,9 +31,10 @@ export async function fulfillReservedStripeOrder(event: Stripe.Event, session: S
       try { details = (await consumePlace(tx, order.id, order.stockAccountId, order.serviceId)).details; }
       catch (error) { if (!(error instanceof AvailabilityError)) throw error; canFulfill = false; }
     }
+    const stripeCustomerId = typeof sub.customer === 'string' ? sub.customer : sub.customer.id;
     await tx.order.update({ where: { id: order.id }, data: {
       status: canFulfill ? 'active' : 'payment_review', details,
-      stripeSubscriptionId: subId, stripeCustomerId: typeof sub.customer === 'string' ? sub.customer : sub.customer.id,
+      stripeSubscriptionId: subId, stripeCustomerId,
       cardLast4: pm?.card?.last4, cardBrand: pm?.card?.brand,
       cardExpMonth: pm?.card?.exp_month, cardExpYear: pm?.card?.exp_year,
       nextBillingAt: new Date(sub.items.data[0].current_period_end * 1000),
@@ -49,9 +50,21 @@ export async function fulfillReservedStripeOrder(event: Stripe.Event, session: S
       periodEnd: new Date(sub.items.data[0].current_period_end * 1000),
     });
     await enqueueOrderJob(tx, order.id, canFulfill ? 'delivery' : 'payment_review', `${canFulfill ? 'delivery' : 'payment_review'}:${invoiceId}`);
-    if (canFulfill) await tx.chatThread.upsert({ where: { orderId: order.id }, create: {
-      id: order.id, orderId: order.id, title: `Support ${order.service.name}`,
-      messages: { create: { sender: 'Support StreamMalin', text: 'Paiement confirmé. La transmission des accès est suivie par notre support. Vous pouvez nous contacter ici.' } },
-    }, update: {} });
+    if (canFulfill) {
+      await tx.chatThread.upsert({ where: { orderId: order.id }, create: {
+        id: order.id, orderId: order.id, title: `Support ${order.service.name}`,
+        messages: { create: { sender: 'Support StreamMalin', text: 'Paiement confirmé. La transmission des accès est suivie par notre support. Vous pouvez nous contacter ici.' } },
+      }, update: {} });
+      const txCustomer = tx.customer;
+      if (stripeCustomerId && typeof txCustomer?.findFirst === 'function' && typeof txCustomer?.updateMany === 'function') {
+        const existingOwner = await txCustomer.findFirst({
+          where: { OR: [{ email: order.clientEmail.toLowerCase() }, { stripeCustomerId }] },
+          select: { id: true, email: true, stripeCustomerId: true },
+        });
+        if (existingOwner && existingOwner.email.toLowerCase() === order.clientEmail.toLowerCase() && !existingOwner.stripeCustomerId) {
+          await txCustomer.updateMany({ where: { id: existingOwner.id, stripeCustomerId: null }, data: { stripeCustomerId } });
+        }
+      }
+    }
   });
 }

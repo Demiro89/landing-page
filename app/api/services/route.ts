@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { commerceEnabled, getCommercialReviews, hasVerifiedReference, EMPTY_COMMERCIAL_REVIEW } from '@/lib/commerce';
 import { prudentCommercialCopy } from '@/lib/offerPresentation';
 import { publicReservations } from '@/lib/stockReservations';
+import { logServerFailure } from '@/lib/securityLog';
 
 export const dynamic = 'force-dynamic';
 
@@ -140,7 +141,7 @@ export async function GET() {
 
     return NextResponse.json({ success: true, services: formattedServices });
   } catch (error: unknown) {
-    console.error('Erreur GET public services:', error);
+    logServerFailure('services/get', error);
     // On n'expose jamais le détail de l'erreur au client (fuite de schéma DB).
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
   }

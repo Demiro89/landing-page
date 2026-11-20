@@ -1,120 +1,59 @@
-import React from 'react';
+import Link from 'next/link';
 import { COMPANY, NON_AFFILIATION_SHORT } from '@/lib/legalConfig';
+import { SiteWordmark } from './SiteHeader';
 
-const COLUMNS: { title: string; links: { label: string; href: string }[] }[] = [
+const columns = [
   {
-    title: 'Informations légales',
+    title: 'Boutique',
     links: [
-      { label: 'Conditions générales de vente', href: '/cgv' },
-      { label: 'Mentions légales', href: '/mentions-legales' },
-      { label: 'Politique de confidentialité', href: '/politique-confidentialite' },
-      { label: 'Gestion des cookies', href: '/cookies' },
+      ['Les abonnements', '/#offres'],
+      ['Simulateur d’économies', '/#calculateur'],
+      ['Questions fréquentes', '/#faq'],
+      ['Espace client', '/espace-client'],
     ],
   },
   {
     title: 'Aide & support',
     links: [
-      { label: 'Contact / Support', href: '/contact' },
-      { label: 'Réclamation', href: '/reclamation' },
-      { label: 'Médiation de la consommation', href: '/mediation' },
-      { label: 'FAQ & guide des abonnements', href: '/#faq' },
+      ['Contact', '/contact'],
+      ['Réclamation', '/reclamation'],
+      ['Droit de rétractation', '/retractation'],
+      ['Remboursements', '/remboursements'],
+      ['Médiation de la consommation', '/mediation'],
     ],
   },
   {
-    title: 'StreamMalin',
+    title: 'Informations légales',
     links: [
-      { label: 'Nos offres', href: '/#offres' },
-      { label: 'Non-affiliation', href: '/non-affiliation' },
-      { label: 'Droit de rétractation', href: '/retractation' },
-      { label: 'Remboursements', href: '/remboursements' },
+      ['Conditions générales de vente', '/cgv'],
+      ['Mentions légales', '/mentions-legales'],
+      ['Politique de confidentialité', '/politique-confidentialite'],
+      ['Gestion des cookies', '/cookies'],
+      ['Non-affiliation', '/non-affiliation'],
     ],
   },
 ];
 
 export default function Footer() {
   return (
-    <footer
-      style={{
-        borderTop: '1px solid rgba(255,255,255,0.06)',
-        background: 'rgba(8,9,13,0.6)',
-        position: 'relative',
-        zIndex: 1,
-      }}
-    >
-      <div style={{ maxWidth: 1120, margin: '0 auto', padding: '48px 24px 28px' }}>
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
-            gap: 32,
-          }}
-        >
-          {/* Brand */}
-          <div>
-            <div className="nav-logo" style={{ marginBottom: 12 }}>
-              <div className="nav-logo-icon">SM</div>
-              <span className="gradient-text">StreamMalin</span>
-            </div>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: 1.7, maxWidth: 260 }}>
-              Location d&apos;abonnements streaming selon les offres disponibles. Service indépendant
-              édité en micro-entreprise.
-            </p>
-            <a
-              href={`mailto:${COMPANY.email}`}
-              style={{ fontSize: '0.82rem', color: 'var(--primary)', textDecoration: 'none', display: 'inline-block', marginTop: 10 }}
-            >
-              {COMPANY.email}
-            </a>
+    <footer className="site-footer">
+      <div className="site-width">
+        <div className="site-footer-grid">
+          <div className="site-footer-intro">
+            <Link href="/" className="site-wordmark"><SiteWordmark /></Link>
+            <p>Location d’abonnements streaming selon les offres disponibles. Service indépendant édité en micro-entreprise.</p>
+            <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a>
           </div>
-
-          {/* Link columns */}
-          {COLUMNS.map(col => (
-            <div key={col.title}>
-              <div
-                style={{
-                  fontSize: '0.72rem',
-                  fontWeight: 800,
-                  letterSpacing: 0,
-                  textTransform: 'uppercase',
-                  color: 'var(--text-muted)',
-                  marginBottom: 14,
-                }}
-              >
-                {col.title}
-              </div>
-              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 9 }}>
-                {col.links.map(link => (
-                  <li key={link.label}>
-                    <a
-                      href={link.href}
-                      style={{ fontSize: '0.84rem', color: 'var(--text-gray)', textDecoration: 'none' }}
-                    >
-                      {link.label}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
+          {columns.map(({ title, links }) => (
+            <nav aria-label={title} key={title}>
+              <h2>{title}</h2>
+              <ul>{links.map(([label, href]) => <li key={href}><Link href={href}>{label}</Link></li>)}</ul>
+            </nav>
           ))}
         </div>
-
-        {/* Non-affiliation + copyright */}
-        <div
-          style={{
-            marginTop: 36,
-            paddingTop: 22,
-            borderTop: '1px solid rgba(255,255,255,0.05)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 10,
-          }}
-        >
-          <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)', lineHeight: 1.7, margin: 0 }}>
-            {NON_AFFILIATION_SHORT}
-          </p>
-          <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)', margin: 0 }}>
-            © {new Date().getFullYear()} StreamMalin — Tous droits réservés. TVA non applicable, art. 293 B du CGI.
-          </p>
+        <div className="site-footer-note">
+          <p>{NON_AFFILIATION_SHORT}</p>
+          <p>© {new Date().getFullYear()} StreamMalin. TVA non applicable, art. 293 B du CGI.</p>
         </div>
       </div>
     </footer>

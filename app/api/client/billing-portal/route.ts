@@ -1,20 +1,18 @@
 import { NextResponse } from 'next/server';
+import { logServerFailure } from '@/lib/securityLog';
 import Stripe from 'stripe';
 import { prisma } from '@/lib/prisma';
 import { getCurrentCustomer } from '@/lib/clientAuth';
+import { enforceRateLimit } from '@/lib/rateLimit';
+import { APP_URL } from '@/lib/appUrl';
 
 export const dynamic = 'force-dynamic';
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-const errorMessage = (error: unknown) => {
-  // Journalise l'erreur réelle côté serveur ; n'expose jamais les détails au client
-  // (les messages Prisma révèlent le schéma : tables, colonnes, contraintes).
-  console.error('[api]', error);
-  return 'Erreur serveur';
-};
-
-export async function POST() {
+export async function POST(request: Request) {
   try {
+    const limited = await enforceRateLimit(request, 'billing-portal', 10, 600, true);
+    if (limited) return limited;
+
     const customer = await getCurrentCustomer();
     if (!customer) {
       return NextResponse.json({ error: 'Non connecté' }, { status: 401 });
@@ -31,7 +29,7 @@ export async function POST() {
       });
       stripeCustomerId = order?.stripeCustomerId || null;
       if (stripeCustomerId) {
-        await prisma.customer.update({ where: { id: customer.id }, data: { stripeCustomerId } });
+        await prisma.customer.update({ where: { id: customer.id }, data: { stripeCustomerId } }).catch(() => {});
       }
     }
 
@@ -52,7 +50,7 @@ export async function POST() {
 
     return NextResponse.json({ success: true, url: session.url });
   } catch (error: unknown) {
-    console.error('[billing-portal]', error);
-    return NextResponse.json({ error: errorMessage(error) }, { status: 500 });
+    logServerFailure('client/billing-portal', error);
+    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
   }
 }

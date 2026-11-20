@@ -3,19 +3,23 @@ import { prisma } from './prisma';
 import { lockStock, heldPlaces, AvailabilityError } from './stockReservations';
 import { encrypt } from './crypto';
 
-export async function reserveCheckout(attemptId: unknown, data: Prisma.OrderUncheckedCreateInput) {
+export async function reserveCheckout(attemptId: unknown, data: Prisma.OrderUncheckedCreateInput, expectedAmountMinor?: number) {
   if (typeof attemptId !== 'string' || !/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(attemptId)) throw new AvailabilityError('Rechargez la page avant de commander.');
   return prisma.$transaction(async tx => {
     const stock = await lockStock(tx, data.stockAccountId);
+    if (expectedAmountMinor !== undefined && Math.round(stock.price * 100) !== expectedAmountMinor) {
+      throw new AvailabilityError('Le prix de cette offre a changé. Rechargez la page.');
+    }
     const existing = await tx.stockReservation.findUnique({ where: { id: attemptId }, include: { order: true } });
     if (existing) {
       if (existing.order.serviceId !== data.serviceId || existing.stockAccountId !== data.stockAccountId ||
-          existing.order.clientEmail !== data.clientEmail || existing.order.youtubeEmail !== (data.youtubeEmail || null) ||
+          existing.order.clientEmail !== data.clientEmail || existing.order.customerId !== (data.customerId ?? null) ||
+          existing.order.youtubeEmail !== (data.youtubeEmail || null) ||
           existing.order.paymentMethod !== data.paymentMethod || existing.order.termsVersion !== data.termsVersion ||
           existing.order.price !== stock.price || existing.status !== 'held' || existing.expiresAt.getTime() <= Date.now()) {
         throw new AvailabilityError('Cette réservation a changé ou a expiré. Rechargez la page.');
       }
-      return { reservation: existing, order: existing.order, stock };
+      return { reservation: existing, order: existing.order, stock, created: false };
     }
     if (!stock.service.active || stock.serviceId !== data.serviceId || !Number.isFinite(stock.price) || stock.price <= 0 ||
         stock.filledSlots + await heldPlaces(tx, stock.id) >= stock.maxSlots) {
@@ -30,9 +34,9 @@ export async function reserveCheckout(attemptId: unknown, data: Prisma.OrderUnch
     })) } });
     const reservation = await tx.stockReservation.create({ data: {
       id: attemptId, orderId: order.id, stockAccountId: stock.id,
-      // Stripe requires at least 30 minutes at session creation. Leave a small margin.
-      expiresAt: new Date(Math.floor(Date.now() / 1000 + 31 * 60) * 1000),
+      // Stripe requires at least 30 minutes at session creation; keep a 5-minute retry buffer.
+      expiresAt: new Date(Math.floor(Date.now() / 1000 + 35 * 60) * 1000),
     } });
-    return { reservation, order, stock };
+    return { reservation, order, stock, created: true };
   });
 }

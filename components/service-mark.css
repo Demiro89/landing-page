@@ -1,2 +1,42 @@
-.service-mark { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; flex: 0 0 44px; border-radius: 7px; border: 1px solid #434d56; background: #222a31; color: #f4f6f7; font-size: .9rem; font-weight: 700; letter-spacing: 0; }
-.service-mark img { object-fit: contain; filter: invert(1); }
+.service-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  border-radius: 10px;
+  border: 1px solid #d8e1fb;
+  background: #eef2ff;
+  color: #2345c7;
+  font-family: var(--font-outfit), 'Outfit', system-ui, sans-serif;
+  font-size: .9rem;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+.service-mark img {
+  object-fit: contain;
+  filter: none;
+  width: 24px;
+  height: 24px;
+}
+.service-mark[data-service='netflix'] {
+  background: #fdf0f1;
+  color: #b91c2e;
+  border-color: #f6d4d8;
+}
+.service-mark[data-service='youtube'] {
+  background: #fff2ed;
+  color: #c0392b;
+  border-color: #fadbd0;
+}
+.service-mark[data-service='spotify'] {
+  background: #eaf7f0;
+  color: #166547;
+  border-color: #c6e8d6;
+}
+.service-mark[data-service='disney'] {
+  background: #edf4ff;
+  color: #1d4ed8;
+  border-color: #cddfff;
+}

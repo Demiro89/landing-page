@@ -2,10 +2,13 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Eye, EyeOff } from 'lucide-react';
+import { SiteWordmark } from '@/components/SiteHeader';
 
 export default function AccesPage() {
   const router = useRouter();
   const [code, setCode] = useState('');
+  const [showCode, setShowCode] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -34,40 +37,46 @@ export default function AccesPage() {
   };
 
   return (
-    <div className="admin-login-wrap">
-      <div className="glass-panel admin-login-card">
-        <div className="admin-login-icon">SM</div>
-        <h2 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: 6 }}>
-          Site en <span className="gradient-text">accès restreint</span>
-        </h2>
-        <p style={{ color: 'var(--text-gray)', fontSize: '0.85rem', marginBottom: 28 }}>
-          Le site est temporairement réservé. Saisissez le code d&apos;accès pour continuer.
-        </p>
-
-        <form onSubmit={submit} style={{ textAlign: 'left' }}>
+    <main className="site-theme site-gate">
+      <div className="site-gate-content">
+        <div className="site-wordmark"><SiteWordmark /></div>
+        <h1>Accès privé</h1>
+        <form onSubmit={submit}>
           <div className="form-field">
             <label className="form-label" htmlFor="site-access-code">Code d&apos;accès</label>
-            <input
-              id="site-access-code"
-              type="password"
-              maxLength={128}
-              placeholder="••••••••"
-              value={code}
-              onChange={e => setCode(e.target.value)}
-              className="dash-input"
-              required
-              autoFocus
-              autoComplete="off"
-            />
+            <div style={{ position: 'relative' }}>
+              <input
+                id="site-access-code"
+                type={showCode ? 'text' : 'password'}
+                maxLength={128}
+                placeholder="Votre code"
+                value={code}
+                onChange={e => setCode(e.target.value)}
+                className="dash-input"
+                style={{ paddingRight: 44 }}
+                required
+                autoFocus
+                autoComplete="off"
+              />
+              <button
+                type="button"
+                onClick={() => setShowCode(v => !v)}
+                style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', width: 34, height: 34, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--site-muted)' }}
+                aria-label={showCode ? 'Masquer le code d’accès' : 'Afficher le code d’accès'}
+                aria-pressed={showCode}
+              >
+                {showCode ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
+              </button>
+            </div>
           </div>
 
           {error && <div className="error-box" role="alert">{error}</div>}
 
-          <button type="submit" className="btn-pay" disabled={loading} style={{ marginTop: 4 }}>
+          <button type="submit" className="btn btn-primary" disabled={loading}>
             {loading ? 'Vérification…' : 'Entrer'}
           </button>
         </form>
       </div>
-    </div>
+    </main>
   );
 }

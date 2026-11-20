@@ -1,6 +1,5 @@
 import type { MetadataRoute } from 'next';
-
-const BASE = process.env.NEXT_PUBLIC_APP_URL || 'https://www.streammalin.fr';
+import { APP_URL } from '@/lib/appUrl';
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const routes: { path: string; priority: number; changeFrequency: 'daily' | 'monthly' }[] = [
@@ -17,7 +16,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: '/remboursements', priority: 0.3, changeFrequency: 'monthly' },
   ];
   return routes.map((r) => ({
-    url: `${BASE}${r.path}`,
+    url: `${APP_URL}${r.path}`,
     changeFrequency: r.changeFrequency,
     priority: r.priority,
   }));

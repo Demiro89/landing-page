@@ -1,23 +1,15 @@
 import { NextResponse } from 'next/server';
+import { logServerFailure } from '@/lib/securityLog';
 import Stripe from 'stripe';
 import { prisma } from '@/lib/prisma';
 import { getCurrentCustomer } from '@/lib/clientAuth';
 import { ownsOrder } from '@/lib/orderAccess';
 import { commerceEnabled } from '@/lib/commerce';
+import { readJsonObject } from '@/lib/requestJson';
+import { enforceRateLimit } from '@/lib/rateLimit';
+import { APP_URL } from '@/lib/appUrl';
 
 export const dynamic = 'force-dynamic';
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_mock', {
-  apiVersion: '2026-04-22.dahlia',
-});
-
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-const errorMessage = (error: unknown) => {
-  // Journalise l'erreur réelle côté serveur ; n'expose jamais les détails au client
-  // (les messages Prisma révèlent le schéma : tables, colonnes, contraintes).
-  console.error('[api]', error);
-  return 'Erreur serveur';
-};
 
 /**
  * Migre une commande existante (PayPal/manuel) vers un abonnement Stripe.
@@ -28,13 +20,24 @@ export async function POST(request: Request) {
   // This legacy migration flow requires a separate verified recurring-payment rollout.
   if (!commerceEnabled() || process.env.LEGACY_SUBSCRIPTION_MIGRATION_ENABLED !== 'true') return NextResponse.json({ error: 'Le passage au prélèvement automatique est temporairement indisponible.' }, { status: 503 });
   try {
+    const limited = await enforceRateLimit(request, 'migrate-subscription', 10, 600, true);
+    if (limited) return limited;
+
     const customer = await getCurrentCustomer();
     if (!customer) {
       return NextResponse.json({ error: 'Non connecté' }, { status: 401 });
     }
 
-    const { orderId } = await request.json();
-    if (!orderId) {
+    const key = process.env.STRIPE_SECRET_KEY;
+    if (!key || key === 'sk_test_mock') {
+      return NextResponse.json({ error: 'Stripe est temporairement indisponible.' }, { status: 503 });
+    }
+    const stripe = new Stripe(key, { apiVersion: '2026-04-22.dahlia' });
+
+    const parsed = await readJsonObject(request);
+    if (!parsed.ok) return parsed.response;
+    const { orderId } = parsed.value;
+    if (typeof orderId !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(orderId)) {
       return NextResponse.json({ error: 'orderId requis' }, { status: 400 });
     }
 
@@ -98,7 +101,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, url: session.url });
   } catch (error: unknown) {
-    console.error('[migrate-to-subscription]', error);
-    return NextResponse.json({ error: errorMessage(error) }, { status: 500 });
+    logServerFailure('client/migrate-to-subscription', error);
+    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
   }
 }

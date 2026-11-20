@@ -46,12 +46,13 @@ function withCsp(request: NextRequest, earlyResponse?: NextResponse): NextRespon
 
   const response = earlyResponse ?? NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set('Content-Security-Policy', csp);
-  if (earlyResponse || request.nextUrl.pathname.startsWith('/commande/') || request.nextUrl.pathname.startsWith('/api/') ||
-      ['token', 'reset', 'resetToken', 'session_id'].some(key => request.nextUrl.searchParams.has(key))) {
+  const { pathname, searchParams } = request.nextUrl;
+  const sensitive = pathname === '/espace-client' || ['/commande/', '/api/', '/facture/', '/admin'].some(prefix => pathname.startsWith(prefix)) ||
+    ['token', 'reset', 'resetToken', 'session_id'].some(key => searchParams.has(key));
+  if (earlyResponse || sensitive) {
     response.headers.set('Referrer-Policy', 'no-referrer');
-    response.headers.set('Cache-Control', 'private, no-store');
   }
-  if (request.nextUrl.pathname.startsWith('/api/') || request.nextUrl.pathname.startsWith('/facture/') || request.nextUrl.pathname.startsWith('/admin')) {
+  if (earlyResponse || sensitive || process.env.SITE_ACCESS_CODE) {
     response.headers.set('Cache-Control', 'private, no-store');
   }
   return response;

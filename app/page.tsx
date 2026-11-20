@@ -3,7 +3,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import OfferCard from '@/components/OfferCard';
 import StreamingStorefront from '@/components/StreamingStorefront';
-import { Menu, X, UserRound, Eye, EyeOff, LockKeyhole } from 'lucide-react';
+import SiteHeader from '@/components/SiteHeader';
+import { ArrowLeft, Eye, EyeOff, LockKeyhole } from 'lucide-react';
+import { orderStatusPresentation } from '@/lib/adminPresentation';
+import { formatEuro } from '@/lib/offerPresentation';
 
 interface Service {
   id: string;
@@ -20,6 +23,7 @@ interface Service {
   availableStockId: string | null;
   referenceVerified?: boolean;
   eligibility?: string;
+  accessType?: string;
 }
 
 
@@ -33,21 +37,18 @@ interface Message {
 interface Order {
   id: string;
   date: string;
-  serviceId: string;
   price: number;
-  total: number;
   details: string;
-  clientEmail: string;
   status: string;
   cancellationEffectiveAt?: string | null;
-  stripeSubscriptionId?: string | null;
+  stripeManaged: boolean;
   cardLast4?: string | null;
   cardBrand?: string | null;
   cardExpMonth?: number | null;
   cardExpYear?: number | null;
   nextBillingAt?: string | null;
   service: { name: string; icon: string; gradient: string };
-  chats?: { id: string; orderId: string; messages: Message[] };
+  chats?: { messages: { text: string; createdAt: string }[] } | null;
 }
 
 type View = 'storefront' | 'dashboard';
@@ -70,7 +71,6 @@ export default function Home() {
   const [services, setServices] = useState<Service[]>([]);
   const [servicesLoaded, setServicesLoaded] = useState(false);
   const [catalogError, setCatalogError] = useState('');
-  const [menuOpen, setMenuOpen] = useState(false);
 
   // Espace client (auth)
   const [authChecked, setAuthChecked] = useState(false);
@@ -103,6 +103,16 @@ export default function Home() {
   const [cancelSuccess, setCancelSuccess] = useState('');
   const [portalLoading, setPortalLoading] = useState(false);
   const [migratingOrderId, setMigratingOrderId] = useState<string | null>(null);
+  const [copiedOrderId, setCopiedOrderId] = useState<string | null>(null);
+  const cancelDialogRef = useRef<HTMLDialogElement>(null);
+  const cancelTriggerRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    const dialog = cancelDialogRef.current;
+    if (!dialog) return;
+    if (cancelOrderId && !dialog.open) dialog.showModal();
+    else if (!cancelOrderId && dialog.open) dialog.close();
+  }, [cancelOrderId]);
 
   const loadCatalog = async () => {
     try {
@@ -275,11 +285,20 @@ export default function Home() {
   };
 
   const doLogout = async () => {
-    await fetch('/api/client/logout', { method: 'POST' });
+    try {
+      const response = await fetch('/api/client/logout', { method: 'POST' });
+      if (!response.ok) throw new Error('Logout unavailable');
+    } catch {
+      setOrdersError('La déconnexion a échoué. Réessayez.');
+      setDashTab('orders');
+      return;
+    }
+    setOrdersError('');
     setCustomer(null);
     setOrders([]);
     setSearchedEmail('');
     setActiveChatOrderId(null);
+    setChatMessages([]);
     goToStorefront();
   };
 
@@ -395,19 +414,23 @@ export default function Home() {
 
   const openBillingPortal = async () => {
     setPortalLoading(true);
+    setOrdersError('');
     try {
       const r = await fetch('/api/client/billing-portal', { method: 'POST' });
       const d = await r.json();
       if (d.success && d.url) {
-        window.location.href = d.url;
+        window.location.assign(d.url);
       } else {
-        alert(d.error || 'Impossible d\'ouvrir le portail de paiement');
+        setOrdersError(d.error || 'Impossible d\'ouvrir le portail de paiement.');
       }
+    } catch {
+      setOrdersError('Connexion indisponible. Réessayez dans quelques instants.');
     } finally { setPortalLoading(false); }
   };
 
   const migrateOrder = async (orderId: string) => {
     setMigratingOrderId(orderId);
+    setOrdersError('');
     try {
       const r = await fetch('/api/client/migrate-to-subscription', {
         method: 'POST',
@@ -416,11 +439,23 @@ export default function Home() {
       });
       const d = await r.json();
       if (d.success && d.url) {
-        window.location.href = d.url;
+        window.location.assign(d.url);
       } else {
-        alert(d.error || 'Erreur de migration');
+        setOrdersError(d.error || 'Le passage au prélèvement automatique est indisponible.');
       }
+    } catch {
+      setOrdersError('Connexion indisponible. Réessayez dans quelques instants.');
     } finally { setMigratingOrderId(null); }
+  };
+
+  const copyOrderDetails = async (orderId: string, details: string) => {
+    try {
+      await navigator.clipboard.writeText(details);
+      setCopiedOrderId(orderId);
+      setTimeout(() => setCopiedOrderId(current => current === orderId ? null : current), 2000);
+    } catch {
+      setOrdersError('La copie est indisponible. Sélectionnez et copiez vos accès manuellement.');
+    }
   };
 
   const doCancelOrder = async () => {
@@ -456,7 +491,7 @@ export default function Home() {
     setLoadingOrders(true);
     setOrdersError('');
     try {
-      const r = await fetch(`/api/client/orders?email=${encodeURIComponent(email)}`);
+      const r = await fetch('/api/client/orders');
       const d = await r.json();
       if (d.success) {
         setOrders(d.orders);
@@ -511,57 +546,25 @@ export default function Home() {
 
 
   return (
-    <div className="relative min-h-screen">
-      {/* NAVBAR */}
-      <header className="navbar">
-        <div className="nav-inner">
-          <button onClick={goToStorefront} className="nav-logo">
-            <div className="nav-logo-icon">SM</div>
-            <span className="gradient-text">StreamMalin</span>
-          </button>
-
-          <nav className="nav-links">
-            <a href="#offres" onClick={goToStorefront} className="nav-link">Abonnements</a>
-            <a href="#comment" onClick={goToStorefront} className="nav-link">Fonctionnement</a>
-            <a href="#faq" onClick={goToStorefront} className="nav-link">Questions fréquentes</a>
-            <a href="/contact" className="nav-link">Contact</a>
-            <button onClick={goToDashboard} className="btn btn-outline btn-sm" style={{ marginLeft: 8 }}>
-              <UserRound size={16} aria-hidden="true" /> Espace client
-            </button>
-          </nav>
-
-          <button className="mobile-menu-toggle" onClick={() => setMenuOpen(!menuOpen)} aria-label={menuOpen ? 'Fermer le menu' : 'Ouvrir le menu'} aria-expanded={menuOpen} aria-controls="mobile-navigation">{menuOpen ? <X size={22} /> : <Menu size={22} />}</button>
-        </div>
-        {menuOpen && (
-          <div id="mobile-navigation" className="md:hidden border-t border-white/5 px-6 py-4 flex flex-col gap-3" style={{ background: 'color-mix(in srgb, var(--bg-dark) 96%, transparent)' }}>
-            <a href="#offres" onClick={() => { goToStorefront(); setMenuOpen(false); }} className="nav-link">Abonnements</a>
-            <a href="#comment" onClick={() => { goToStorefront(); setMenuOpen(false); }} className="nav-link">Fonctionnement</a>
-            <a href="#faq" onClick={() => { goToStorefront(); setMenuOpen(false); }} className="nav-link">Questions fréquentes</a>
-            <a href="/contact" className="nav-link">Contact</a>
-            <button onClick={() => { goToDashboard(); setMenuOpen(false); }} className="btn btn-outline btn-sm"><UserRound size={16} aria-hidden="true" /> Espace client</button>
-          </div>
-        )}
-      </header>
+    <div className="site-theme relative min-h-screen">
+      <SiteHeader
+        account={view === 'dashboard'}
+        onHome={() => { if (view === 'dashboard') goToStorefront(); window.scrollTo(0, 0); }}
+        onAccount={goToDashboard}
+      />
 
       {/* Public catalogue: availability always comes from the server projection. */}
       {view === 'storefront' && <StreamingStorefront offers={services} loaded={servicesLoaded} error={catalogError} retry={() => { void loadCatalog(); }} />}
 
       {/* ======================== DASHBOARD CLIENT ======================== */}
       {view === 'dashboard' && (
-        <main style={{ position: 'relative', minHeight: '100vh' }}>
-          {/* Ambient glows */}
+        <main className="site-client">
 
           <div className="dash-wrap">
             {/* Header */}
-            <div className="dash-header fade-in-up">
+            <div className="dash-header">
               <div>
-                <div className="dash-status-badge">
-                  <span className="dash-status-dot" />
-                  {customer ? 'CONNECTÉ · SESSION SÉCURISÉE' : 'ESPACE CLIENT'}
-                </div>
-                <h1 className="dash-title">
-                  Mon <span className="gradient-text">Espace Client</span>
-                </h1>
+                <h1 className="dash-title">Espace client</h1>
                 {customer && (
                   <div className="dash-subtitle">
                     Connecté en tant que <strong style={{ color: 'var(--text-white)' }}>{customer.email}</strong>
@@ -572,7 +575,7 @@ export default function Home() {
                 )}
               </div>
               <button onClick={goToStorefront} className="btn btn-ghost btn-sm">
-                ← Boutique
+                <ArrowLeft size={16} aria-hidden="true" /> Boutique
               </button>
             </div>
 
@@ -617,7 +620,7 @@ export default function Home() {
                     onClick={doLogout}
                     className="dash-sidebar-btn dash-sidebar-logout"
                   >
-                    <span style={{ fontSize: '1.05rem' }}>🚪</span> Déconnexion
+                    <span style={{ fontSize: '1.05rem' }}>🚪</span> Déconnecter tous les appareils
                   </button>
                 )}
 
@@ -692,7 +695,7 @@ export default function Home() {
                             <input
                               id="client-auth-password"
                               type={showPassword ? 'text' : 'password'}
-                              placeholder="8 caractères min., une lettre et un chiffre"
+                              placeholder={authMode === 'login' ? 'Votre mot de passe' : '8 caractères minimum'}
                               value={authPassword}
                               onChange={(e) => setAuthPassword(e.target.value)}
                               className="dash-input"
@@ -735,7 +738,7 @@ export default function Home() {
                           <button
                             type="button"
                             onClick={() => { setAuthMode('forgot'); setAuthError(''); setAuthMsg(''); }}
-                            style={{ background: 'none', border: 'none', color: 'var(--secondary)', fontSize: '0.82rem', textDecoration: 'underline', cursor: 'pointer', marginTop: 4 }}
+                            className="auth-link-btn"
                           >
                             Mot de passe oublié ?
                           </button>
@@ -762,7 +765,7 @@ export default function Home() {
                         <button
                           type="button"
                           onClick={() => { setAuthMode('login'); setAuthError(''); setAuthMsg(''); }}
-                          style={{ background: 'none', border: 'none', color: 'var(--secondary)', fontSize: '0.82rem', textDecoration: 'underline', cursor: 'pointer', marginTop: 4 }}
+                          className="auth-link-btn"
                         >
                           ← Retour à la connexion
                         </button>
@@ -827,7 +830,10 @@ export default function Home() {
                             ✅ {cancelSuccess}
                           </div>
                         )}
-                        {orders.map((order) => (
+                        {orders.map((order) => {
+                          const statusInfo = orderStatusPresentation(order.status);
+                          const hasValidCancelDate = order.status === 'cancelled_pending' && Boolean(order.cancellationEffectiveAt) && Number.isFinite(Date.parse(order.cancellationEffectiveAt!));
+                          return (
                           <div key={order.id} className="glass-panel order-card">
                             <div className="order-icon-lg" style={{ background: order.service.gradient }}>
                               {order.service.icon}
@@ -835,26 +841,32 @@ export default function Home() {
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 6 }}>
                                 <h4 style={{ fontSize: '1.05rem', fontWeight: 800 }}>{order.service.name}</h4>
-                                {order.status === 'cancelled_pending' ? (
-                                  <span className="order-status" style={{ background: 'rgba(239,68,68,0.15)', color: '#f87171', borderColor: 'rgba(239,68,68,0.3)' }}>
-                                    Résiliation le {new Date(order.cancellationEffectiveAt!).toLocaleDateString('fr-FR')}
-                                  </span>
-                                ) : (
-                                  <span className="order-status">Actif</span>
-                                )}
+                                <span className={`order-status order-status-${statusInfo.tone}`}>
+                                  {hasValidCancelDate
+                                    ? `Résiliation le ${new Date(order.cancellationEffectiveAt!).toLocaleDateString('fr-FR')}`
+                                    : statusInfo.label}
+                                </span>
                               </div>
                               <div className="order-meta">
-                                <span>Mensualité <strong>{order.price.toFixed(2)}€</strong></span>
+                                <span>Mensualité <strong>{formatEuro(order.price)}</strong></span>
                                 <span>·</span>
                                 <span>Loué le <strong>{new Date(order.date).toLocaleDateString('fr-FR')}</strong></span>
                               </div>
                               <div className="creds-box">
                                 <div className="creds-label">🔑 Accès de connexion</div>
-                                <div className="creds-value">{order.details}</div>
+                                <div className="creds-value">
+                                  {order.details || (
+                                    order.status === 'pending'
+                                      ? 'En attente de validation du paiement.'
+                                      : ['cancelled', 'cancelled_pending'].includes(order.status)
+                                        ? 'Accès expiré ou résilié.'
+                                        : 'Accès indisponible. Contactez le support.'
+                                  )}
+                                </div>
                               </div>
 
                               {/* Carte bancaire enregistrée */}
-                              {order.stripeSubscriptionId && order.cardLast4 ? (() => {
+                              {order.stripeManaged && order.cardLast4 ? (() => {
                                 const now = new Date();
                                 const expired = order.cardExpYear && order.cardExpMonth && (
                                   order.cardExpYear < now.getFullYear() ||
@@ -864,12 +876,12 @@ export default function Home() {
                                   (order.cardExpYear - now.getFullYear()) * 12 + (order.cardExpMonth - now.getMonth() - 1) <= 1
                                 );
                                 return (
-                                  <div style={{ marginTop: 8, marginBottom: 8, padding: 12, borderRadius: 10, background: expired ? 'rgba(239,68,68,0.08)' : expiringSoon ? 'rgba(245,158,11,0.08)' : 'rgba(59,130,246,0.06)', border: `1px solid ${expired ? 'rgba(239,68,68,0.3)' : expiringSoon ? 'rgba(245,158,11,0.3)' : 'rgba(59,130,246,0.2)'}` }}>
+                                  <div className={`card-banner ${expired ? 'danger' : expiringSoon ? 'warn' : 'info'}`}>
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
                                       <div style={{ fontSize: '0.82rem' }}>
                                         💳 <strong style={{ textTransform: 'capitalize' }}>{order.cardBrand || 'Carte'}</strong> •••• {order.cardLast4} <span style={{ color: 'var(--text-muted)' }}>· expire {String(order.cardExpMonth).padStart(2, '0')}/{order.cardExpYear}</span>
-                                        {expired && <span style={{ marginLeft: 8, padding: '2px 8px', borderRadius: 50, background: 'rgba(239,68,68,0.15)', color: '#f87171', fontSize: '0.7rem', fontWeight: 800 }}>⚠️ EXPIRÉE</span>}
-                                        {expiringSoon && <span style={{ marginLeft: 8, padding: '2px 8px', borderRadius: 50, background: 'rgba(245,158,11,0.15)', color: '#fbbf24', fontSize: '0.7rem', fontWeight: 800 }}>⏱️ Expire bientôt</span>}
+                                        {expired && <span className="card-badge danger">⚠️ EXPIRÉE</span>}
+                                        {expiringSoon && <span className="card-badge warn">⏱️ Expire bientôt</span>}
                                       </div>
                                       {order.nextBillingAt && !expired && (
                                         <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
@@ -879,8 +891,8 @@ export default function Home() {
                                     </div>
                                   </div>
                                 );
-                              })() : !order.stripeSubscriptionId && order.status === 'active' && (
-                                <div style={{ marginTop: 8, marginBottom: 8, padding: 12, borderRadius: 10, background: 'rgba(138,92,247,0.08)', border: '1px solid rgba(138,92,247,0.25)' }}>
+                              })() : !order.stripeManaged && order.status === 'active' && (
+                                <div className="card-banner migrate">
                                   <div style={{ fontSize: '0.82rem', marginBottom: 8 }}>
                                     ✨ <strong>Activez le prélèvement automatique</strong> pour ne plus jamais oublier de payer. Vous restez résiliable à tout moment.
                                   </div>
@@ -900,77 +912,91 @@ export default function Home() {
                                   onClick={() => { setDashTab('chat'); setActiveChatOrderId(order.id); fetchChat(order.id); }}
                                   className="btn btn-primary btn-sm"
                                 >💬 Contacter le support</button>
-                                <button
-                                  onClick={() => navigator.clipboard.writeText(order.details)}
+                                {order.details && <button
+                                  type="button"
+                                  onClick={() => { void copyOrderDetails(order.id, order.details); }}
                                   className="btn btn-ghost btn-sm"
-                                >📋 Copier les accès</button>
-                                {order.stripeSubscriptionId && (
+                                >{copiedOrderId === order.id ? '✅ Copié' : '📋 Copier les accès'}</button>}
+                                {order.stripeManaged && (
                                   <button
                                     onClick={openBillingPortal}
                                     disabled={portalLoading}
                                     className="btn btn-ghost btn-sm"
-                                    style={{ color: 'var(--secondary)', borderColor: 'rgba(138,92,247,0.3)' }}
                                   >{portalLoading ? '⏳' : '💳'} Gérer ma carte</button>
                                 )}
                                 {order.status === 'active' && (
                                   <button
-                                    onClick={() => { setCancelOrderId(order.id); setCancelError(''); }}
+                                    type="button"
+                                    onClick={(e) => { cancelTriggerRef.current = e.currentTarget; setCancelOrderId(order.id); setCancelError(''); }}
                                     className="btn btn-ghost btn-sm"
-                                    style={{ color: 'var(--accent-red)', borderColor: 'rgba(239,68,68,0.3)' }}
+                                    style={{ color: 'var(--accent-red)', borderColor: '#efc4cc' }}
                                   >🔴 Résilier</button>
                                 )}
                               </div>
                             </div>
                           </div>
-                        ))}
+                          );
+                        })}
 
                         {/* Modal confirmation résiliation */}
-                        {cancelOrderId && (() => {
-                          const order = orders.find(o => o.id === cancelOrderId);
-                          if (!order) return null;
-                          const effectiveAt = order.cancellationEffectiveAt || order.nextBillingAt;
-                          return (
-                            <div
-                              role="dialog"
-                              aria-modal="true"
-                              aria-labelledby="cancel-modal-title"
-                              onClick={() => { setCancelOrderId(null); setCancelError(''); }}
-                              onKeyDown={(e) => { if (e.key === 'Escape') { setCancelOrderId(null); setCancelError(''); } }}
-                              style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)', padding: 20 }}
-                            >
-                              <div className="glass-panel" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 460, width: '100%', padding: 30 }}>
+                        <dialog
+                          ref={cancelDialogRef}
+                          className="client-dialog"
+                          aria-labelledby="cancel-modal-title"
+                          onCancel={(e) => {
+                            e.preventDefault();
+                            setCancelOrderId(null);
+                            setCancelError('');
+                            cancelTriggerRef.current?.focus();
+                          }}
+                          onClick={(e) => {
+                            if (e.target === cancelDialogRef.current) {
+                              setCancelOrderId(null);
+                              setCancelError('');
+                              cancelTriggerRef.current?.focus();
+                            }
+                          }}
+                        >
+                          {cancelOrderId && (() => {
+                            const order = orders.find(o => o.id === cancelOrderId);
+                            if (!order) return null;
+                            const effectiveAt = order.cancellationEffectiveAt || order.nextBillingAt;
+                            return (
+                              <div className="client-dialog-body">
                                 <h3 id="cancel-modal-title" style={{ fontSize: '1.15rem', fontWeight: 800, marginBottom: 8 }}>🔴 Résilier mon abonnement</h3>
                                 <p style={{ fontSize: '0.88rem', color: 'var(--text-soft)', lineHeight: 1.7, marginBottom: 12 }}>
                                   Vous êtes sur le point de résilier votre abonnement <strong style={{ color: 'var(--text-white)' }}>{order.service.name}</strong>.
                                 </p>
-                                <div style={{ padding: 14, borderRadius: 10, background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)', marginBottom: 16, fontSize: '0.85rem', lineHeight: 1.7 }}>
+                                <div className="card-banner danger" style={{ marginBottom: 16, lineHeight: 1.7 }}>
                                   Votre accès reste actif jusqu’à la fin de la période payée{effectiveAt && Number.isFinite(Date.parse(effectiveAt)) ? <> : <strong>{new Date(effectiveAt).toLocaleDateString('fr-FR')}</strong></> : '. La date effective sera précisée après confirmation'}. Aucun nouveau prélèvement ne doit intervenir après la date de résiliation confirmée.
                                 </div>
                                 {cancelError && (
-                                  <div style={{ marginBottom: 12, padding: 10, borderRadius: 8, background: 'rgba(239,68,68,0.1)', color: '#f87171', fontSize: '0.82rem' }}>
+                                  <div className="msg-error" role="alert" style={{ marginBottom: 12 }}>
                                     {cancelError}
                                   </div>
                                 )}
                                 <div style={{ display: 'flex', gap: 10 }}>
                                   <button
+                                    type="button"
                                     onClick={doCancelOrder}
                                     disabled={cancellingOrder}
-                                    className="btn"
-                                    style={{ flex: 1, background: 'linear-gradient(135deg,#dc2626,#991b1b)', color: '#fff', fontWeight: 800, border: 'none' }}
+                                    className="btn client-danger-btn"
+                                    style={{ flex: 1 }}
                                   >
                                     {cancellingOrder ? 'Traitement…' : 'Confirmer la résiliation'}
                                   </button>
                                   <button
-                                    onClick={() => { setCancelOrderId(null); setCancelError(''); }}
+                                    type="button"
+                                    onClick={() => { setCancelOrderId(null); setCancelError(''); cancelTriggerRef.current?.focus(); }}
                                     className="btn btn-ghost"
                                     style={{ flex: 1 }}
                                     autoFocus
                                   >Annuler</button>
                                 </div>
                               </div>
-                            </div>
-                          );
-                        })()}
+                            );
+                          })()}
+                        </dialog>
                       </>
                     )}
                   </div>
@@ -995,26 +1021,30 @@ export default function Home() {
                     <div className="settings-section">
                       <div className="settings-section-title">Changer l&apos;adresse email</div>
                       <form onSubmit={doChangeEmail} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        <label htmlFor="change-email-new" className="form-label">Nouvelle adresse e-mail</label>
                         <input
+                          id="change-email-new"
                           type="email"
-                          placeholder="Nouvelle adresse email"
+                          placeholder="nouvelle@exemple.com"
                           value={newEmail}
                           onChange={e => setNewEmail(e.target.value)}
                           className="dash-input"
                           autoComplete="email"
                           required
                         />
+                        <label htmlFor="change-email-pwd" className="form-label">Mot de passe actuel (pour confirmer)</label>
                         <input
+                          id="change-email-pwd"
                           type="password"
-                          placeholder="Mot de passe actuel (pour confirmer)"
+                          placeholder="Votre mot de passe actuel"
                           value={emailChangePwd}
                           onChange={e => setEmailChangePwd(e.target.value)}
                           className="dash-input"
                           autoComplete="current-password"
                           required
                         />
-                        {changeEmailError && <div className="msg-error">{changeEmailError}</div>}
-                        {changeEmailMsg && <div className="msg-success">{changeEmailMsg}</div>}
+                        {changeEmailError && <div className="msg-error" role="alert">{changeEmailError}</div>}
+                        {changeEmailMsg && <div className="msg-success" role="status">{changeEmailMsg}</div>}
                         <button type="submit" disabled={changeEmailBusy} className="btn btn-primary btn-sm" style={{ alignSelf: 'flex-start' }}>
                           {changeEmailBusy ? 'Envoi en cours…' : 'Envoyer le lien de confirmation'}
                         </button>
@@ -1041,18 +1071,22 @@ export default function Home() {
                     <div className="settings-section">
                       <div className="settings-section-title">Changer le mot de passe</div>
                       <form onSubmit={doChangePassword} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        <label htmlFor="change-pwd-current" className="form-label">Mot de passe actuel</label>
                         <input
+                          id="change-pwd-current"
                           type="password"
-                          placeholder="Mot de passe actuel"
+                          placeholder="Votre mot de passe actuel"
                           value={currentPwd}
                           onChange={e => setCurrentPwd(e.target.value)}
                           className="dash-input"
                           autoComplete="current-password"
                           required
                         />
+                        <label htmlFor="change-pwd-new" className="form-label">Nouveau mot de passe</label>
                         <input
+                          id="change-pwd-new"
                           type="password"
-                          placeholder="Nouveau mot de passe (8 car. min., lettre + chiffre)"
+                          placeholder="8 caractères minimum, lettre + chiffre"
                           value={newPwd}
                           onChange={e => setNewPwd(e.target.value)}
                           className="dash-input"
@@ -1060,16 +1094,16 @@ export default function Home() {
                           minLength={8}
                           required
                         />
-                        {changePwdError && <div className="msg-error">{changePwdError}</div>}
-                        {changePwdMsg && <div className="msg-success">{changePwdMsg}</div>}
+                        {changePwdError && <div className="msg-error" role="alert">{changePwdError}</div>}
+                        {changePwdMsg && <div className="msg-success" role="status">{changePwdMsg}</div>}
                         <button type="submit" disabled={changePwdBusy} className="btn btn-primary btn-sm" style={{ alignSelf: 'flex-start' }}>
                           {changePwdBusy ? 'Enregistrement…' : 'Modifier le mot de passe'}
                         </button>
                       </form>
                     </div>
 
-                    <div style={{ marginTop: 30, padding: 20, borderRadius: 12, background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.3)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, color: 'var(--accent-red)', fontWeight: 800, fontSize: '1rem' }}>
+                    <div className="danger-zone">
+                      <div className="danger-zone-title">
                         ⚠️ Zone dangereuse — Supprimer mon compte
                       </div>
                       <p style={{ fontSize: '0.85rem', color: 'var(--text-soft)', lineHeight: 1.6, marginBottom: 8 }}>
@@ -1079,8 +1113,8 @@ export default function Home() {
                         Vos abonnements actifs ne seront <strong>pas annulés</strong> — ils restent gérés via votre adresse email. En revanche, vous perdrez l&apos;accès à votre Espace Client et à l&apos;historique de vos conversations support.
                       </p>
 
-                      <label htmlFor="delete-confirm" style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-soft)', marginBottom: 6, fontWeight: 600 }}>
-                        Pour confirmer, tapez <code style={{ background: 'rgba(239,68,68,0.15)', color: 'var(--accent-red)', padding: '2px 8px', borderRadius: 4, fontFamily: 'monospace', fontWeight: 800 }}>supprimer</code> ci-dessous :
+                      <label htmlFor="delete-confirm" className="form-label">
+                        Pour confirmer, tapez <code className="danger-code">supprimer</code> ci-dessous :
                       </label>
                       <input
                         id="delete-confirm"
@@ -1088,12 +1122,12 @@ export default function Home() {
                         value={deleteConfirm}
                         onChange={(e) => { setDeleteConfirm(e.target.value); setDeleteError(''); }}
                         placeholder="Tapez supprimer"
-                        className="input"
-                        style={{ width: '100%', marginBottom: 12, borderColor: deleteConfirm.trim().toLowerCase() === 'supprimer' ? 'var(--accent-red)' : undefined }}
+                        className="dash-input"
+                        style={{ marginBottom: 12, borderColor: deleteConfirm.trim().toLowerCase() === 'supprimer' ? 'var(--accent-red)' : undefined }}
                         disabled={deleting}
                       />
 
-                      <label htmlFor="delete-password" style={{ display: 'block', marginBottom: 6 }}>Mot de passe actuel</label>
+                      <label htmlFor="delete-password" className="form-label">Mot de passe actuel</label>
                       <input
                         id="delete-password"
                         type="password"
@@ -1101,32 +1135,29 @@ export default function Home() {
                         onChange={e => setDeletePassword(e.target.value)}
                         autoComplete="current-password"
                         maxLength={128}
-                        className="input"
-                        style={{ width: '100%', marginBottom: 12 }}
+                        className="dash-input"
+                        style={{ marginBottom: 12 }}
                         disabled={deleting}
                         required
                       />
 
                       {deleteError && (
-                        <div className="msg-error" style={{ marginBottom: 12 }}>{deleteError}</div>
+                        <div className="msg-error" role="alert" style={{ marginBottom: 12 }}>{deleteError}</div>
                       )}
 
-                      <button
-                        onClick={doDeleteAccount}
-                        disabled={deleting || !deletePassword || deleteConfirm.trim().toLowerCase() !== 'supprimer'}
-                        className="btn"
-                        style={{
-                          width: '100%',
-                          background: deleteConfirm.trim().toLowerCase() === 'supprimer' && !deleting ? 'linear-gradient(135deg, #dc2626, #991b1b)' : 'rgba(239,68,68,0.2)',
-                          color: '#fff',
-                          fontWeight: 800,
-                          cursor: deleteConfirm.trim().toLowerCase() === 'supprimer' && !deleting ? 'pointer' : 'not-allowed',
-                          opacity: deleteConfirm.trim().toLowerCase() === 'supprimer' && !deleting ? 1 : 0.5,
-                          border: 'none',
-                        }}
-                      >
-                        {deleting ? 'Suppression en cours…' : '🗑️ Supprimer définitivement mon compte'}
-                      </button>
+                      {(() => {
+                        const canDelete = deleteConfirm.trim().toLowerCase() === 'supprimer' && Boolean(deletePassword) && !deleting;
+                        return (
+                          <button
+                            type="button"
+                            onClick={doDeleteAccount}
+                            disabled={!canDelete}
+                            className="btn client-danger-btn"
+                          >
+                            {deleting ? 'Suppression en cours…' : '🗑️ Supprimer définitivement mon compte'}
+                          </button>
+                        );
+                      })()}
                     </div>
                   </div>
                 )}

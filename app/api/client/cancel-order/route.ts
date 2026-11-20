@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { getCurrentCustomer } from '@/lib/clientAuth';
 import { sendCancellationEmail } from '@/lib/nodemailer';
 import { sendTelegramNotification } from '@/lib/telegram';
+import { logServerFailure } from '@/lib/securityLog';
 import { enforceRateLimit } from '@/lib/rateLimit';
 import { ownsOrder } from '@/lib/orderAccess';
 import { readJsonObject } from '@/lib/requestJson';
@@ -77,12 +78,12 @@ export async function POST(request: Request) {
     await sendCancellationEmail(customer.email, order.service.name, orderId, cancellationEffectiveAt);
 
     sendTelegramNotification(
-      `🔴 <b>Résiliation client (manuel)</b>\n👤 ${customer.email}\n📺 ${order.service.name}\n📅 Effective le ${cancellationEffectiveAt.toLocaleDateString('fr-FR')}`
+      `🔴 <b>Résiliation client (manuel)</b>\n🔖 Réf. ${order.id.slice(0, 8).toUpperCase()}\n📅 Effective le ${cancellationEffectiveAt.toLocaleDateString('fr-FR')}`
     ).catch(() => {});
 
     return NextResponse.json({ success: true, effectiveAt: cancellationEffectiveAt });
   } catch (error: unknown) {
-    console.error('Erreur POST cancel-order:', error);
+    logServerFailure('client/cancel-order', error);
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
   }
 }

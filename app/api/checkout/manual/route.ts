@@ -7,10 +7,12 @@ import { CURRENT_TERMS_VERSION } from '@/lib/termsVersion';
 import { assertOfferSaleAllowed, CommerceUnavailableError } from '@/lib/commerce';
 import { reserveCheckout } from '@/lib/checkoutReservation';
 import { AvailabilityError } from '@/lib/stockReservations';
-import { validateCheckout } from '@/lib/checkoutValidation';
+import { normalizeEmail, validateCheckout } from '@/lib/checkoutValidation';
 import { clientIp } from '@/lib/clientIp';
 import { isGatewayEnabled } from '@/lib/paymentSettings';
 import { readJsonObject } from '@/lib/requestJson';
+import { isCryptoCoin } from '@/lib/manualPayment';
+import { logServerFailure } from '@/lib/securityLog';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,19 +40,21 @@ export async function POST(request: Request) {
     const { serviceId, stockAccountId, email: cleanedEmail, youtubeEmail } = input;
     await assertOfferSaleAllowed(serviceId);
     if (body.termsVersion !== CURRENT_TERMS_VERSION) return NextResponse.json({ error: 'Les CGV ont changé. Rechargez la page.' }, { status: 409 });
-    const { paymentMethod } = body;
+    const { paymentMethod, amountMinor } = body;
     if (paymentMethod !== 'paypal' && paymentMethod !== 'crypto') {
       return NextResponse.json({ error: 'Moyen de paiement invalide' }, { status: 400 });
     }
-    const methodLabel = METHOD_LABELS[paymentMethod];
-    if (!methodLabel) {
-      return NextResponse.json({ error: 'Moyen de paiement invalide' }, { status: 400 });
+    if (typeof amountMinor !== 'number' || !Number.isSafeInteger(amountMinor) || amountMinor < 1) {
+      return NextResponse.json({ error: 'Montant invalide. Rechargez la page.' }, { status: 400 });
     }
+    const methodLabel = METHOD_LABELS[paymentMethod];
     if (!(await isGatewayEnabled(paymentMethod))) {
       return NextResponse.json({ error: 'Ce moyen de paiement est indisponible.' }, { status: 503 });
     }
-    const destinationKey = paymentMethod === 'paypal' ? 'paypal_email' : typeof body.cryptoCoin === 'string' && ['btc', 'eth', 'usdt', 'ltc'].includes(body.cryptoCoin) ? `crypto_${body.cryptoCoin}` : null;
-    if (!destinationKey || !(await prisma.setting.findUnique({ where: { key: destinationKey } }))?.value) {
+    const destinationKey = paymentMethod === 'paypal' ? 'paypal_email' : isCryptoCoin(body.cryptoCoin) ? `crypto_${body.cryptoCoin}` : null;
+    const setting = destinationKey ? await prisma.setting.findUnique({ where: { key: destinationKey } }) : null;
+    const destination = paymentMethod === 'paypal' ? normalizeEmail(setting?.value) : setting?.value.trim();
+    if (!destination) {
       return NextResponse.json({ error: 'Ce moyen de paiement n’est pas configuré.' }, { status: 503 });
     }
 
@@ -77,7 +81,7 @@ export async function POST(request: Request) {
 
     const customer = await getCurrentCustomer();
     const ownerId = customer?.email === cleanedEmail ? customer.id : null;
-    const { order, reservation } = await reserveCheckout(body.attemptId, {
+    const { order, reservation, created } = await reserveCheckout(body.attemptId, {
         serviceId,
         stockAccountId,
         price: stock.price,
@@ -97,17 +101,21 @@ export async function POST(request: Request) {
         termsVersion,
         acceptanceUserAgent,
         acceptanceIp,
+    }, amountMinor);
+
+    if (created !== false) {
+      sendTelegramNotification(
+        `🕓 <b>Commande à valider</b>\n💳 ${methodLabel}\n🔖 Réf. ${order.id.slice(0, 8).toUpperCase()}`
+      ).catch(() => {});
+    }
+
+    return NextResponse.json({ success: true, orderId: order.id, expiresAt: reservation.expiresAt, destination, amountMinor }, {
+      headers: { 'Cache-Control': 'private, no-store' },
     });
-
-    sendTelegramNotification(
-      `🕓 <b>Commande à valider</b>\n💳 ${methodLabel}\n👤 ${cleanedEmail}\n📺 ${service.name}\n💶 ${stock.price.toFixed(2)}€\n🔖 Réf. ${order.id.slice(0, 8).toUpperCase()}`
-    ).catch(() => {});
-
-    return NextResponse.json({ success: true, orderId: order.id, expiresAt: reservation.expiresAt });
   } catch (error) {
     if (error instanceof CommerceUnavailableError) return NextResponse.json({ error: error.message }, { status: 503 });
     if (error instanceof AvailabilityError) return NextResponse.json({ error: error.message }, { status: 409 });
-    console.error('Erreur POST checkout/manual:', error);
+    logServerFailure('checkout/manual', error);
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
   }
 }

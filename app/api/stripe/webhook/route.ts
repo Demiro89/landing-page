@@ -11,6 +11,8 @@ import { remediationSchemaEnabled } from '@/lib/commerce';
 import { fulfillReservedStripeOrder } from '@/lib/reservedStripeOrder';
 import { enqueueOrderJob, recordOrderPayment } from '@/lib/durableOrders';
 import { queueUnpaidReminder, type ReminderLevel } from '@/lib/unpaidReminders';
+import { scheduleDeliveryPass } from '@/lib/deliveryWorker';
+import { logServerFailure } from '@/lib/securityLog';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,9 +38,7 @@ export async function POST(request: Request) {
     let event: Stripe.Event;
     try {
       event = stripe.webhooks.constructEvent(body, sig, webhookSecret);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Signature invalide';
-      console.error('❌ Erreur signature Webhook:', message);
+    } catch {
       return NextResponse.json({ error: 'Signature invalide' }, { status: 400 });
     }
 
@@ -59,6 +59,7 @@ export async function POST(request: Request) {
         if (metadata.orderId && metadata.reservationId) {
           if (!remediationSchemaEnabled()) throw new Error('Reservation schema not enabled');
           await fulfillReservedStripeOrder(event, session, stripe);
+          scheduleDeliveryPass(5);
           break;
         }
 
@@ -111,7 +112,7 @@ export async function POST(request: Request) {
               }).catch(() => {});
             }
           }
-          sendTelegramNotification(`✅ <b>Migration Stripe réussie</b>\n👤 ${clientEmail}\n💳 •••• ${pm?.card?.last4 || '----'}`).catch(() => {});
+          sendTelegramNotification(`✅ <b>Migration Stripe réussie</b>\n🔖 Réf. ${migrateOrderId.slice(0, 8).toUpperCase()}`).catch(() => {});
           break;
         }
 
@@ -139,7 +140,7 @@ export async function POST(request: Request) {
         }
         if (stockAccount.serviceId !== serviceId || stockAccount.filledSlots >= stockAccount.maxSlots) {
           sendTelegramNotification(
-            `⚠️ <b>Paiement Stripe reçu sans stock disponible</b>\n👤 ${clientEmail}\n📺 ${service.name}\n💶 ${parsedPrice.toFixed(2)}€\n🔖 Session ${session.id}`
+            '⚠️ <b>Paiement Stripe reçu sans stock disponible</b>\nConsultez Stripe pour le suivi.'
           ).catch(() => {});
           throw new Error(`Stock indisponible après paiement Stripe: ${session.id}`);
         }
@@ -211,19 +212,19 @@ export async function POST(request: Request) {
           serviceName: service.name,
           amount: order.total,
           paymentMethod: 'Carte bancaire (Stripe)',
-        }).catch((err) => { console.error('[invoice] webhook error:', err); return null; });
+        }).catch(err => { logServerFailure('stripe/invoice', err); return null; });
         await sendOrderDetailsEmail(clientEmail, service.name, decrypt(order.details), order.id, youtubeEmail || undefined, {
           amount: order.total,
           invoiceId: invoice?.id,
           invoiceNumber: invoice?.number,
-        }).catch((err) => console.error('[webhook] delivery email failed', err));
+        }).catch(err => logServerFailure('stripe/delivery', err));
         if (serviceId === 'youtube' && youtubeEmail) {
           sendTelegramNotification(
-            `▶️ <b>Nouvelle commande YouTube Premium</b>\n👤 ${clientEmail}\n📧 <b>Email YouTube à inviter :</b> <code>${youtubeEmail}</code>\n💶 ${parsedPrice.toFixed(2)}€`
+            `▶️ <b>Invitation YouTube à envoyer</b>\n🔖 Réf. ${order.id.slice(0, 8).toUpperCase()}`
           ).catch(() => {});
         } else {
           sendTelegramNotification(
-            `✅ <b>Nouvelle commande Stripe</b>\n👤 ${clientEmail}\n📺 ${service.name}\n💶 ${parsedPrice.toFixed(2)}€/mois`
+            `✅ <b>Nouvelle commande Stripe</b>\n🔖 Réf. ${order.id.slice(0, 8).toUpperCase()}`
           ).catch(() => {});
         }
         // Lier le customer Stripe au compte client si existant
@@ -277,7 +278,9 @@ export async function POST(request: Request) {
           return result;
         });
         // Envoyer un email de confirmation uniquement pour les renouvellements (pas le premier paiement)
-        if (!remediationSchemaEnabled() && renewed.count > 0 && inv.billing_reason === 'subscription_cycle') {
+        if (remediationSchemaEnabled()) {
+          if (renewed.count > 0 && inv.billing_reason === 'subscription_cycle') scheduleDeliveryPass(5);
+        } else if (renewed.count > 0 && inv.billing_reason === 'subscription_cycle') {
           const order = await prisma.order.findFirst({
             where: { stripeSubscriptionId: sub.id },
             include: { service: true },
@@ -320,29 +323,45 @@ export async function POST(request: Request) {
           return { ...changed, nextLevel };
         });
         if (failed.count === 0 || !failed.nextLevel) break;
-        if (!durable) await sendUnpaidReminderEmail(order.clientEmail, order.service.name, order.id, failed.nextLevel);
+        if (durable) scheduleDeliveryPass(5);
+        else await sendUnpaidReminderEmail(order.clientEmail, order.service.name, order.id, failed.nextLevel);
         sendTelegramNotification(
-          `❌ <b>Paiement Stripe échoué</b>\n👤 ${order.clientEmail}\n📺 ${order.service.name}\n💶 ${order.price.toFixed(2)}€\n🔔 Relance ${failed.nextLevel}/3 enregistrée`
+          `❌ <b>Paiement Stripe échoué</b>\n🔖 Réf. ${order.id.slice(0, 8).toUpperCase()}\n🔔 Relance ${failed.nextLevel}/3 enregistrée`
         ).catch(() => {});
         break;
       }
 
-      /* ─── Mise à jour de l'abonnement (carte changée, période modifiée) ─── */
+      /* ─── Mise à jour de l'abonnement (carte changée, période modifiée, résiliation portail) ─── */
       case 'customer.subscription.updated': {
         const sub = event.data.object as Stripe.Subscription;
         const pm = sub.default_payment_method
           ? await stripe.paymentMethods.retrieve(sub.default_payment_method as string).catch(() => null)
           : null;
-        await processWebhookEvent(event, (tx) => tx.order.updateMany({
-          where: { stripeSubscriptionId: sub.id },
-          data: {
-            nextBillingAt: new Date((sub.items.data[0]?.current_period_end || 0) * 1000),
-            cardLast4: pm?.card?.last4 || undefined,
-            cardBrand: pm?.card?.brand || undefined,
-            cardExpMonth: pm?.card?.exp_month || undefined,
-            cardExpYear: pm?.card?.exp_year || undefined,
-          },
-        }));
+        const rawPeriodEnd = sub.items.data[0]?.current_period_end;
+        const periodEnd = rawPeriodEnd ? new Date(rawPeriodEnd * 1000) : null;
+        await processWebhookEvent(event, async (tx) => {
+          await tx.order.updateMany({
+            where: { stripeSubscriptionId: sub.id },
+            data: {
+              ...(periodEnd ? { nextBillingAt: periodEnd } : {}),
+              cardLast4: pm?.card?.last4 || undefined,
+              cardBrand: pm?.card?.brand || undefined,
+              cardExpMonth: pm?.card?.exp_month || undefined,
+              cardExpYear: pm?.card?.exp_year || undefined,
+            },
+          });
+          if (sub.cancel_at_period_end === true) {
+            await tx.order.updateMany({
+              where: { stripeSubscriptionId: sub.id, status: 'active' },
+              data: { status: 'cancelled_pending', cancellationRequestedAt: new Date(), cancellationEffectiveAt: periodEnd },
+            });
+          } else if (sub.cancel_at_period_end === false && sub.status === 'active') {
+            await tx.order.updateMany({
+              where: { stripeSubscriptionId: sub.id, status: 'cancelled_pending' },
+              data: { status: 'active', cancellationRequestedAt: null, cancellationEffectiveAt: null },
+            });
+          }
+        });
         break;
       }
 
@@ -352,7 +371,7 @@ export async function POST(request: Request) {
         const order = await prisma.order.findFirst({ where: { stripeSubscriptionId: sub.id } });
         if (!order || order.status === 'cancelled') break;
         await processWebhookEvent(event, (tx) => cancelOrderAndReleaseStock(tx, order.id));
-        sendTelegramNotification(`🔴 <b>Abonnement Stripe annulé</b>\n👤 ${order.clientEmail}\n📺 ${order.serviceId}`).catch(() => {});
+        sendTelegramNotification(`🔴 <b>Abonnement Stripe annulé</b>\n🔖 Réf. ${order.id.slice(0, 8).toUpperCase()}`).catch(() => {});
         break;
       }
 
@@ -390,7 +409,7 @@ export async function POST(request: Request) {
       const processed = await prisma.processedWebhookEvent.findUnique({ where: { id: processedEventId } }).catch(() => null);
       if (processed) return NextResponse.json({ received: true, duplicate: true });
     }
-    console.error('Erreur Webhook Stripe:', error);
+    logServerFailure('stripe/webhook', error);
     return NextResponse.json({ error: 'Erreur interne' }, { status: 500 });
   }
 }

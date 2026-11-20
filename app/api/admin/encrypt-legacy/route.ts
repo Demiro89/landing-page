@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { isAdminAuthenticated } from '@/lib/adminAuth';
 import { requireRecentAdmin } from '@/lib/adminFreshness';
 import { encrypt, isEncrypted } from '@/lib/crypto';
+import { enforceRateLimit } from '@/lib/rateLimit';
+import { logServerFailure } from '@/lib/securityLog';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,12 +13,14 @@ export const dynamic = 'force-dynamic';
  * (StockAccount.details et Order.details). Idempotent — peut être relancé
  * sans risque, les valeurs déjà chiffrées sont ignorées.
  */
-export async function POST() {
+export async function POST(request: Request) {
   if (!(await isAdminAuthenticated())) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
   }
   const recent = await requireRecentAdmin();
   if (recent) return recent;
+  const limited = await enforceRateLimit(request, 'admin-encrypt-legacy', 5, 3600, true);
+  if (limited) return limited;
   try {
     let stocksDone = 0;
     let ordersDone = 0;
@@ -39,7 +43,7 @@ export async function POST() {
 
     return NextResponse.json({ success: true, stocksDone, ordersDone });
   } catch (error) {
-    console.error('Erreur encrypt-legacy:', error);
+    logServerFailure('admin/encrypt-legacy', error);
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
   }
 }

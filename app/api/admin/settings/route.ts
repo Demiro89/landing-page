@@ -4,6 +4,8 @@ import { isAdminAuthenticated } from '@/lib/adminAuth';
 import { requireRecentAdmin } from '@/lib/adminFreshness';
 import { writeAuditLog, clientIpFromRequest } from '@/lib/auditLog';
 import { enforceRateLimit } from '@/lib/rateLimit';
+import { readJsonObject } from '@/lib/requestJson';
+import { logServerFailure } from '@/lib/securityLog';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,9 +33,7 @@ const DEFAULT_SETTINGS: Record<string, string> = {
 
 const checkAuth = isAdminAuthenticated;
 const errorMessage = (error: unknown) => {
-  // Journalise l'erreur réelle côté serveur ; n'expose jamais les détails au client
-  // (les messages Prisma révèlent le schéma : tables, colonnes, contraintes).
-  console.error('[api]', error);
+  logServerFailure('admin/settings', error);
   return 'Erreur serveur';
 };
 
@@ -62,11 +62,13 @@ export async function PUT(request: Request) {
   const limited = await enforceRateLimit(request, 'admin-write', 60, 60, true);
   if (limited) return limited;
   try {
-    const body = await request.json();
-    if (!body || !Array.isArray(body.settings) || body.settings.length > ALLOWED_KEYS.size) {
+    const parsed = await readJsonObject(request);
+    if (!parsed.ok) return parsed.response;
+    const { settings } = parsed.value;
+    if (!Array.isArray(settings) || settings.length > ALLOWED_KEYS.size) {
       return NextResponse.json({ error: 'Paramètres invalides' }, { status: 400 });
     }
-    const updates: Array<{ key: string; value: string }> = body.settings;
+    const updates: Array<{ key: string; value: string }> = settings;
     if (updates.some((item) => !item || typeof item.key !== 'string' || typeof item.value !== 'string' || item.value.length > 254 || /[<>\r\n]/.test(item.value)) || new Set(updates.map(item => item.key)).size !== updates.length) {
       return NextResponse.json({ error: 'Valeurs invalides ou dupliquées' }, { status: 400 });
     }

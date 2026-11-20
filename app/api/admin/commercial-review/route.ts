@@ -5,6 +5,7 @@ import { requireRecentAdmin } from '@/lib/adminFreshness';
 import { getCommercialReviews, parseCommercialReview, commerceEnabled, remediationSchemaEnabled } from '@/lib/commerce';
 import { enforceRateLimit } from '@/lib/rateLimit';
 import { clientIpFromRequest } from '@/lib/auditLog';
+import { readJsonObject } from '@/lib/requestJson';
 
 export async function GET() {
   if (!(await isAdminAuthenticated())) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
@@ -21,12 +22,14 @@ export async function PUT(request: Request) {
   const limited = await enforceRateLimit(request, 'admin-commercial-review', 20, 60, true);
   if (limited) return limited;
   try {
-    const body = await request.json();
-    if (typeof body.serviceId !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(body.serviceId) || !body.review || typeof body.review !== 'object') return NextResponse.json({ error: 'Paramètres invalides.' }, { status: 400 });
-    const service = await prisma.service.findUnique({ where: { id: body.serviceId }, select: { id: true } });
+    const parsed = await readJsonObject(request, 16384);
+    if (!parsed.ok) return parsed.response;
+    const { serviceId, review: input, authorizationConfirmed } = parsed.value;
+    if (typeof serviceId !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(serviceId) || !input || typeof input !== 'object' || Array.isArray(input)) return NextResponse.json({ error: 'Paramètres invalides.' }, { status: 400 });
+    const service = await prisma.service.findUnique({ where: { id: serviceId }, select: { id: true } });
     if (!service) return NextResponse.json({ error: 'Offre introuvable.' }, { status: 404 });
-    const review = parseCommercialReview(JSON.stringify(body.review));
-    if (body.review.status === 'approved' && (body.authorizationConfirmed !== true || review.status !== 'approved')) return NextResponse.json({ error: 'Autorisation documentée, conditions d’éligibilité, type d’accès et confidentialité sont requis.' }, { status: 400 });
+    const review = parseCommercialReview(JSON.stringify(input));
+    if ('status' in input && input.status === 'approved' && (authorizationConfirmed !== true || review.status !== 'approved')) return NextResponse.json({ error: 'Autorisation documentée, conditions d’éligibilité, type d’accès et confidentialité sont requis.' }, { status: 400 });
     await prisma.$transaction(async tx => {
       await tx.setting.upsert({ where: { key: `commercial_review:${service.id}` }, create: { key: `commercial_review:${service.id}`, value: JSON.stringify(review) }, update: { value: JSON.stringify(review) } });
       await tx.auditLog.create({ data: { action: 'service.commercial_review', entityType: 'service', entityId: service.id,

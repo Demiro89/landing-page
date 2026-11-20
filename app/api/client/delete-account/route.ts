@@ -1,16 +1,11 @@
 import { NextResponse } from 'next/server';
+import { logServerFailure } from '@/lib/securityLog';
 import { prisma } from '@/lib/prisma';
 import { getCurrentCustomer, clearSession, verifyPassword } from '@/lib/clientAuth';
 import { enforceRateLimit } from '@/lib/rateLimit';
 import { readJsonObject } from '@/lib/requestJson';
 
 export const dynamic = 'force-dynamic';
-const errorMessage = (error: unknown) => {
-  // Journalise l'erreur réelle côté serveur ; n'expose jamais les détails au client
-  // (les messages Prisma révèlent le schéma : tables, colonnes, contraintes).
-  console.error('[api]', error);
-  return 'Erreur serveur';
-};
 
 export async function POST(request: Request) {
   try {
@@ -57,7 +52,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
-    console.error('[delete-account]', error);
-    return NextResponse.json({ error: errorMessage(error) }, { status: 500 });
+    logServerFailure('client/delete-account', error);
+    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
   }
 }

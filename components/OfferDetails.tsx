@@ -9,7 +9,10 @@ import {
   CircleCheck,
   CirclePause,
   Headphones,
+  KeyRound,
+  LockKeyhole,
   RefreshCw,
+  ShieldCheck,
 } from 'lucide-react';
 import ServiceMark from './ServiceMark';
 import {
@@ -75,12 +78,14 @@ export default function OfferDetails({ id }: { id: string }) {
           ) || null,
         );
         setStocks(
-          inventory.stocks.filter(
-            (item: StockChoice) =>
-              item.serviceId === id &&
-              Number.isFinite(item.price) &&
-              item.price > 0,
-          ),
+          inventory.stocks
+            .filter(
+              (item: StockChoice) =>
+                item.serviceId === id &&
+                Number.isFinite(item.price) &&
+                item.price > 0,
+            )
+            .sort((a: StockChoice, b: StockChoice) => a.price - b.price),
         );
         setStatus('ready');
       })
@@ -89,10 +94,10 @@ export default function OfferDetails({ id }: { id: string }) {
       });
     return () => controller.abort();
   }, [id]);
-  if (status === 'loading') return <p role="status">Chargement de l’offre…</p>;
+  if (status === 'loading') return <p role="status" className="public-page-state">Chargement de l’offre…</p>;
   if (status === 'error')
     return (
-      <div role="alert">
+      <div role="alert" className="public-page-state">
         <p>Les offres ne peuvent pas être chargées pour le moment.</p>
         <button
           className="btn btn-ghost"
@@ -114,8 +119,8 @@ export default function OfferDetails({ id }: { id: string }) {
     );
   const selectedStock =
     stocks.find((stock) => stock.id === stockId) ||
-    stocks.find((stock) => stock.id === offer.availableStockId) ||
-    stocks[0];
+    stocks[0] ||
+    stocks.find((stock) => stock.id === offer.availableStockId);
   const available = hasAvailableOffer(offer) && Boolean(selectedStock);
   const price = available ? selectedStock!.price : offer.price;
   return (
@@ -128,10 +133,28 @@ export default function OfferDetails({ id }: { id: string }) {
           <p>{prudentCommercialCopy(offer.tagline)}</p>
         </div>
       </div>
+
+      <div className="offer-highlights">
+        <div className={`offer-highlight-item ${available ? 'is-available' : ''}`}>
+          {available ? <CircleCheck size={16} aria-hidden="true" /> : <CirclePause size={16} aria-hidden="true" />}
+          <span>{available ? `${offer.availableSlots} place${offer.availableSlots > 1 ? 's' : ''} disponible${offer.availableSlots > 1 ? 's' : ''}` : 'Actuellement épuisé'}</span>
+        </div>
+        <div className="offer-highlight-item">
+          <RefreshCw size={16} aria-hidden="true" />
+          <span>Sans engagement · résiliable avant échéance</span>
+        </div>
+        <div className="offer-highlight-item">
+          <Headphones size={16} aria-hidden="true" />
+          <span>Suivi et support en français</span>
+        </div>
+      </div>
+
       <div className="offer-detail-layout">
-        <div>
-          <section>
-            <h2>Votre accès</h2>
+        <div className="offer-detail-cards">
+          <section className="offer-detail-card">
+            <h2 className="offer-section-head">
+              <KeyRound size={18} aria-hidden="true" /> Votre accès
+            </h2>
             <p>
               {offer.accessType ||
                 'Les modalités de cet accès sont en cours de vérification. Aucune commande n’est ouverte.'}
@@ -140,13 +163,15 @@ export default function OfferDetails({ id }: { id: string }) {
               {offer.features.map((feature, index) => (
                 <li key={index}>
                   <Check size={17} aria-hidden="true" />
-                  {prudentCommercialCopy(feature)}
+                  <span>{prudentCommercialCopy(feature)}</span>
                 </li>
               ))}
             </ul>
           </section>
-          <section className="offer-detail-eligibility">
-            <h2>Votre compte est-il éligible ?</h2>
+          <section className="offer-detail-card offer-detail-eligibility">
+            <h2 className="offer-section-head">
+              <ShieldCheck size={18} aria-hidden="true" /> Votre compte est-il éligible ?
+            </h2>
             <p>
               {offer.eligibility ||
                 'Conditions d’éligibilité en cours de vérification. Aucune commande n’est ouverte.'}
@@ -156,8 +181,10 @@ export default function OfferDetails({ id }: { id: string }) {
               Contactez-nous avant de payer.
             </Link>
           </section>
-          <section>
-            <h2>Renouvellement et résiliation</h2>
+          <section className="offer-detail-card">
+            <h2 className="offer-section-head">
+              <RefreshCw size={18} aria-hidden="true" /> Renouvellement et résiliation
+            </h2>
             <p>
               Par carte bancaire : prélèvement mensuel automatique jusqu’à
               résiliation, sans durée minimale d’engagement. Demandez la
@@ -169,8 +196,10 @@ export default function OfferDetails({ id }: { id: string }) {
               et nécessitent une vérification du paiement reçu.
             </p>
           </section>
-          <section>
-            <h2>Confidentialité et plateformes tierces</h2>
+          <section className="offer-detail-card">
+            <h2 className="offer-section-head">
+              <LockKeyhole size={18} aria-hidden="true" /> Confidentialité et plateformes tierces
+            </h2>
             <p>
               {offer.privacyNote ||
                 'Les informations éventuellement visibles par d’autres membres et les modalités de partage doivent être confirmées avant toute commande.'}
@@ -204,11 +233,11 @@ export default function OfferDetails({ id }: { id: string }) {
           className="offer-detail-purchase"
           aria-label="Prix et disponibilité"
         >
-          <span className="offer-detail-status">
+          <span className={`offer-detail-status ${available ? 'is-available' : ''}`}>
             {available ? (
-              <CircleCheck size={17} aria-hidden="true" />
+              <CircleCheck size={16} aria-hidden="true" />
             ) : (
-              <CirclePause size={17} aria-hidden="true" />
+              <CirclePause size={16} aria-hidden="true" />
             )}
             {available
               ? 'Disponible actuellement'
@@ -218,22 +247,37 @@ export default function OfferDetails({ id }: { id: string }) {
             <strong>{formatEuro(price)}</strong>
             <span>/ mois</span>
           </div>
-          <p>Pour un mois d’accès, selon les conditions de cette offre.</p>
+          <p>
+            {available
+              ? 'Par carte bancaire : prélèvement mensuel automatique, résiliable à tout moment avant l’échéance.'
+              : 'Tarif indicatif hors stock. Aucune place n’est ouverte à la commande pour le moment.'}
+          </p>
           {available && stocks.length > 1 && (
-            <label className="offer-stock-choice" htmlFor="offer-stock">
-              Accès disponibles
-              <select
-                id="offer-stock"
-                value={selectedStock!.id}
-                onChange={(event) => setStockId(event.target.value)}
-              >
-                {stocks.map((stock, index) => (
-                  <option key={stock.id} value={stock.id}>
-                    Option {index + 1} — {formatEuro(stock.price)} / mois
-                  </option>
-                ))}
-              </select>
-            </label>
+            <fieldset className="offer-stock-options">
+              <legend>Accès disponibles</legend>
+              {stocks.map((stock, index) => {
+                const isSelected = selectedStock!.id === stock.id;
+                return (
+                  <label
+                    key={stock.id}
+                    className={`offer-stock-option ${isSelected ? 'selected' : ''}`}
+                  >
+                    <input
+                      type="radio"
+                      name="offer-stock"
+                      value={stock.id}
+                      checked={isSelected}
+                      onChange={() => setStockId(stock.id)}
+                    />
+                    <span className="offer-stock-option-meta">
+                      <strong>Accès {index + 1}</strong>
+                      {index === 0 && <em className="offer-stock-best">Tarif le plus bas</em>}
+                    </span>
+                    <span className="offer-stock-option-price">{formatEuro(stock.price)} / mois</span>
+                  </label>
+                );
+              })}
+            </fieldset>
           )}
           {available ? (
             <Link

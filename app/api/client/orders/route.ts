@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentCustomer } from '@/lib/clientAuth';
-import { decrypt } from '@/lib/crypto';
 import { ACCESS_STATUSES } from '@/lib/orderAccess';
+import { clientOrderSelect, clientOrderView } from '@/lib/clientOrderView';
+import { logServerFailure } from '@/lib/securityLog';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,23 +26,15 @@ export async function GET() {
 
     const orders = await prisma.order.findMany({
       where: { customerId: customer.id, status: { in: [...ACCESS_STATUSES] } },
-      include: {
-        service: true,
-        chats: {
-          include: {
-            messages: { orderBy: { createdAt: 'asc' } },
-          },
-        },
-      },
+      select: clientOrderSelect,
       orderBy: { date: 'desc' },
     });
 
-    // Déchiffre les identifiants pour le client propriétaire.
-    const safeOrders = orders.map((o) => ({ ...o, details: decrypt(o.details) }));
-
-    return NextResponse.json({ success: true, orders: safeOrders });
+    return NextResponse.json({ success: true, orders: orders.map(clientOrderView) }, {
+      headers: { 'Cache-Control': 'private, no-store' },
+    });
   } catch (error) {
-    console.error('Erreur GET client orders:', error);
+    logServerFailure('client/orders', error);
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
   }
 }

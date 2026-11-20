@@ -6,22 +6,14 @@ import { getCurrentCustomer } from '@/lib/clientAuth';
 import { enforceRateLimit } from '@/lib/rateLimit';
 import { ownsOrder } from '@/lib/orderAccess';
 import { readJsonObject } from '@/lib/requestJson';
+import { logServerFailure } from '@/lib/securityLog';
+import { APP_URL } from '@/lib/appUrl';
 
 export const dynamic = 'force-dynamic';
 
 const MAX_MESSAGE_LENGTH = 2000;
 const MAX_SENDER_LENGTH = 120;
 
-/** Un client ne peut accéder qu'aux fils liés à ses propres commandes. */
-/** Échappe les caractères HTML pour les notifications Telegram (mode HTML). */
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
 
 /**
  * GET /api/chat : Récupère les messages d'un fil ou la liste des fils (pour l'admin).
@@ -85,7 +77,7 @@ export async function GET(request: Request) {
     }
     return NextResponse.json({ success: true, thread });
   } catch (error) {
-    console.error('Erreur GET chat route:', error);
+    logServerFailure('chat/get', error);
     return NextResponse.json({ error: 'Erreur interne' }, { status: 500 });
   }
 }
@@ -158,21 +150,16 @@ export async function POST(request: Request) {
 
     // Notification Telegram uniquement quand c'est le client qui écrit.
     if (!isAdmin) {
-      const rawPreview = text.length > 200 ? text.slice(0, 200) + '…' : text;
-      // Les balises HTML sont échappées pour éviter l'injection dans le template Telegram.
-      const preview = escapeHtml(rawPreview);
       sendTelegramNotification(
         `💬 <b>Nouveau message client</b>\n` +
-        `👤 <b>${escapeHtml(order.clientEmail)}</b>\n` +
-        `📺 Service : ${escapeHtml(order.service?.name || orderId)}\n` +
-        `📝 ${preview}\n\n` +
-        `🔗 Répondre : https://streammalin.fr/admin`
+        `🔖 Réf. ${order.id.slice(0, 8).toUpperCase()}\n` +
+        `🔗 Répondre : ${APP_URL}/admin`
       ).catch(() => {});
     }
 
     return NextResponse.json({ success: true, message });
   } catch (error) {
-    console.error('Erreur POST chat route:', error);
+    logServerFailure('chat/post', error);
     return NextResponse.json({ error: 'Erreur interne' }, { status: 500 });
   }
 }

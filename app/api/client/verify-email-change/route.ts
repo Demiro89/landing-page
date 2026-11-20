@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { readAccountToken } from '@/lib/accountTokens';
+import { APP_URL } from '@/lib/appUrl';
 
 export const dynamic = 'force-dynamic';
-
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://streammalin.fr';
 
 export async function GET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get('token');

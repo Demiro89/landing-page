@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { runDeliveryJobs } from '@/lib/deliveryWorker';
+import { alertDeliveryIssues } from '@/lib/deliveryAlerts';
 import { remediationSchemaEnabled } from '@/lib/commerce';
 import { enqueueOrderJob } from '@/lib/durableOrders';
 import { isCronAuthorized } from '@/lib/cronAuth';
@@ -14,13 +15,21 @@ export async function GET(request: NextRequest) {
   }
 
   const now = new Date();
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   const results: Record<string, number> = {};
   const delivery = await runDeliveryJobs();
+  const health = delivery.enabled
+    ? await alertDeliveryIssues('configurationMissing' in delivery && delivery.configurationMissing).catch(() => null)
+    : null;
   if (remediationSchemaEnabled()) {
     const expired = await prisma.stockReservation.updateMany({ where: { status: 'held', expiresAt: { lte: now } }, data: { status: 'released' } });
     results.expiredReservations = expired.count;
     const due = await prisma.order.findMany({ where: { status: 'cancelled_pending', stripeSubscriptionId: null, cancellationEffectiveAt: { lte: now } }, take: 100 });
     for (const order of due) await prisma.$transaction(tx => enqueueOrderJob(tx, order.id, 'access_revocation', `access_revocation:${order.id}`));
+    const cleanedAdminSessions = await prisma.adminSession.deleteMany({
+      where: { OR: [{ expiresAt: { lt: now } }, { revokedAt: { lt: sevenDaysAgo } }] },
+    });
+    results.expiredAdminSessionRows = cleanedAdminSessions.count;
   }
 
   // 1. Tokens de réinitialisation de mot de passe expirés
@@ -38,9 +47,12 @@ export async function GET(request: NextRequest) {
   results.expiredEmailChangeTokens = expiredEmailChangeTokens.count;
 
   // 3. Comptes non vérifiés créés il y a plus de 7 jours (sans commande)
-  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   const deleted = await prisma.customer.deleteMany({
-    where: { emailVerified: false, createdAt: { lt: sevenDaysAgo }, orders: { none: {} }, ...expiredVerificationTokens(now) },
+    where: {
+      emailVerified: false, createdAt: { lt: sevenDaysAgo }, orders: { none: {} },
+      ...expiredVerificationTokens(now),
+      AND: [{ OR: [{ resetTokenExp: null }, { resetTokenExp: { lte: now } }] }],
+    },
   });
   results.deletedUnverifiedAccounts = deleted.count;
 
@@ -67,5 +79,5 @@ export async function GET(request: NextRequest) {
   });
   results.oldAuditLogs = oldAuditLogs.count;
 
-  return NextResponse.json({ success: true, cleaned: results, delivery, at: now.toISOString() });
+  return NextResponse.json({ success: true, cleaned: results, delivery, health, at: now.toISOString() });
 }
