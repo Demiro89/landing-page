@@ -2,41 +2,62 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
-  flex: 0 0 44px;
-  border-radius: 10px;
-  border: 1px solid #d8e1fb;
-  background: #eef2ff;
-  color: #2345c7;
-  font-family: var(--font-outfit), 'Outfit', system-ui, sans-serif;
-  font-size: .9rem;
-  font-weight: 700;
-  letter-spacing: 0;
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+  border-radius: 12px;
+  border: 1px solid #e1d9cb;
+  background: #f3eee5;
+  color: #161412;
+  font-family: var(--font-display), 'Bricolage Grotesque', system-ui, sans-serif;
+  font-size: .95rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
-.service-mark img {
-  object-fit: contain;
-  filter: none;
-  width: 24px;
-  height: 24px;
+.service-mark-glyph {
+  display: block;
+  width: 22px;
+  height: 22px;
+  background-color: currentColor;
+  mask-position: center;
+  mask-repeat: no-repeat;
+  mask-size: contain;
+  -webkit-mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: contain;
+}
+.service-mark-text {
+  line-height: 1;
 }
 .service-mark[data-service='netflix'] {
-  background: #fdf0f1;
-  color: #b91c2e;
-  border-color: #f6d4d8;
+  background: #fbf0ee;
+  color: #d81f26;
+  border-color: #f0d3ce;
+}
+.service-mark[data-service='netflix'] .service-mark-glyph {
+  mask-image: url('/brands/netflix.svg');
+  -webkit-mask-image: url('/brands/netflix.svg');
 }
 .service-mark[data-service='youtube'] {
-  background: #fff2ed;
-  color: #c0392b;
-  border-color: #fadbd0;
+  background: #fdf1ee;
+  color: #d92626;
+  border-color: #f4d5ce;
+}
+.service-mark[data-service='youtube'] .service-mark-glyph {
+  mask-image: url('/brands/youtube.svg');
+  -webkit-mask-image: url('/brands/youtube.svg');
 }
 .service-mark[data-service='spotify'] {
-  background: #eaf7f0;
-  color: #166547;
-  border-color: #c6e8d6;
+  background: #edf7f1;
+  color: #15803d;
+  border-color: #cae8d6;
+}
+.service-mark[data-service='spotify'] .service-mark-glyph {
+  mask-image: url('/brands/spotify.svg');
+  -webkit-mask-image: url('/brands/spotify.svg');
 }
 .service-mark[data-service='disney'] {
-  background: #edf4ff;
+  background: #edf3fc;
   color: #1d4ed8;
-  border-color: #cddfff;
+  border-color: #cdddf8;
 }
