@@ -11,10 +11,10 @@ import { runDeliveryJobs } from '@/lib/deliveryWorker';
 import { lockStock } from '@/lib/stockReservations';
 import { decrypt } from '@/lib/crypto';
 
-export async function GET(request?: Request) {
+export async function GET(request: Request) {
   if (!(await isAdminAuthenticated())) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
   try {
-    const cursor = request ? new URL(request.url).searchParams.get('withdrawalsBefore') : null;
+    const cursor = new URL(request.url).searchParams.get('withdrawalsBefore');
     if (cursor && (!cursor.startsWith('withdrawal:') || cursor.length > 100)) return NextResponse.json({ error: 'Page invalide.' }, { status: 400 });
     const requests = await prisma.setting.findMany({ where: { key: { startsWith: 'withdrawal:', ...(cursor ? { lt: cursor } : {}) } }, take: 101, orderBy: { key: 'desc' } });
     const page = requests.slice(0, 100);

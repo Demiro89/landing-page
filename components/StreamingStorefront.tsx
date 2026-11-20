@@ -6,17 +6,21 @@ import Link from 'next/link';
 import {
   ArrowRight,
   Calculator,
-  Check,
   ChevronDown,
+  CreditCard,
   FileText,
   Headphones,
+  Layers,
   LayoutGrid,
   Music2,
   RefreshCw,
+  ShieldCheck,
   Tv,
+  UserRound,
 } from 'lucide-react';
 import OfferCard from './OfferCard';
 import Footer from './Footer';
+import ServiceMark from './ServiceMark';
 import {
   canCompareOffer,
   formatEuro,
@@ -36,6 +40,7 @@ interface Offer {
   availableStockId: string | null;
   referenceVerified?: boolean;
   eligibility?: string;
+  accessType?: string;
 }
 
 const questions = [
@@ -73,6 +78,7 @@ export default function StreamingStorefront({
   retry: () => void;
 }) {
   const [category, setCategory] = useState<'all' | 'video' | 'music'>('all');
+  const [inStockOnly, setInStockOnly] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
   const streaming = offers.filter(
     (offer) => streamingCategory(offer.id) !== 'other',
@@ -80,55 +86,60 @@ export default function StreamingStorefront({
   const others = offers.filter(
     (offer) => streamingCategory(offer.id) === 'other',
   );
-  const visible = streaming.filter(
+  const categoryOffers = streaming.filter(
     (offer) => category === 'all' || streamingCategory(offer.id) === category,
   );
+  const visible = inStockOnly ? categoryOffers.filter(hasAvailableOffer) : categoryOffers;
   const comparable = streaming.filter(canCompareOffer);
   // A stale selection never survives an availability or reference-price update.
   const comparison = comparable.filter((offer) => selected.includes(offer.id));
   const total = comparison.reduce((sum, offer) => sum + offer.price, 0);
   const reference = comparison.reduce((sum, offer) => sum + offer.original, 0);
+  const monthlySavings = Math.max(0, reference - total);
   const available = streaming.some(hasAvailableOffer);
 
   return (
+    <>
     <main className="streaming-storefront">
       <section className="stream-hero">
         <Image
-          src="/images/streaming-hero.webp"
-          alt="Téléviseur avec un paysage de montagne, casque audio et télécommande"
+          src="/images/streammalin-cinema.webp"
+          alt=""
           fill
           sizes="100vw"
           preload
           className="stream-hero-image"
         />
         <div className="stream-container stream-hero-content">
-          <p className="stream-eyebrow">LOCATION D’ABONNEMENTS STREAMING</p>
-          <h1>StreamMalin</h1>
+          <p className="stream-eyebrow">Films, séries &amp; musique</p>
+          <h1>Vos abonnements <br className="stream-hero-break" />streaming.</h1>
           <p className="stream-hero-copy">
-            Vos films, séries et musique.
-            <br />
-            Une offre adaptée à votre compte.
+            Louez un accès au mois à tarif clair. Consultez les disponibilités en direct, les modalités d’accès et résiliez quand vous le souhaitez.
           </p>
-          <a className="btn btn-primary" href="#offres">
-            Voir les abonnements <ArrowRight size={17} aria-hidden="true" />
-          </a>
-          <p className="stream-hero-note">
-            Prix mensuels · Conditions précisées pour chaque accès
-          </p>
+          <div className="stream-hero-actions">
+            <a className="btn btn-primary" href="#offres">
+              Voir les abonnements <ArrowRight size={17} aria-hidden="true" />
+            </a>
+            <a className="btn stream-hero-secondary" href="#comment">
+              Comment ça marche
+            </a>
+          </div>
         </div>
       </section>
 
       <div className="stream-reassurance">
-        <div className="stream-container">
-          <span>
-            <FileText size={17} aria-hidden="true" /> Conditions avant paiement
-          </span>
-          <span>
-            <Headphones size={17} aria-hidden="true" /> Assistance en français
-          </span>
+        <div className="stream-container stream-reassurance-grid">
+          <Link href="/cgv">
+            <span className="stream-reassurance-icon"><ShieldCheck size={17} aria-hidden="true" /></span>
+            <span>Sans engagement · résiliable avant échéance</span>
+          </Link>
+          <Link href="/contact">
+            <span className="stream-reassurance-icon"><Headphones size={17} aria-hidden="true" /></span>
+            <span>Support réactif en français</span>
+          </Link>
           <Link href="/non-affiliation">
-            Service indépendant des plateformes{' '}
-            <ArrowRight size={14} aria-hidden="true" />
+            <span className="stream-reassurance-icon"><Layers size={17} aria-hidden="true" /></span>
+            <span>Service indépendant des plateformes</span>
           </Link>
         </div>
       </div>
@@ -140,45 +151,56 @@ export default function StreamingStorefront({
       >
         <div className="stream-section-head">
           <div>
-            <p className="stream-eyebrow">LE CATALOGUE</p>
-            <h2 id="catalog-title">Choisissez votre abonnement</h2>
-            <p>
-              Vidéo ou musique : comparez les prix et vérifiez les conditions de
-              votre compte.
-            </p>
+            <h2 id="catalog-title">Les abonnements</h2>
+            <p>Prix mensuels et disponibilités par plateforme.</p>
           </div>
-          <Link href="/contact" className="stream-help">
-            <Headphones size={17} aria-hidden="true" /> Une question avant de
-            choisir ?
-          </Link>
+          <a href="#calculateur" className="stream-help"><Calculator size={17} aria-hidden="true" /> Estimer mes économies</a>
         </div>
-        <div
-          className="stream-filters"
-          role="group"
-          aria-label="Catégorie d’abonnement"
-        >
-          {(
-            [
-              { id: 'all', label: 'Tous', Icon: LayoutGrid },
-              { id: 'video', label: 'Films & séries', Icon: Tv },
-              { id: 'music', label: 'Musique', Icon: Music2 },
-            ] as const
-          ).map(({ id, label, Icon }) => (
-            <button
-              key={id}
-              type="button"
-              aria-pressed={category === id}
-              onClick={() => setCategory(id)}
-            >
-              <Icon size={16} aria-hidden="true" />
-              {label}
-            </button>
-          ))}
-        </div>
+        {loaded && !error && streaming.length > 0 && (
+          <div className="stream-toolbar">
+            <div className="stream-filters" role="group" aria-label="Catégorie d’abonnement">
+              {([
+                { id: 'all', label: 'Tous', Icon: LayoutGrid },
+                { id: 'video', label: 'Films & séries', Icon: Tv },
+                { id: 'music', label: 'Musique', Icon: Music2 },
+              ] as const).map(({ id, label, Icon }) => (
+                <button key={id} type="button" aria-pressed={category === id} onClick={() => setCategory(id)}>
+                  <Icon size={16} aria-hidden="true" /> {label}
+                </button>
+              ))}
+            </div>
+            <div className="stream-toolbar-actions">
+              <span className="stream-count" role="status">{visible.length} offre{visible.length > 1 ? 's' : ''}</span>
+              <label className="stream-stock-filter">
+                <input type="checkbox" checked={inStockOnly} onChange={(event) => setInStockOnly(event.target.checked)} />
+                En stock uniquement
+              </label>
+            </div>
+          </div>
+        )}
         {!loaded ? (
-          <p role="status" className="stream-state">
-            Chargement des abonnements et des disponibilités…
-          </p>
+          <>
+            <p role="status" className="sr-only">
+              Chargement des abonnements et des disponibilités…
+            </p>
+            <div className="stream-offer-grid" aria-hidden="true">
+              {[0, 1, 2].map((item) => (
+                <div key={item} className="offer-skeleton">
+                  <div className="offer-skeleton-head">
+                    <span className="offer-skeleton-mark" />
+                    <div className="offer-skeleton-lines">
+                      <span className="offer-skeleton-line wide" />
+                      <span className="offer-skeleton-line medium" />
+                    </div>
+                  </div>
+                  <span className="offer-skeleton-price" />
+                  <span className="offer-skeleton-line wide" />
+                  <span className="offer-skeleton-line short" />
+                  <span className="offer-skeleton-btn" />
+                </div>
+              ))}
+            </div>
+          </>
         ) : error ? (
           <div role="alert" className="stream-state">
             <h3>Le catalogue est momentanément indisponible</h3>
@@ -189,7 +211,7 @@ export default function StreamingStorefront({
           </div>
         ) : (
           <>
-            {!available && (
+            {!available && !(inStockOnly && categoryOffers.length > 0) && (
               <div className="stream-stock-note" role="status">
                 <Tv size={22} aria-hidden="true" />
                 <div>
@@ -208,6 +230,14 @@ export default function StreamingStorefront({
                 {visible.map((offer) => (
                   <OfferCard key={offer.id} offer={offer} />
                 ))}
+              </div>
+            ) : inStockOnly && categoryOffers.length > 0 ? (
+              <div className="stream-state">
+                <h3>Aucune place disponible actuellement.</h3>
+                <p>Vous pouvez consulter les détails des offres de cette catégorie.</p>
+                <button type="button" className="btn btn-outline" onClick={() => setInStockOnly(false)}>
+                  Afficher aussi les offres épuisées
+                </button>
               </div>
             ) : available ? (
               <p className="stream-state">
@@ -238,19 +268,29 @@ export default function StreamingStorefront({
 
       <section id="comment" className="stream-process">
         <div className="stream-container">
-          <p className="stream-eyebrow">VOTRE LOCATION</p>
-          <h2>Du choix au suivi de votre accès</h2>
+          <div className="stream-section-head">
+            <div>
+              <h2>Comment ça marche</h2>
+              <p>Un parcours clair en trois étapes, sans surprise sur le renouvellement.</p>
+            </div>
+          </div>
           <ol className="stream-steps">
             <li>
-              <span>01</span>
+              <div className="stream-step-head">
+                <span className="stream-step-num">01</span>
+                <span className="stream-step-icon"><FileText size={20} aria-hidden="true" /></span>
+              </div>
               <h3>Vérifiez votre offre</h3>
               <p>
                 Consultez le type d’accès, le prix et l’éligibilité de votre
-                compte.
+                compte avant de commander.
               </p>
             </li>
             <li>
-              <span>02</span>
+              <div className="stream-step-head">
+                <span className="stream-step-num">02</span>
+                <span className="stream-step-icon"><CreditCard size={20} aria-hidden="true" /></span>
+              </div>
               <h3>Validez votre commande</h3>
               <p>
                 Choisissez votre paiement et confirmez les conditions
@@ -258,7 +298,10 @@ export default function StreamingStorefront({
               </p>
             </li>
             <li>
-              <span>03</span>
+              <div className="stream-step-head">
+                <span className="stream-step-num">03</span>
+                <span className="stream-step-icon"><UserRound size={20} aria-hidden="true" /></span>
+              </div>
               <h3>Retrouvez votre suivi</h3>
               <p>
                 Accès transmis après validation, assistance et gestion dans
@@ -269,62 +312,52 @@ export default function StreamingStorefront({
         </div>
       </section>
 
-      <section id="calculateur" className="stream-section stream-container">
-        <details className="stream-calculator">
-          <summary>
-            <Calculator size={19} aria-hidden="true" />
-            <h2>Estimer vos économies</h2>
-            <ChevronDown size={18} aria-hidden="true" />
-          </summary>
-          <p>
-            Comparaison avec les tarifs publics vérifiés pour des offres
-            équivalentes. Les montants restent indicatifs.
-          </p>
-          <div className="stream-calculator-options">
-            {comparable.map((offer) => (
-              <label key={offer.id}>
-                <input
-                  type="checkbox"
-                  checked={selected.includes(offer.id)}
-                  onChange={(event) =>
-                    setSelected((ids) =>
-                      event.target.checked
-                        ? [...ids, offer.id]
-                        : ids.filter((id) => id !== offer.id),
-                    )
-                  }
-                />
-                {offer.name}
-              </label>
-            ))}
+      <section id="calculateur" className="stream-section stream-container" aria-labelledby="simulator-title">
+        <div className="stream-calculator">
+          <div>
+            <h2 id="simulator-title">Estimer vos économies</h2>
+            <p>Comparez les offres disponibles avec leurs tarifs publics de référence vérifiés.</p>
+            <div className="stream-calculator-options" role="group" aria-label="Offres à comparer">
+              {comparable.map((offer) => (
+                <label key={offer.id}>
+                  <input
+                    type="checkbox"
+                    checked={selected.includes(offer.id)}
+                    onChange={(event) =>
+                      setSelected((ids) =>
+                        event.target.checked ? [...ids, offer.id] : ids.filter((id) => id !== offer.id),
+                      )
+                    }
+                  />
+                  <ServiceMark id={offer.id} name={offer.name} />
+                  <span>{offer.name}</span>
+                  <strong>{formatEuro(offer.price)} <small>/ mois</small></strong>
+                </label>
+              ))}
+            </div>
           </div>
-          {comparison.length === 0 ? (
-            <p role="status">
-              Sélectionnez une offre pour calculer vos économies.
-            </p>
-          ) : (
-            <dl className="stream-calculator-result">
-              <div>
-                <dt>Tarif public / mois</dt>
-                <dd>{formatEuro(reference)}</dd>
-              </div>
-              <div>
-                <dt>StreamMalin / mois</dt>
-                <dd>{formatEuro(total)}</dd>
-              </div>
-              <div>
-                <dt>Économie estimée / mois</dt>
-                <dd>{formatEuro(reference - total)}</dd>
-              </div>
-            </dl>
-          )}
-          {comparable.length === 0 && (
-            <p>
-              Aucune offre disponible avec un tarif de comparaison vérifié pour
-              le moment.
-            </p>
-          )}
-        </details>
+          <div className="stream-calculator-summary" aria-live="polite" aria-atomic="true">
+            <h3>Économie estimée par mois</h3>
+            {comparison.length === 0 ? (
+              <>
+                <p className="stream-calculator-empty">Sélectionnez une ou plusieurs offres ci-contre pour comparer avec leur tarif public de référence vérifié.</p>
+                {loaded && comparable.length === 0 && <p className="stream-calculator-empty">Aucune offre comparable disponible pour le moment.</p>}
+              </>
+            ) : (
+              <>
+                <p className="stream-calculator-saving">{formatEuro(monthlySavings)}</p>
+                <p className="stream-calculator-annual">Soit {formatEuro(monthlySavings * 12)} estimés sur 12 mois</p>
+                <dl className="stream-calculator-result">
+                  <div><dt>Tarif public vérifié / mois</dt><dd>{formatEuro(reference)}</dd></div>
+                  <div><dt>StreamMalin / mois</dt><dd>{formatEuro(total)}</dd></div>
+                </dl>
+                <a href="#offres" className="btn stream-calculator-cta">
+                  Voir les offres <ArrowRight size={16} aria-hidden="true" />
+                </a>
+              </>
+            )}
+          </div>
+        </div>
       </section>
 
       <section
@@ -334,14 +367,13 @@ export default function StreamingStorefront({
       >
         <div className="stream-faq-layout">
           <div>
-            <p className="stream-eyebrow">AVANT DE COMMANDER</p>
-            <h2 id="faq-title">Les réponses utiles</h2>
-            <p>Un doute sur votre compte ou votre accès ?</p>
+            <h2 id="faq-title">Questions fréquentes</h2>
+            <p className="stream-faq-intro">Les réponses essentielles sur l’accès, le paiement et la résiliation.</p>
             <Link className="stream-help" href="/contact">
               Contacter le support <ArrowRight size={16} aria-hidden="true" />
             </Link>
           </div>
-          <div>
+          <div className="stream-faq-list">
             {questions.map(([question, answer]) => (
               <details className="stream-faq-item" key={question}>
                 <summary>
@@ -354,22 +386,8 @@ export default function StreamingStorefront({
           </div>
         </div>
       </section>
-      <div className="stream-support-band">
-        <div className="stream-container">
-          <Check size={23} aria-hidden="true" />
-          <div>
-            <h2>Choisissez en connaissance de cause</h2>
-            <p>
-              Éligibilité, renouvellement, confidentialité : le support peut
-              vous aider avant la commande.
-            </p>
-          </div>
-          <Link className="btn btn-outline" href="/contact">
-            Poser une question <ArrowRight size={16} aria-hidden="true" />
-          </Link>
-        </div>
-      </div>
-      <Footer />
     </main>
+    <Footer />
+    </>
   );
 }

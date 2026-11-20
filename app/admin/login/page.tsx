@@ -3,11 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, LogIn } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff, LogIn } from 'lucide-react';
 
 export default function AdminLoginPage() {
   const router = useRouter();
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [totpCode, setTotpCode] = useState('');
   const [needsTotp, setNeedsTotp] = useState(false);
   const [loginError, setLoginError] = useState('');
@@ -52,7 +53,7 @@ export default function AdminLoginPage() {
   };
 
   return (
-    <div className="admin-login-wrap">
+    <main className="admin-login-wrap">
       <div className="glass-panel admin-login-card">
         <div className="admin-login-icon">SM</div>
         <h1>Administration StreamMalin</h1>
@@ -64,18 +65,30 @@ export default function AdminLoginPage() {
           {!needsTotp ? (
             <div className="form-field">
               <label className="form-label" htmlFor="admin-password">Mot de passe</label>
-              <input
-                id="admin-password"
-                type="password"
-                maxLength={128}
-                placeholder="••••••••"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                className="dash-input"
-                required
-                autoFocus
-                autoComplete="current-password"
-              />
+              <div style={{ position: 'relative' }}>
+                <input
+                  id="admin-password"
+                  type={showPassword ? 'text' : 'password'}
+                  maxLength={128}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  className="dash-input"
+                  style={{ paddingRight: 44 }}
+                  required
+                  autoFocus
+                  autoComplete="current-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(v => !v)}
+                  style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', width: 34, height: 34, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+                  aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                  aria-pressed={showPassword}
+                >
+                  {showPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
+                </button>
+              </div>
             </div>
           ) : (
             <div className="form-field">
@@ -112,6 +125,6 @@ export default function AdminLoginPage() {
           StreamMalin · Administration
         </div>
       </div>
-    </div>
+    </main>
   );
 }

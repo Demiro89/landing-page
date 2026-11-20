@@ -16,14 +16,14 @@ export const dynamic = 'force-dynamic';
  * liées au compte connecté : profil, commandes, messages de support.
  */
 export async function GET(request: Request) {
-  // Limite : 3 exports par heure pour éviter l'abus.
-  const limited = await enforceRateLimit(request, 'export-data', 3, 3600);
-  if (limited) return limited;
-
   const customer = await getCurrentCustomer();
   if (!customer) {
     return NextResponse.json({ error: 'Authentification requise' }, { status: 401 });
   }
+
+  // Limite : 3 exports par heure pour éviter l'abus.
+  const limited = await enforceRateLimit(request, 'export-data', 3, 3600, true);
+  if (limited) return limited;
 
   const orders = await prisma.order.findMany({
     where: { customerId: customer.id },
@@ -60,7 +60,7 @@ export async function GET(request: Request) {
       paymentMethod: o.paymentMethod,
       billingDetails: billing.get(o.id) || null,
       invoice: o.invoice || null,
-      accessDetails: canReadAccess(o.status) ? decrypt(o.details) : '',
+      accessDetails: canReadAccess(o.status, o.cancellationEffectiveAt) ? decrypt(o.details) : '',
       nextBillingAt: o.nextBillingAt,
       cancellationRequestedAt: o.cancellationRequestedAt,
       cancellationEffectiveAt: o.cancellationEffectiveAt,

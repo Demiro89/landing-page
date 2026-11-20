@@ -9,8 +9,8 @@ import crypto from 'crypto';
  * signé — le cookie ne contient jamais le code lui-même.
  *
  * Le jeton est signé avec ADMIN_SECRET_TOKEN (déjà obligatoire pour l'admin,
- * ≥ 16 caractères). Faire tourner ce secret invalide instantanément tous les
- * accès déjà accordés.
+ * ≥ 16 caractères) et lié au code courant. Changer le secret ou le code
+ * invalide les accès déjà accordés.
  *
  * Pour DÉSACTIVER la porte (ouvrir le site à tous) : retirer SITE_ACCESS_CODE
  * des variables d'environnement et redéployer.
@@ -27,28 +27,22 @@ function getSecret(): string | null {
 
 export function createSiteAccessToken(): string | null {
   const secret = getSecret();
-  if (!secret) return null;
+  const code = process.env.SITE_ACCESS_CODE;
+  if (!secret || !code) return null;
   const payload = String(Date.now() + SITE_ACCESS_TTL_SEC * 1000);
-  const sig = crypto.createHmac('sha256', secret).update(`site:${payload}`).digest('hex');
+  const sig = crypto.createHmac('sha256', secret).update(`site:v2:${payload}:${code}`).digest('hex');
   return `${payload}.${sig}`;
 }
 
 export function verifySiteAccessToken(token: string | undefined | null): boolean {
-  if (!token) return false;
+  if (!token || !/^\d{13}\.[a-f0-9]{64}$/.test(token)) return false;
   const secret = getSecret();
-  if (!secret) return false;
-
-  const idx = token.lastIndexOf('.');
-  if (idx <= 0) return false;
-  const payload = token.slice(0, idx);
-  const sig = token.slice(idx + 1);
-
-  const expected = crypto.createHmac('sha256', secret).update(`site:${payload}`).digest('hex');
+  const code = process.env.SITE_ACCESS_CODE;
+  if (!secret || !code) return false;
+  const [payload, sig] = token.split('.');
+  if (Number(payload) <= Date.now()) return false;
+  const expected = crypto.createHmac('sha256', secret).update(`site:v2:${payload}:${code}`).digest('hex');
   const sigBuf = Buffer.from(sig, 'hex');
   const expBuf = Buffer.from(expected, 'hex');
-  if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) return false;
-
-  const exp = parseInt(payload, 10);
-  if (!Number.isFinite(exp) || Date.now() > exp) return false;
-  return true;
+  return crypto.timingSafeEqual(sigBuf, expBuf);
 }

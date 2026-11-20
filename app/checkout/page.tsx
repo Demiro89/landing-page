@@ -4,11 +4,13 @@ import React, { useState, useEffect, useRef, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import Footer from '@/components/Footer';
+import SiteHeader from '@/components/SiteHeader';
 import { CURRENT_TERMS_VERSION, CURRENT_TERMS_URL } from '@/lib/termsVersion';
 import { formatEuro, matchesServiceFilter } from '@/lib/offerPresentation';
 import ServiceMark from '@/components/ServiceMark';
 import { normalizeEmail } from '@/lib/checkoutValidation';
-import { Bitcoin, CreditCard, WalletCards, ListChecks, Headphones, LockKeyhole, CircleCheck } from 'lucide-react';
+import { CRYPTO_COINS, isCryptoCoin, type CryptoCoin } from '@/lib/manualPayment';
+import { Bitcoin, CreditCard, WalletCards, ListChecks, Headphones, LockKeyhole, CircleCheck, CircleAlert, PlayCircle } from 'lucide-react';
 import './checkout.css';
 
 interface ServiceDetails {
@@ -32,7 +34,6 @@ interface PublicStockSummary {
 }
 
 type PayTab = 'cb' | 'paypal' | 'crypto';
-type CryptoCoin = 'btc' | 'eth' | 'usdt' | 'ltc';
 
 const CRYPTO_META: Record<CryptoCoin, { label: string; color: string; symbol: string }> = {
   btc: { label: 'Bitcoin (BTC)', color: '#F7931A', symbol: '₿' },
@@ -47,10 +48,11 @@ function CheckoutContent() {
   const searchParams = useSearchParams();
   const serviceId = searchParams.get('service');
   const stockId = searchParams.get('stock');
+  const stripeCancelled = searchParams.get('cancelled') === 'true';
 
   const [service, setService] = useState<ServiceDetails | null>(null);
-  const [cryptoAddr, setCryptoAddr] = useState<Record<string, string>>({ btc: '', eth: '', usdt: '', ltc: '' });
-  const [paypalEmail, setPaypalEmail] = useState('');
+  const [configuredCoins, setConfiguredCoins] = useState<CryptoCoin[]>([]);
+  const [manualDestination, setManualDestination] = useState('');
   const [loadingService, setLoadingService] = useState(true);
   const [email, setEmail] = useState('');
   const attempt = useRef<{ identity: string; id: string } | null>(null);
@@ -79,11 +81,13 @@ function CheckoutContent() {
   const [cryptoRates, setCryptoRates] = useState<Record<CryptoCoin, number>>({ btc: 0, eth: 0, usdt: 0, ltc: 0 });
   const [ratesLive, setRatesLive] = useState(false);
   const [ratesUpdatedAt, setRatesUpdatedAt] = useState<Date | null>(null);
+  const [ratesError, setRatesError] = useState('');
+  const [ratesReload, setRatesReload] = useState(0);
 
   const consentOk = acceptedCgv && acceptedImmediate && acceptedEligibility;
 
   useEffect(() => {
-    fetch('/api/client/me', { cache: 'no-store' }).then(response => response.json()).then(data => {
+    fetch('/api/client/me?profile=1', { cache: 'no-store' }).then(response => response.json()).then(data => {
       if (data.authenticated && data.customer?.email) setEmail(value => value || data.customer.email);
     }).catch(() => {});
   }, []);
@@ -105,6 +109,7 @@ function CheckoutContent() {
       if (cancelled) return;
       setLoadingService(true); setStockAvailable(false); setService(null); setLoadError(false);
       setStockChecked(false); setManualOrderId(null); setManualExpiresAt(null); setManualExpired(false);
+      setManualDestination(''); setConfiguredCoins([]);
       setGateways({ cb: false, paypal: false, crypto: false });
       setAcceptedCgv(false); setAcceptedImmediate(false); setAcceptedEligibility(false);
       try {
@@ -132,20 +137,16 @@ function CheckoutContent() {
     };
     void Promise.resolve().then(loadCheckoutData);
 
-    // Récupère les paramètres publics du paiement (adresses crypto, passerelles).
+    // Public settings contain availability only, never payment destinations.
     fetch('/api/settings/public', { cache: 'no-store', signal: controller.signal })
       .then(r => r.json())
       .then(d => {
         if (cancelled) return;
         if (d.success) {
-          setCryptoAddr({
-            btc: d.settings.crypto_btc || '',
-            eth: d.settings.crypto_eth || '',
-            usdt: d.settings.crypto_usdt || '',
-            ltc: d.settings.crypto_ltc || '',
-          });
-          setPaypalEmail(d.settings.paypal_email || '');
-          const enabled = { cb: d.settings.gateway_cb === 'true', paypal: d.settings.gateway_paypal === 'true' && Boolean(d.settings.paypal_email), crypto: d.settings.gateway_crypto === 'true' && Boolean(d.settings.crypto_btc || d.settings.crypto_eth || d.settings.crypto_usdt || d.settings.crypto_ltc) };
+          const coins = Array.isArray(d.settings.crypto_coins) ? d.settings.crypto_coins.filter(isCryptoCoin) : [];
+          setConfiguredCoins(coins);
+          setActiveCoin(coins[0] ?? 'btc');
+          const enabled = { cb: d.settings.gateway_cb === 'true', paypal: d.settings.gateway_paypal === 'true', crypto: d.settings.gateway_crypto === 'true' && coins.length > 0 };
           setGateways(enabled);
           setPayTab(enabled.cb ? 'cb' : enabled.paypal ? 'paypal' : 'crypto');
         } else {
@@ -167,9 +168,11 @@ function CheckoutContent() {
 
   useEffect(() => {
     if (payTab !== 'crypto' || !gateways.crypto) return;
+    let active = true;
     fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,litecoin,tether&vs_currencies=eur')
-      .then(r => r.json())
+      .then(r => { if (!r.ok) throw new Error(); return r.json(); })
       .then((d: Record<string, { eur: number }>) => {
+        if (!active) return;
         const btcEur = d.bitcoin?.eur;
         const ethEur = d.ethereum?.eur;
         const ltcEur = d.litecoin?.eur;
@@ -177,18 +180,30 @@ function CheckoutContent() {
         if ([btcEur, ethEur, ltcEur, usdtEur].every(rate => Number.isFinite(rate) && rate > 0)) {
           setCryptoRates({ btc: 1 / btcEur, eth: 1 / ethEur, usdt: 1 / usdtEur, ltc: 1 / ltcEur });
           setRatesLive(true);
+          setRatesError('');
           setRatesUpdatedAt(new Date());
+        } else {
+          setRatesLive(false);
+          setRatesError('Le taux de change crypto est momentanément indisponible. Réessayez ou utilisez la carte bancaire.');
         }
       })
-      .catch(() => {});
-  }, [payTab, gateways.crypto]);
+      .catch(() => {
+        if (!active) return;
+        setRatesLive(false);
+        setRatesError('Le taux de change crypto est momentanément indisponible. Réessayez ou utilisez la carte bancaire.');
+      });
+    return () => { active = false; };
+  }, [payTab, gateways.crypto, ratesReload]);
 
   const isYoutube = Boolean(serviceId && matchesServiceFilter(serviceId, ['youtube']));
   const identityOk = Boolean(normalizeEmail(email)) && (!isYoutube || Boolean(normalizeEmail(youtubeEmail)));
+  const missingIdentityLabel = !normalizeEmail(email)
+    ? 'Saisissez une adresse e-mail valide pour continuer'
+    : 'Saisissez votre adresse e-mail YouTube pour continuer';
 
   const handleStripeCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!normalizeEmail(email) || !serviceId || !stockId || isSubmitting) return;
+    if (!normalizeEmail(email) || !serviceId || !stockId || !service || isSubmitting) return;
     if (isYoutube && !normalizeEmail(youtubeEmail)) {
       setErrorMsg('Merci d\'indiquer votre adresse e-mail YouTube pour recevoir l\'invitation.');
       return;
@@ -211,6 +226,7 @@ function CheckoutContent() {
         body: JSON.stringify({
           serviceId,
           stockAccountId: stockId,
+          amountMinor: Math.round(service.price * 100),
           email: email.trim().toLowerCase(),
           youtubeEmail: isYoutube ? youtubeEmail.trim().toLowerCase() : undefined,
           acceptedCgv,
@@ -256,17 +272,18 @@ function CheckoutContent() {
       setErrorMsg('Merci d\'accepter les CGV, la demande d\'exécution immédiate et la confirmation d\'éligibilité.');
       return null;
     }
-    if (!stockAvailable) {
+    if (!service || !stockAvailable) {
       setErrorMsg('Cette offre n\'est plus disponible. Merci de sélectionner une autre offre.');
       return null;
     }
     if (!gateways[method] || manualBusy) return null;
-    if (method === 'crypto' && (!ratesLive || !ratesAreFresh(ratesUpdatedAt))) {
+    if (method === 'crypto' && (!configuredCoins.includes(activeCoin) || !ratesLive || !ratesAreFresh(ratesUpdatedAt))) {
       setErrorMsg('Le taux de conversion doit être actualisé avant de continuer. Rechargez la page ou contactez le support.');
       return null;
     }
     setManualBusy(true);
     setErrorMsg('');
+    const amountMinor = Math.round(service.price * 100);
     try {
       const res = await fetch('/api/checkout/manual', {
         method: 'POST',
@@ -277,16 +294,20 @@ function CheckoutContent() {
           email: email.trim().toLowerCase(),
           youtubeEmail: isYoutube ? youtubeEmail.trim().toLowerCase() : undefined,
           paymentMethod: method,
+          amountMinor,
           cryptoCoin: method === 'crypto' ? activeCoin : undefined,
           acceptedCgv,
           acceptedImmediateExecution: acceptedImmediate,
           acceptedEligibility,
           termsVersion: CURRENT_TERMS_VERSION,
-          attemptId: attemptId(method),
+          attemptId: attemptId(method === 'crypto' ? `crypto:${activeCoin}` : method),
         }),
       });
       const data = await res.json();
-      if (data.success && data.orderId) {
+      if (res.ok && data.success && typeof data.orderId === 'string' &&
+          typeof data.destination === 'string' && data.destination && data.amountMinor === amountMinor &&
+          typeof data.expiresAt === 'string' && Date.parse(data.expiresAt) > Date.now()) {
+        setManualDestination(data.destination);
         setManualOrderId(data.orderId);
         setManualExpiresAt(data.expiresAt || null);
         return data.orderId;
@@ -305,23 +326,26 @@ function CheckoutContent() {
 
   if (loadingService) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-gray)', fontSize: '0.92rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span className="hero-badge-dot" /> Initialisation du tunnel de paiement sécurisé…
-        </div>
+      <div className="site-theme min-h-screen">
+        <SiteHeader checkout />
+        <main className="checkout-state"><p role="status">Chargement de votre commande…</p></main>
       </div>
     );
   }
 
   if (!service || !stockId || (stockChecked && !stockAvailable)) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center' }}>
-        <div className="dash-empty-icon" style={{ marginBottom: 24 }}>⚠️</div>
-        <h1 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: 10 }}>{loadError ? 'Paiement temporairement indisponible' : 'Cette offre n’est plus disponible'}</h1>
-        <p style={{ fontSize: '0.9rem', color: 'var(--text-gray)', maxWidth: 420, marginBottom: 24 }}>
-          {loadError ? 'Nous n’avons pas pu charger votre commande. Réessayez dans quelques instants.' : 'Contactez-nous pour connaître les prochaines disponibilités ou choisissez une autre offre.'}
-        </p>
-        <Link href="/" className="btn btn-primary">← Retour à la boutique</Link>
+      <div className="site-theme min-h-screen">
+        <SiteHeader checkout />
+        <main className="checkout-state">
+          <CircleAlert size={25} aria-hidden="true" />
+          <h1>{loadError ? 'Paiement temporairement indisponible' : 'Cette offre n’est plus disponible'}</h1>
+          <p>{loadError ? 'Nous n’avons pas pu charger votre commande. Réessayez dans quelques instants.' : 'Contactez-nous pour connaître les prochaines disponibilités ou choisissez une autre offre.'}</p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+            <Link href="/#offres" className="btn btn-primary">Voir les abonnements</Link>
+            <Link href="/contact" className="btn btn-outline">Nous contacter</Link>
+          </div>
+        </main>
       </div>
     );
   }
@@ -330,33 +354,23 @@ function CheckoutContent() {
     coin === 'btc' ? 6 : coin === 'eth' ? 5 : coin === 'usdt' ? 2 : 4;
 
   const orderRef = manualOrderId ? manualOrderId.slice(0, 8).toUpperCase() : '';
-  const paypalUrl = paypalEmail
-    ? `https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=${encodeURIComponent(paypalEmail)}&amount=${service.price.toFixed(2)}&currency_code=EUR&item_name=StreamMalin+-+${encodeURIComponent(service.name)}&no_shipping=1`
+  const paypalUrl = manualOrderId && !manualExpired && manualDestination
+    ? `https://www.paypal.com/cgi-bin/webscr?cmd=_xclick&business=${encodeURIComponent(manualDestination)}&amount=${service.price.toFixed(2)}&currency_code=EUR&item_name=StreamMalin+-+${encodeURIComponent(service.name)}&no_shipping=1`
     : '';
 
   return (
-    <div className="checkout-page" style={{ minHeight: '100vh', position: 'relative' }}>
-      {/* Navbar */}
-      <header className="navbar">
-        <div className="nav-inner">
-          <Link href="/" className="nav-logo">
-            <div className="nav-logo-icon">SM</div>
-            <span className="gradient-text">StreamMalin</span>
-          </Link>
-          <Link href="/" className="btn btn-ghost btn-sm">← Boutique</Link>
-        </div>
-      </header>
+    <div className="site-theme checkout-page">
+      <SiteHeader checkout />
 
-      <div className="checkout-wrap">
+      <main className="checkout-wrap">
         {/* Header */}
-        <div className="checkout-head fade-in-up">
-          <div className="eyebrow">
-            <span className="hero-badge-dot" style={{ width: 6, height: 6 }} />
-            VOTRE ABONNEMENT
-          </div>
-          <h1>
-            Finaliser votre <span className="gradient-text">commande</span>
-          </h1>
+        <div className="checkout-head">
+          <ol className="checkout-steps" aria-label="Étapes de commande">
+            <li className="done"><span className="checkout-step-dot">1</span> Offre choisie</li>
+            <li className="active" aria-current="step"><span className="checkout-step-dot">2</span> Coordonnées &amp; paiement</li>
+            <li><span className="checkout-step-dot">3</span> Suivi &amp; accès</li>
+          </ol>
+          <h1>Finaliser votre commande</h1>
           <p>Vérifiez le prix et le renouvellement. Accès transmis après validation de la commande et selon disponibilité.</p>
         </div>
 
@@ -429,6 +443,11 @@ function CheckoutContent() {
               Choisir un moyen de paiement
             </div>
 
+            {stripeCancelled && !errorMsg && (
+              <div className="info-box" role="status" style={{ borderLeft: '3px solid var(--site-blue)', paddingLeft: 12 }}>
+                Le paiement par carte a été annulé. Aucun débit n’a été effectué ; vous pouvez réessayer ou choisir un autre moyen.
+              </div>
+            )}
             {errorMsg && <div className="error-box" role="alert">{errorMsg}</div>}
             {!Object.values(gateways).some(Boolean) && <p role="status">Aucun moyen de paiement disponible actuellement.</p>}
 
@@ -474,10 +493,13 @@ function CheckoutContent() {
             {/* YouTube — adresse e-mail Google associée */}
             {isYoutube && (
               <>
-                <div className="info-box" style={{ borderColor: 'rgba(255,0,0,0.3)', background: 'rgba(255,0,0,0.06)' }}>
-                  <div className="info-box-title">▶️ YouTube Premium fonctionne par invitation famille</div>
-                  <div className="info-box-text">
-                    YouTube Premium nécessite une invitation dans un groupe famille compatible. Indiquez ci-dessous l&apos;<strong style={{ color: 'var(--text-white)' }}>adresse e-mail Google associée à votre compte YouTube</strong>. L&apos;invitation est envoyée après validation du paiement et selon disponibilité ; il vous suffira de l&apos;accepter pour activer l&apos;accès si votre compte est éligible.
+                <div className="checkout-callout-youtube">
+                  <div className="checkout-callout-title">
+                    <PlayCircle size={17} aria-hidden="true" />
+                    YouTube Premium fonctionne par invitation famille
+                  </div>
+                  <div className="checkout-callout-text">
+                    YouTube Premium nécessite une invitation dans un groupe famille compatible. Indiquez ci-dessous l&apos;<strong>adresse e-mail Google associée à votre compte YouTube</strong>. L&apos;invitation est envoyée après validation du paiement et selon disponibilité ; il vous suffira de l&apos;accepter pour activer l&apos;accès si votre compte est éligible.
                   </div>
                 </div>
                 <div className="form-field">
@@ -489,6 +511,7 @@ function CheckoutContent() {
                     id="checkout-youtube-email"
                     type="email"
                     required
+                    disabled={Boolean(manualOrderId)}
                     autoComplete="email"
                     placeholder="votre.compte@gmail.com"
                     value={youtubeEmail}
@@ -507,47 +530,39 @@ function CheckoutContent() {
               <p><strong>Confidentialité :</strong> {service.privacyNote}</p>
               <Link href={`/offres/${encodeURIComponent(service.id)}`}>Consulter les détails de l’offre</Link>
             </div>
-            <div
-              style={{
-                margin: '4px 0 18px',
-                padding: '14px 0',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 12,
-              }}
-            >
-              <label style={{ display: 'flex', gap: 10, cursor: 'pointer', fontSize: '0.82rem', color: 'var(--text-gray)', lineHeight: 1.55 }}>
+            <div className="checkout-consents">
+              <label className="checkout-consent-item">
                 <input
                   type="checkbox"
                   checked={acceptedCgv}
+                  disabled={Boolean(manualOrderId)}
                   onChange={e => setAcceptedCgv(e.target.checked)}
-                  style={{ marginTop: 2, width: 16, height: 16, flexShrink: 0, accentColor: 'var(--primary)' }}
                 />
                 <span>
                   J&apos;ai lu et j&apos;accepte les{' '}
-                  <a href={CURRENT_TERMS_URL} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)', fontWeight: 600 }}>
+                  <a href={CURRENT_TERMS_URL} target="_blank" rel="noopener noreferrer">
                     CGV
                   </a>{' '}
                   de StreamMalin.
                 </span>
               </label>
-              <label style={{ display: 'flex', gap: 10, cursor: 'pointer', fontSize: '0.82rem', color: 'var(--text-gray)', lineHeight: 1.55 }}>
+              <label className="checkout-consent-item">
                 <input
                   type="checkbox"
                   checked={acceptedImmediate}
+                  disabled={Boolean(manualOrderId)}
                   onChange={e => setAcceptedImmediate(e.target.checked)}
-                  style={{ marginTop: 2, width: 16, height: 16, flexShrink: 0, accentColor: 'var(--primary)' }}
                 />
                 <span>
                   Je demande l&apos;exécution immédiate et reconnais que la perte du droit de rétractation n&apos;intervient que si les conditions légales applicables à cette offre sont réunies, comme expliqué dans les CGV.
                 </span>
               </label>
-              <label style={{ display: 'flex', gap: 10, cursor: 'pointer', fontSize: '0.82rem', color: 'var(--text-gray)', lineHeight: 1.55 }}>
+              <label className="checkout-consent-item">
                 <input
                   type="checkbox"
                   checked={acceptedEligibility}
+                  disabled={Boolean(manualOrderId)}
                   onChange={e => setAcceptedEligibility(e.target.checked)}
-                  style={{ marginTop: 2, width: 16, height: 16, flexShrink: 0, accentColor: 'var(--primary)' }}
                 />
                 <span>
                   Je confirme avoir vérifié que mon compte est éligible à l&apos;offre choisie et qu&apos;il n&apos;est pas soumis à une restriction récente de groupe familial, de pays, de foyer ou d&apos;historique d&apos;utilisation.
@@ -559,7 +574,7 @@ function CheckoutContent() {
             {payTab === 'cb' && (
               <form onSubmit={handleStripeCheckout}>
                 <div className="info-box">
-                  <div className="info-box-title">🔒 Redirection sécurisée vers Stripe</div>
+                  <div className="info-box-title"><LockKeyhole size={16} aria-hidden="true" /> Paiement sur Stripe</div>
                   <div className="info-box-text">
                     Vous serez redirigé vers Stripe. <strong>Prélèvement mensuel automatique de {formatEuro(service.price)}.</strong> Résiliation avant la prochaine échéance depuis votre espace client. Les informations complètes de carte sont traitées par Stripe, pas par StreamMalin.
                   </div>
@@ -569,11 +584,11 @@ function CheckoutContent() {
                   disabled={isSubmitting || !gateways.cb || !identityOk || !consentOk || !stockAvailable}
                   className="btn-pay"
                 >
-                  {isSubmitting ? 'Redirection…' : !consentOk ? 'Cochez les 3 confirmations pour continuer' : !stockAvailable ? 'Offre indisponible' : `S’abonner pour ${formatEuro(service.price)}/mois avec obligation de paiement`}
+                  {isSubmitting ? 'Redirection…' : !stockAvailable ? 'Offre indisponible' : !consentOk ? 'Cochez les 3 confirmations pour continuer' : !identityOk ? missingIdentityLabel : `S’abonner pour ${formatEuro(service.price)}/mois avec obligation de paiement`}
                 </button>
                 <div className="trust-row">
                   <span>Paiement traité par Stripe</span>
-                  <span>⚡ Accès après validation</span>
+                  <span><CircleCheck size={14} aria-hidden="true" /> Accès après validation</span>
                 </div>
               </form>
             )}
@@ -591,7 +606,7 @@ function CheckoutContent() {
                   <ol style={{ listStyle: 'decimal', paddingLeft: 20, fontSize: '0.84rem', color: 'var(--text-gray)', lineHeight: 1.8 }}>
                     <li>Connectez-vous à votre compte PayPal.</li>
                     <li>Envoyez <strong style={{ color: 'var(--text-white)' }}>{formatEuro(service.price)}</strong> en mode <strong style={{ color: 'var(--accent-yellow)' }}>« Biens et Services »</strong>.</li>
-                    <li>Dans la note : indiquez <strong style={{ color: 'var(--text-white)' }}>{email || 'votre email de livraison'}</strong>.</li>
+                    <li>Dans la note, indiquez la référence <strong style={{ color: 'var(--text-white)' }}>{orderRef}</strong>.</li>
                     <li>Vos accès sont traités rapidement après vérification du paiement et selon disponibilité.</li>
                   </ol>
                 </div>
@@ -602,11 +617,11 @@ function CheckoutContent() {
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
                     <span style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-white)', fontFamily: "'SF Mono', Menlo, monospace" }}>
-                      {paypalEmail || '⚠️ Adresse non configurée — contactez hello@streammalin.fr'}
+                      {manualDestination}
                     </span>
-                    {paypalEmail && (
+                    {manualDestination && (
                       <button
-                      onClick={() => copyAddr(paypalEmail, 'paypal')}
+                      onClick={() => copyAddr(manualDestination, 'paypal')}
                         className={`copy-btn ${copied === 'paypal' ? 'copied' : ''}`}
                       >
                         {copied === 'paypal' ? '✅ Copié' : '📋 Copier'}
@@ -640,15 +655,12 @@ function CheckoutContent() {
                 ) : (
                   <button
                     type="button"
-                    disabled={!gateways.paypal || !consentOk || manualBusy || !identityOk || !stockAvailable || !paypalEmail}
-                    onClick={async () => {
-                      const id = await createManualOrder('paypal');
-                      if (id) window.open(paypalUrl, '_blank', 'noopener,noreferrer');
-                    }}
+                    disabled={!gateways.paypal || !consentOk || manualBusy || !identityOk || !stockAvailable}
+                    onClick={() => createManualOrder('paypal')}
                     className="btn btn-primary"
-                    style={{ display: 'block', width: '100%', textAlign: 'center', marginTop: 12, background: consentOk && stockAvailable && paypalEmail ? '#0070ba' : undefined, opacity: consentOk && stockAvailable && paypalEmail ? 1 : 0.5, cursor: consentOk && stockAvailable && paypalEmail ? 'pointer' : 'not-allowed' }}
+                    style={{ display: 'block', width: '100%', textAlign: 'center', marginTop: 12, background: '#0070ba' }}
                   >
-                    {manualBusy ? 'Enregistrement…' : !consentOk ? 'Cochez les 3 confirmations pour continuer' : !stockAvailable ? 'Offre indisponible' : !paypalEmail ? 'PayPal non configuré' : `Payer ${formatEuro(service.price)} via PayPal avec obligation de paiement`}
+                    {manualBusy ? 'Enregistrement…' : !stockAvailable ? 'Offre indisponible' : !consentOk ? 'Cochez les 3 confirmations pour continuer' : !identityOk ? missingIdentityLabel : `Payer ${formatEuro(service.price)} via PayPal avec obligation de paiement`}
                   </button>
                 )}
 
@@ -664,10 +676,10 @@ function CheckoutContent() {
               <div>
                 <label className="form-label">Sélectionner la devise crypto</label>
                 <div className="crypto-grid">
-                  {(Object.keys(CRYPTO_META) as CryptoCoin[]).map(coin => (
+                  {CRYPTO_COINS.map(coin => (
                     <button
                       key={coin}
-                      disabled={manualBusy || !!manualOrderId || !cryptoAddr[coin]}
+                      disabled={manualBusy || !!manualOrderId || !configuredCoins.includes(coin)}
                       aria-pressed={activeCoin === coin}
                       onClick={() => setActiveCoin(coin)}
                       className={`crypto-tile ${activeCoin === coin ? 'active' : ''}`}
@@ -683,6 +695,15 @@ function CheckoutContent() {
                   ))}
                 </div>
 
+                {ratesError && (
+                  <div className="error-box" role="alert" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                    <span>{ratesError}</span>
+                    <button type="button" className="btn btn-outline btn-sm" onClick={() => setRatesReload(n => n + 1)}>
+                      Réessayer
+                    </button>
+                  </div>
+                )}
+
                 {manualOrderId && !manualExpired && <div className="crypto-addr-box">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                     <div>
@@ -692,7 +713,7 @@ function CheckoutContent() {
                       <div style={{ fontSize: '1.3rem', fontWeight: 900, fontFamily: "'Outfit',sans-serif", color: CRYPTO_META[activeCoin].color, marginTop: 4 }}>
                         {ratesLive ? `${(service.price * cryptoRates[activeCoin]).toFixed(cryptoPrecision(activeCoin))} ${activeCoin.toUpperCase()}` : 'Conversion indisponible'}
                       </div>
-                      <div style={{ fontSize: '0.68rem', marginTop: 4, color: ratesLive ? '#10b981' : '#f59e0b', fontWeight: 600 }}>
+                      <div style={{ fontSize: '0.68rem', marginTop: 4, color: ratesLive ? 'var(--accent-green)' : 'var(--accent-yellow)', fontWeight: 600 }}>
                         {ratesLive
                           ? `✅ Taux live · ${ratesUpdatedAt?.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
                           : 'Contactez le support avant tout transfert.'}
@@ -708,11 +729,11 @@ function CheckoutContent() {
                     Adresse de réception
                   </div>
                   <div className="crypto-addr">
-                    {cryptoAddr[activeCoin] || '⚠️ Adresse non configurée — contactez hello@streammalin.fr'}
+                    {manualDestination}
                   </div>
-                  {cryptoAddr[activeCoin] && (
+                  {manualDestination && (
                     <button
-                      onClick={() => copyAddr(cryptoAddr[activeCoin], activeCoin)}
+                      onClick={() => copyAddr(manualDestination, activeCoin)}
                       className={`copy-btn ${copied === activeCoin ? 'copied' : ''}`}
                     >
                       {copied === activeCoin ? '✅ Adresse copiée' : '📋 Copier l\'adresse'}
@@ -734,12 +755,12 @@ function CheckoutContent() {
                 ) : (
                   <button
                     type="button"
-                    disabled={!gateways.crypto || !ratesLive || !consentOk || manualBusy || !identityOk || !cryptoAddr[activeCoin] || !stockAvailable}
+                    disabled={!gateways.crypto || !ratesLive || !consentOk || manualBusy || !identityOk || !configuredCoins.includes(activeCoin) || !stockAvailable}
                     onClick={() => createManualOrder('crypto')}
                     className="btn btn-primary"
-                    style={{ display: 'block', width: '100%', textAlign: 'center', marginTop: 14, opacity: (consentOk && cryptoAddr[activeCoin] && stockAvailable) ? 1 : 0.5, cursor: (consentOk && cryptoAddr[activeCoin] && stockAvailable) ? 'pointer' : 'not-allowed' }}
+                    style={{ display: 'block', width: '100%', textAlign: 'center', marginTop: 14 }}
                   >
-                    {manualBusy ? 'Enregistrement…' : !consentOk ? 'Cochez les 3 confirmations pour continuer' : !stockAvailable ? 'Offre indisponible' : '✅ Enregistrer ma commande crypto'}
+                    {manualBusy ? 'Enregistrement…' : !stockAvailable ? 'Offre indisponible' : !consentOk ? 'Cochez les 3 confirmations pour continuer' : !identityOk ? missingIdentityLabel : !ratesLive ? 'Chargement du taux de conversion…' : `Payer ${formatEuro(service.price)} en crypto avec obligation de paiement`}
                   </button>
                 )}
 
@@ -757,7 +778,7 @@ function CheckoutContent() {
           </div>
 
         </div>
-      </div>
+      </main>
 
       <Footer />
     </div>
@@ -767,8 +788,9 @@ function CheckoutContent() {
 export default function CheckoutPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-[#0B0F19] flex items-center justify-center text-[#94A3B8] font-light">
-        Chargement du tunnel de paiement...
+      <div className="site-theme min-h-screen">
+        <SiteHeader checkout />
+        <main className="checkout-state"><p role="status">Chargement de votre commande…</p></main>
       </div>
     }>
       <CheckoutContent />

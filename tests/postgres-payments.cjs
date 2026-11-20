@@ -220,7 +220,7 @@ test('PostgreSQL: concurrent manual regularizations create one payment proof, an
   ]);
   const admin = load('app/api/admin/stock/route.ts');
   const reference = `manual_${crypto.randomUUID()}`;
-  const regularize = () => admin.PUT(new Request('http://localhost/api/admin/stock', { method: 'PUT', body: JSON.stringify({ action: 'mark_paid', orderId: f.order.id, paymentReference: reference }) }));
+  const regularize = () => admin.PUT(new Request('http://localhost/api/admin/stock', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'mark_paid', orderId: f.order.id, paymentReference: reference }) }));
   const results = await Promise.all([regularize(), regularize()]);
   assert.deepEqual(results.map(response => response.status).sort(), [200, 409]);
   assert.equal(await db.paymentRecord.count({ where: { orderId: f.order.id } }), 1);

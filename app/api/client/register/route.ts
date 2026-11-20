@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logServerFailure } from '@/lib/securityLog';
 import { prisma } from '@/lib/prisma';
 import { hashPassword } from '@/lib/clientAuth';
 import { createAccountToken } from '@/lib/accountTokens';
@@ -10,12 +11,6 @@ import { readJsonObject } from '@/lib/requestJson';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 const registrationResponse = () => NextResponse.json({ success: true, message: 'Consultez votre boîte e-mail pour la suite. Si vous avez déjà un compte, connectez-vous ou réinitialisez votre mot de passe.' });
-const errorMessage = (error: unknown) => {
-  // Journalise l'erreur réelle côté serveur ; n'expose jamais les détails au client
-  // (les messages Prisma révèlent le schéma : tables, colonnes, contraintes).
-  console.error('[api]', error);
-  return 'Erreur serveur';
-};
 
 export async function POST(request: Request) {
   try {
@@ -58,7 +53,7 @@ export async function POST(request: Request) {
     return registrationResponse();
   } catch (error: unknown) {
     if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') return registrationResponse();
-    console.error('[register]', error);
-    return NextResponse.json({ error: errorMessage(error) }, { status: 500 });
+    logServerFailure('client/register', error);
+    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
   }
 }

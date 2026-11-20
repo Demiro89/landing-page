@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logServerFailure } from '@/lib/securityLog';
 import { prisma } from '@/lib/prisma';
 import { verifyPassword, setSession, DUMMY_PASSWORD_HASH } from '@/lib/clientAuth';
 import { enforceRateLimit } from '@/lib/rateLimit';
@@ -11,12 +12,6 @@ const MAX_ATTEMPTS = 5;
 const LOCK_DURATION_MS = 15 * 60 * 1000; // 15 minutes
 const rejected = () => NextResponse.json({ error: 'Identifiants incorrects ou connexion temporairement indisponible. Réessayez plus tard ou réinitialisez votre mot de passe.' }, { status: 401 });
 
-const errorMessage = (error: unknown) => {
-  // Journalise l'erreur réelle côté serveur ; n'expose jamais les détails au client
-  // (les messages Prisma révèlent le schéma : tables, colonnes, contraintes).
-  console.error('[api]', error);
-  return 'Erreur serveur';
-};
 
 export async function POST(request: Request) {
   try {
@@ -83,7 +78,7 @@ export async function POST(request: Request) {
       customer: { id: customer.id, email: customer.email },
     });
   } catch (error: unknown) {
-    console.error('[login]', error);
-    return NextResponse.json({ error: errorMessage(error) }, { status: 500 });
+    logServerFailure('client/login', error);
+    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
   }
 }

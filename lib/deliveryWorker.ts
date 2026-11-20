@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { after } from 'next/server';
 import { Resend } from 'resend';
 import { prisma } from './prisma';
 import { decrypt } from './crypto';
@@ -9,6 +10,18 @@ import { CURRENT_TERMS_VERSION, CURRENT_TERMS_URL } from './termsVersion';
 import { TERMS_TEXT } from './legal/terms-2026-10-07.1';
 import { readBillingSnapshot } from './billingSnapshot';
 import { REMINDER_JOB_KINDS, reminderJobLevel, unpaidReminderKey, unpaidReminderMessage } from './unpaidReminders';
+import { canReadAccess } from './orderAccess';
+
+export function scheduleDeliveryPass(limit = 5) {
+  if (!remediationSchemaEnabled() || process.env.DELIVERY_WORKER_ENABLED !== 'true') return;
+  try {
+    after(async () => {
+      try { await runDeliveryJobs(limit); } catch { /* cron or admin retry handles failures */ }
+    });
+  } catch {
+    // Outside Next request scope (e.g. direct unit test invocation).
+  }
+}
 
 export async function runDeliveryJobs(limit = 10) {
   if (!remediationSchemaEnabled() || process.env.DELIVERY_WORKER_ENABLED !== 'true') return { enabled: false, completed: 0, failed: 0 };
@@ -39,7 +52,7 @@ export async function runDeliveryJobs(limit = 10) {
         } });
         continue;
       }
-      if (!reminderLevel && !['active', 'cancelled_pending'].includes(order.status)) {
+      if (!reminderLevel && !canReadAccess(order.status, order.cancellationEffectiveAt, now)) {
         await prisma.deliveryJob.updateMany({ where: { id: job.id, leaseToken }, data: { status: 'needs_review', lastError: 'order_not_active', leaseToken: null, lockedUntil: null } });
         continue;
       }
@@ -51,7 +64,7 @@ export async function runDeliveryJobs(limit = 10) {
       const invoice = job.kind === 'delivery' ? await createInvoiceForOrder({ orderId: order.id, clientEmail: order.clientEmail,
         clientName: billing?.name, clientAddress: billing?.address,
         serviceName: payment!.serviceName, amount: payment!.amountMinor / 100, paidAt: payment!.paidAt, paymentMethod: order.paymentMethod || 'Paiement vérifié' }) : null;
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.streammalin.fr';
+      const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://www.streammalin.fr').replace(/\/+$/, '');
       const reminderMessage = reminderLevel ? unpaidReminderMessage(order.service.name, order.id, reminderLevel, appUrl) : null;
       const amount = (payment ? payment.amountMinor / 100 : order.total).toFixed(2);
       const terms = order.termsVersion === CURRENT_TERMS_VERSION ? `<p>CGV acceptées : <a href="${appUrl}${CURRENT_TERMS_URL}">${CURRENT_TERMS_VERSION}</a>.</p>` : '';

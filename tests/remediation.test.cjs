@@ -72,12 +72,13 @@ test('reservation refuses occupied capacity including other live holds', async (
 });
 
 test('a repeated reservation cannot change the original buyer, amount or proof', async () => {
-  const data = { stockAccountId: 'stock', serviceId: 'offer', clientEmail: 'buyer@example.test', youtubeEmail: null, paymentMethod: 'PayPal', termsVersion: '2026-10-07.1' };
+  const data = { stockAccountId: 'stock', serviceId: 'offer', clientEmail: 'buyer@example.test', customerId: null, youtubeEmail: null, paymentMethod: 'PayPal', termsVersion: '2026-10-07.1' };
   const existing = { id: '12345678-1234-4234-8234-123456789012', stockAccountId: 'stock', status: 'held', expiresAt: new Date(Date.now() + 60000), order: { ...data, price: 3 } };
   const tx = { $queryRaw: async () => [], stockAccount: { findUniqueOrThrow: async () => ({ price: 3 }) }, stockReservation: { findUnique: async () => existing } };
   const { reserveCheckout } = createLoader({ './prisma': { prisma: { $transaction: callback => callback(tx) } } })('lib/checkoutReservation.ts');
-  assert.equal((await reserveCheckout(existing.id, data)).order.clientEmail, data.clientEmail);
-  for (const change of [{ clientEmail: 'other@example.test' }, { termsVersion: 'other' }, { paymentMethod: 'Carte bancaire (Stripe)' }]) await assert.rejects(reserveCheckout(existing.id, { ...data, ...change }), /changé/);
+  assert.equal((await reserveCheckout(existing.id, data, 300)).order.clientEmail, data.clientEmail);
+  await assert.rejects(reserveCheckout(existing.id, data, 299), /prix de cette offre a changé/);
+  for (const change of [{ clientEmail: 'other@example.test' }, { customerId: 'other' }, { termsVersion: 'other' }, { paymentMethod: 'Carte bancaire (Stripe)' }]) await assert.rejects(reserveCheckout(existing.id, { ...data, ...change }), /changé/);
 });
 
 test('slot consumption excludes only its own reservation and locks before incrementing', async () => {
@@ -209,3 +210,199 @@ test('invoice retry returns the existing invoice without allocating another numb
   assert.equal(await invoice.createInvoiceForOrder({ orderId: 'order' }), existing);
   assert.deepEqual(calls, ['lock']);
 });
+
+(() => {
+  const regTest = require('node:test');
+  const regAssert = require('node:assert/strict');
+  const { createLoader: createRegLoader } = require('./load-ts.cjs');
+
+  regTest('retractation rejects honeypot bots and emails only internal support', async () => {
+    const previousKey = process.env.RESEND_API_KEY;
+    const saved = [];
+    const sent = [];
+    try {
+      process.env.RESEND_API_KEY = 're_test_key';
+      const { POST } = createRegLoader({
+        '@/lib/rateLimit': { enforceRateLimit: async () => null },
+        '@/lib/crypto': { encrypt: value => `enc:${value}` },
+        '@/lib/prisma': { prisma: { setting: { create: async ({ data }) => { saved.push(data); return data; } } } },
+        resend: {
+          Resend: class {
+            constructor() {
+              this.emails = {
+                send: async (payload, options) => {
+                  sent.push({ payload, options });
+                  return { data: { id: 'msg_retract_1' }, error: null };
+                },
+              };
+            }
+          },
+        },
+      })('app/api/retractation/route.ts');
+
+      const botRes = await POST(new Request('http://localhost/api/retractation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ website: 'https://bot.example', name: 'Alice', email: 'alice@example.test', orderId: 'ORD-1', confirmed: true }),
+      }));
+      regAssert.equal(botRes.status, 400);
+      regAssert.equal(saved.length, 0);
+      regAssert.equal(sent.length, 0);
+
+      const okRes = await POST(new Request('http://localhost/api/retractation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ website: '', name: 'Alice', email: 'alice@example.test', orderId: 'ORD-1', confirmed: true }),
+      }));
+      regAssert.equal(okRes.status, 200);
+      regAssert.equal(okRes.headers.get('cache-control'), 'private, no-store');
+      const okJson = await okRes.json();
+      regAssert.equal(okJson.success, true);
+      regAssert.equal(okJson.emailed, false);
+      regAssert.equal(okJson.supportNotified, true);
+      regAssert.equal(saved.length, 1);
+      regAssert.equal(sent.length, 1);
+      regAssert.equal(sent[0].payload.to, 'hello@streammalin.fr');
+      regAssert.equal(sent[0].payload.replyTo, 'alice@example.test');
+    } finally {
+      if (previousKey === undefined) delete process.env.RESEND_API_KEY;
+      else process.env.RESEND_API_KEY = previousKey;
+    }
+  });
+
+  regTest('deliveryWorker refuses expired cancelled_pending orders and scheduleDeliveryPass queues after()', async () => {
+    const prevSchema = process.env.REMEDIATION_SCHEMA_ENABLED;
+    const prevWorker = process.env.DELIVERY_WORKER_ENABLED;
+    const prevResend = process.env.RESEND_API_KEY;
+    const afterCallbacks = [];
+    const jobUpdates = [];
+    let sendCalls = 0;
+    try {
+      process.env.REMEDIATION_SCHEMA_ENABLED = 'true';
+      process.env.DELIVERY_WORKER_ENABLED = 'true';
+      process.env.RESEND_API_KEY = 're_test_key';
+      const job = { id: 'job_1', kind: 'delivery', orderId: 'ord_exp', dedupeKey: 'delivery:ord_exp', createdAt: new Date(), attempts: 0 };
+      const { runDeliveryJobs, scheduleDeliveryPass } = createRegLoader({
+        'next/server': { after: fn => { afterCallbacks.push(fn); } },
+        './prisma': {
+          prisma: {
+            deliveryJob: {
+              findMany: async () => [job],
+              updateMany: async args => { jobUpdates.push(args); return { count: 1 }; },
+            },
+            order: {
+              findUniqueOrThrow: async () => ({
+                id: 'ord_exp',
+                status: 'cancelled_pending',
+                cancellationEffectiveAt: new Date(Date.now() - 60_000),
+                clientEmail: 'client@example.test',
+                youtubeEmail: null,
+                details: 'enc:secret',
+                total: 3.5,
+                termsVersion: '2026-10-07.1',
+                reminderCount: 0,
+                unpaidSince: null,
+                service: { name: 'YouTube Premium' },
+              }),
+            },
+          },
+        },
+        './crypto': { decrypt: v => v },
+        './invoice': { createInvoiceForOrder: async () => { throw new Error('should not invoice cancelled order'); } },
+        resend: {
+          Resend: class {
+            constructor() {
+              this.emails = { send: async () => { sendCalls++; return { data: { id: 'x' }, error: null }; } };
+            }
+          },
+        },
+      })('lib/deliveryWorker.ts');
+
+      const result = await runDeliveryJobs(5);
+      regAssert.equal(result.enabled, true);
+      regAssert.equal(sendCalls, 0);
+      regAssert.ok(jobUpdates.some(u => u.data.status === 'needs_review' && u.data.lastError === 'order_not_active'));
+
+      scheduleDeliveryPass(5);
+      regAssert.equal(afterCallbacks.length, 1);
+      await afterCallbacks[0]();
+    } finally {
+      if (prevSchema === undefined) delete process.env.REMEDIATION_SCHEMA_ENABLED;
+      else process.env.REMEDIATION_SCHEMA_ENABLED = prevSchema;
+      if (prevWorker === undefined) delete process.env.DELIVERY_WORKER_ENABLED;
+      else process.env.DELIVERY_WORKER_ENABLED = prevWorker;
+      if (prevResend === undefined) delete process.env.RESEND_API_KEY;
+      else process.env.RESEND_API_KEY = prevResend;
+    }
+  });
+
+  regTest('admin/stock POST & PUT reject malformed JSON via readJsonObject and strip details from responses', async () => {
+    const now = new Date('2026-10-15T12:00:00.000Z');
+    const orderWhereClauses = [];
+    const { POST, PUT } = createRegLoader({
+      '@/lib/adminAuth': { isAdminAuthenticated: async () => true },
+      '@/lib/adminFreshness': { requireRecentAdmin: async () => null },
+      '@/lib/rateLimit': { enforceRateLimit: async () => null },
+      '@/lib/auditLog': { writeAuditLog: async () => {}, clientIpFromRequest: () => '127.0.0.1' },
+      '@/lib/crypto': { encrypt: v => `enc:${v}`, decrypt: v => String(v).replace(/^enc:/, '') },
+      '@/lib/commerce': { remediationSchemaEnabled: () => false },
+      '@/lib/deliveryWorker': { scheduleDeliveryPass: () => {} },
+      '@/lib/nodemailer': { sendOrderDetailsEmail: async () => {}, sendUnpaidReminderEmail: async () => {} },
+      '@/lib/telegram': { sendTelegramNotification: async () => {} },
+      '@/lib/prisma': {
+        prisma: {
+          service: { findUnique: async () => ({ id: 'youtube', name: 'YouTube' }) },
+          stockAccount: {
+            create: async ({ data }) => ({ id: 'stk_new', ...data, createdAt: now, updatedAt: now }),
+            findUnique: async () => ({ id: 'stk_1', updatedAt: now, details: 'enc:old-secret' }),
+          },
+          order: { findMany: async () => [] },
+          $transaction: async callback => callback({
+            stockAccount: {
+              updateMany: async () => ({ count: 1 }),
+              findUniqueOrThrow: async () => ({ id: 'stk_1', details: 'enc:new-secret', updatedAt: now }),
+            },
+            order: {
+              updateMany: async args => { orderWhereClauses.push(args.where); return { count: 1 }; },
+            },
+          }),
+        },
+      },
+    })('app/api/admin/stock/route.ts');
+
+    for (const handler of [POST, PUT]) {
+      const nullRes = await handler(new Request('http://localhost/api/admin/stock', {
+        method: handler === POST ? 'POST' : 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: 'null',
+      }));
+      regAssert.equal(nullRes.status, 400);
+
+      const typeRes = await handler(new Request('http://localhost/api/admin/stock', {
+        method: handler === POST ? 'POST' : 'PUT',
+        headers: { 'Content-Type': 'text/plain' },
+        body: '{}',
+      }));
+      regAssert.equal(typeRes.status, 415);
+    }
+
+    const addRes = await POST(new Request('http://localhost/api/admin/stock', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'add_stock', serviceId: 'youtube', price: 3.5, accountsBoughtPrice: 1, maxSlots: 4, filledSlots: 0, details: 'secret-login' }),
+    }));
+    regAssert.equal(addRes.status, 200);
+    regAssert.equal((await addRes.json()).stock.details, '');
+
+    const updRes = await PUT(new Request('http://localhost/api/admin/stock', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'update_stock', id: 'stk_1', expectedUpdatedAt: now.toISOString(), price: 3.5, accountsBoughtPrice: 1, maxSlots: 4, filledSlots: 1, details: 'new-secret' }),
+    }));
+    regAssert.equal(updRes.status, 200);
+    regAssert.equal((await updRes.json()).stock.details, '');
+    regAssert.equal(orderWhereClauses.length, 1);
+    regAssert.ok(Array.isArray(orderWhereClauses[0].OR));
+    regAssert.ok(orderWhereClauses[0].OR.some(clause => clause.status === 'cancelled_pending' && Array.isArray(clause.OR)));
+  });
+})();

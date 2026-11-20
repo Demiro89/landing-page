@@ -172,7 +172,7 @@ test('gate redirects, forbidden requests and token pages all carry CSP and priva
 test('CSV exports neutralize leading whitespace, LF and formula prefixes', async () => {
   for (const name of ['=1+1', '  =1+1', '\n=1+1', '\t@SUM(1)', '\r-1+1']) {
     const { GET } = createLoader({
-      '@/lib/adminAuth': { isAdminAuthenticated: async () => true }, '@/lib/rateLimit': noLimit,
+      '@/lib/adminAuth': { isAdminAuthenticated: async () => true }, '@/lib/adminFreshness': { requireRecentAdmin: async () => null }, '@/lib/rateLimit': noLimit,
       '@/lib/prisma': { prisma: { order: { findMany: async () => [{ id: 'order', date: new Date(), service: { name }, clientEmail: 'fixture@example.test', status: 'active' }] } } },
     })('app/api/admin/export/route.ts');
     const response = await GET(new NextRequest('http://localhost/api/admin/export?type=orders'));
@@ -246,4 +246,7 @@ test('cleanup rechecks verification and absence of orders in the delete itself',
   })('app/api/cron/cleanup/route.ts');
   assert.equal((await GET(new NextRequest('http://localhost/api/cron/cleanup'))).status, 200);
   assert.equal(predicate.emailVerified, false); assert.deepEqual(predicate.orders, { none: {} }); assert.ok(predicate.createdAt.lt instanceof Date);
+  const [withoutReset, expiredReset] = predicate.AND[0].OR;
+  assert.deepEqual(withoutReset, { resetTokenExp: null });
+  assert.ok(expiredReset.resetTokenExp.lte instanceof Date);
 });

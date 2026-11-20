@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { isAdminAuthenticated } from '@/lib/adminAuth';
+import { requireRecentAdmin } from '@/lib/adminFreshness';
 import { enforceRateLimit } from '@/lib/rateLimit';
 import { hasValidatedInitialAmount } from '@/lib/adminPresentation';
 
@@ -35,6 +36,8 @@ export async function GET(request: NextRequest) {
   if (!(await isAdminAuthenticated())) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
   }
+  const recent = await requireRecentAdmin();
+  if (recent) return recent;
 
   // Export = requête DB lourde : throttle pour éviter l'abus même authentifié.
   const limited = await enforceRateLimit(request, 'admin-export', 10, 300);
@@ -46,6 +49,7 @@ export async function GET(request: NextRequest) {
     const orders = await prisma.order.findMany({
       include: { service: true },
       orderBy: { date: 'desc' },
+      take: 5000,
     });
 
     const header = row(['ID', 'Date', 'Service', 'Client', 'Moyen de paiement', 'Prix initial (€)', 'Total initial (€)', 'Statut', 'Facturation suivante']);
@@ -68,6 +72,7 @@ export async function GET(request: NextRequest) {
     return new NextResponse('﻿' + csv, {
       headers: {
         'Content-Type': 'text/csv; charset=utf-8',
+        'Cache-Control': 'private, no-store',
         'Content-Disposition': `attachment; filename="${filename}"`,
       },
     });
@@ -82,6 +87,7 @@ export async function GET(request: NextRequest) {
         status: true,
       },
       orderBy: { date: 'asc' },
+      take: 5000,
     });
 
     const map: Record<string, { firstDate: string; count: number; spent: number; active: number }> = {};
@@ -105,6 +111,7 @@ export async function GET(request: NextRequest) {
     return new NextResponse('﻿' + csv, {
       headers: {
         'Content-Type': 'text/csv; charset=utf-8',
+        'Cache-Control': 'private, no-store',
         'Content-Disposition': `attachment; filename="${filename}"`,
       },
     });

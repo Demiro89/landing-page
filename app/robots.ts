@@ -1,6 +1,5 @@
 import type { MetadataRoute } from 'next';
-
-const BASE = process.env.NEXT_PUBLIC_APP_URL || 'https://www.streammalin.fr';
+import { APP_URL } from '@/lib/appUrl';
 
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -10,6 +9,6 @@ export default function robots(): MetadataRoute.Robots {
       // Espaces privés / transactionnels non destinés à l'indexation.
       disallow: ['/acces', '/admin', '/checkout', '/facture/', '/api/', '/commande/', '/espace-client', '/cgv/versions/'],
     },
-    sitemap: `${BASE}/sitemap.xml`,
+    sitemap: `${APP_URL}/sitemap.xml`,
   };
 }

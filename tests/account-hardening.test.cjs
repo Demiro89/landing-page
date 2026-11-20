@@ -127,13 +127,14 @@ test('fresh admin proof is signed, session-bound, HttpOnly and expires after ten
 });
 
 test('every sensitive admin action refuses stale confirmation before data access or mutation', async () => {
-  const targets = [['stock', 'POST'], ['stock', 'PUT'], ['stock', 'DELETE'], ['settings', 'PUT'], ['2fa', 'POST'], ['credentials', 'POST'], ['commercial-review', 'PUT'], ['operations', 'POST'], ['encrypt-legacy', 'POST']];
+  const targets = [['stock', 'POST'], ['stock', 'PUT'], ['stock', 'DELETE'], ['settings', 'PUT'], ['2fa', 'POST'], ['credentials', 'POST'], ['commercial-review', 'PUT'], ['operations', 'POST'], ['encrypt-legacy', 'POST'], ['export', 'GET']];
   for (const [path, method] of targets) {
     const route = createLoader({
       '@/lib/adminAuth': { isAdminAuthenticated: async () => true },
       '@/lib/adminFreshness': { requireRecentAdmin: async () => Response.json({ code: 'ADMIN_REAUTH_REQUIRED' }, { status: 403 }) },
     })(`app/api/admin/${path}/route.ts`);
-    const response = await route[method](json({})); assert.equal(response.status, 403, `${path} ${method}`);
+    const request = path === 'export' ? new next.NextRequest('http://localhost/api/admin/export') : json({});
+    const response = await route[method](request); assert.equal(response.status, 403, `${path} ${method}`);
     assert.equal((await response.json()).code, 'ADMIN_REAUTH_REQUIRED');
   }
 });

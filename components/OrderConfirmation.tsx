@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Mail, RefreshCw } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Clock, Mail, RefreshCw, UserRound } from 'lucide-react';
 import { formatEuro } from '@/lib/offerPresentation';
 
 type Receipt = { status: string; orderId?: string; offer?: string; amount?: number };
@@ -13,6 +13,14 @@ const MESSAGES: Record<string, string> = {
   sent: 'Votre paiement est confirmé. Le prestataire d’e-mail a accepté le message contenant le suivi de votre accès. Vérifiez votre boîte de réception et vos courriers indésirables.',
   needs_review: 'Votre paiement a été reçu, mais l’accès n’a pas pu être attribué. Le support doit résoudre la situation et vérifier le remboursement ; ne repassez pas de commande.',
   cancelled: 'Cette commande a été annulée. Contactez le support pour vérifier son suivi.',
+};
+
+const BADGE_META: Record<string, { label: string; tone: string }> = {
+  sent: { label: 'Commande confirmée', tone: 'is-success' },
+  processing: { label: 'Traitement en cours', tone: '' },
+  awaiting_payment: { label: 'En attente de confirmation', tone: 'is-warning' },
+  needs_review: { label: 'Vérification requise', tone: 'is-danger' },
+  cancelled: { label: 'Commande annulée', tone: 'is-danger' },
 };
 
 export default function OrderConfirmation() {
@@ -39,13 +47,61 @@ export default function OrderConfirmation() {
     void check();
     return () => { controller.abort(); clearTimeout(timer); };
   }, [sessionId, refresh]);
-  return <div>
-    {error ? <p role="alert">{error}</p> : <p role="status">{receipt ? MESSAGES[receipt.status] : 'Vérification de votre paiement…'}</p>}
-    {receipt?.orderId && <dl><dt>Référence de commande</dt><dd>{receipt.orderId}</dd><dt>Offre</dt><dd>{receipt.offer}</dd><dt>Montant payé</dt><dd>{formatEuro(receipt.amount!)}</dd></dl>}
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 24 }}>
-      <button className="btn btn-ghost" onClick={() => setRefresh(value => value + 1)}><RefreshCw size={16} /> Actualiser</button>
-      <Link href="/espace-client" className="btn btn-primary">Mon espace client</Link>
-      <a href="mailto:hello@streammalin.fr" className="btn btn-ghost"><Mail size={16} /> Contacter le support</a>
+
+  const meta = receipt ? (BADGE_META[receipt.status] || { label: 'Suivi de commande', tone: '' }) : { label: 'Vérification en cours', tone: '' };
+  const toneClass = error ? 'is-danger' : meta.tone;
+
+  return (
+    <div className="confirmation-card">
+      <span className={`confirmation-badge ${toneClass}`}>
+        {error || receipt?.status === 'needs_review' || receipt?.status === 'cancelled'
+          ? <AlertTriangle size={15} aria-hidden="true" />
+          : receipt?.status === 'sent'
+            ? <CheckCircle2 size={15} aria-hidden="true" />
+            : <Clock size={15} aria-hidden="true" />}
+        {error ? 'Vérification impossible' : meta.label}
+      </span>
+
+      <h1>Suivi de votre commande</h1>
+
+      {error ? (
+        <p className="confirmation-status-copy" role="alert">{error}</p>
+      ) : (
+        <p className="confirmation-status-copy" role="status">{receipt ? MESSAGES[receipt.status] : 'Vérification de votre paiement…'}</p>
+      )}
+
+      {receipt?.orderId && (
+        <dl className="confirmation-dl">
+          <div>
+            <dt>Référence de commande</dt>
+            <dd>{receipt.orderId}</dd>
+          </div>
+          {receipt.offer && (
+            <div>
+              <dt>Offre</dt>
+              <dd>{receipt.offer}</dd>
+            </div>
+          )}
+          {typeof receipt.amount === 'number' && (
+            <div>
+              <dt>Montant payé</dt>
+              <dd>{formatEuro(receipt.amount)}</dd>
+            </div>
+          )}
+        </dl>
+      )}
+
+      <div className="confirmation-actions">
+        <Link href="/espace-client" className="btn btn-primary">
+          <UserRound size={16} aria-hidden="true" /> Mon espace client
+        </Link>
+        <button className="btn btn-ghost" onClick={() => setRefresh(value => value + 1)}>
+          <RefreshCw size={16} aria-hidden="true" /> Actualiser
+        </button>
+        <Link href="/contact" className="btn btn-ghost">
+          <Mail size={16} aria-hidden="true" /> Contacter le support
+        </Link>
+      </div>
     </div>
-  </div>;
+  );
 }

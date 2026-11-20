@@ -8,6 +8,7 @@ import { encrypt, decrypt } from '@/lib/crypto';
 import { enforceRateLimit } from '@/lib/rateLimit';
 import { writeAuditLog, clientIpFromRequest } from '@/lib/auditLog';
 import { lockAdminTotp } from '@/lib/adminTotp';
+import { logServerFailure } from '@/lib/securityLog';
 
 export const dynamic = 'force-dynamic';
 
@@ -109,7 +110,7 @@ export async function POST(request: Request) {
     }
     return result;
   } catch (error) {
-    console.error('Erreur /api/admin/2fa:', error);
+    logServerFailure('admin/2fa', error);
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
   }
 }

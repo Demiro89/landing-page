@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logServerFailure } from '@/lib/securityLog';
 import { prisma } from '@/lib/prisma';
 import { createAccountToken } from '@/lib/accountTokens';
 import { scheduleAccountEmail } from '@/lib/accountEmail';
@@ -9,12 +10,6 @@ import { readJsonObject } from '@/lib/requestJson';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 const response = () => NextResponse.json({ success: true, message: 'Si cette adresse est associée à un compte, consultez votre boîte e-mail et les indésirables. Vous pouvez renouveler la demande si aucun message n’arrive.' });
-const errorMessage = (error: unknown) => {
-  // Journalise l'erreur réelle côté serveur ; n'expose jamais les détails au client
-  // (les messages Prisma révèlent le schéma : tables, colonnes, contraintes).
-  console.error('[api]', error);
-  return 'Erreur serveur';
-};
 
 export async function POST(request: Request) {
   try {
@@ -48,7 +43,7 @@ export async function POST(request: Request) {
 
     return response();
   } catch (error: unknown) {
-    console.error('[forgot-password]', error);
-    return NextResponse.json({ error: errorMessage(error) }, { status: 500 });
+    logServerFailure('client/forgot-password', error);
+    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
   }
 }

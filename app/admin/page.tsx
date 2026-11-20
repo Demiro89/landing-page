@@ -14,6 +14,7 @@ import StockCredentials from '@/components/admin/StockCredentials';
 import { readStockCredentials } from '@/lib/adminCredentials';
 import { useAdminActions } from '@/components/admin/useAdminActions';
 import { adminResponse } from '@/lib/adminResponse';
+import { requestAdminReauthentication } from '@/lib/adminReauthentication';
 import { hasValidatedInitialAmount, isStripeOrder, matchesOrderSearch } from '@/lib/adminPresentation';
 import { formatEuro } from '@/lib/offerPresentation';
 
@@ -164,6 +165,34 @@ export default function AdminPage() {
   const supportPollRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { request: adminFetch, busy: mutationBusy } = useAdminActions(loading, loadError, setLoadError, toast);
+
+  const downloadCsv = async (type: 'orders' | 'clients') => {
+    try {
+      const url = `/api/admin/export?type=${type}`;
+      let response = await fetch(url, { cache: 'no-store' });
+      if (response.status === 403) {
+        const data = await response.clone().json().catch(() => null);
+        if (data?.code === 'ADMIN_REAUTH_REQUIRED' && await requestAdminReauthentication()) {
+          response = await fetch(url, { cache: 'no-store' });
+        }
+      }
+      if (response.status === 401) { router.replace('/admin/login'); return; }
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        toast(data?.error || 'Export impossible.');
+        return;
+      }
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = `streammalin-${type === 'orders' ? 'commandes' : 'clients'}-${new Date().toISOString().slice(0, 10)}.csv`;
+      link.click();
+      URL.revokeObjectURL(objectUrl);
+    } catch {
+      toast('Export impossible. Vérifiez votre connexion.');
+    }
+  };
 
   const [operationsTab, setOperationsTab] = useState<OperationsTab>('Offres');
   const navigate = (page: AdminPage, tab: OperationsTab = 'Offres') => {
@@ -846,9 +875,9 @@ export default function AdminPage() {
                     <ClipboardCheck size={18} aria-hidden="true" />
                     Historique récent des commandes
                   </div>
-                  <a href="/api/admin/export?type=orders" download className="btn btn-ghost btn-sm" style={{ fontSize: '0.78rem' }}>
+                  <button type="button" onClick={() => void downloadCsv('orders')} className="btn btn-ghost btn-sm" style={{ fontSize: '0.78rem' }}>
                     <Download size={15} aria-hidden="true" /> Exporter CSV
-                  </a>
+                  </button>
                 </div>
                 <div className="admin-orders-toolbar">
                   <input
@@ -974,6 +1003,11 @@ export default function AdminPage() {
                       >
                         ✕ Refuser la sélection{selectedIds.length ? ` (${selectedIds.length})` : ''}
                       </button>
+                      {schemaEnabled && (
+                        <span className="admin-action-note" style={{ flexBasis: '100%' }}>
+                          Validation individuelle requise pour saisir chaque référence de paiement.
+                        </span>
+                      )}
                     </div>
                     {pending.map(o => (
                       <div key={o.id} className={`glass-panel admin-card fade-in-up${selectedOrders.has(o.id) ? ' admin-card-selected' : ''}`}>
@@ -1342,9 +1376,9 @@ export default function AdminPage() {
                       {clients.length} client{clients.length > 1 ? 's' : ''}
                     </span>
                   </div>
-                  <a href="/api/admin/export?type=clients" download className="btn btn-ghost btn-sm" style={{ fontSize: '0.78rem', marginLeft: 'auto' }}>
-                    Exporter CSV
-                  </a>
+                  <button type="button" onClick={() => void downloadCsv('clients')} className="btn btn-ghost btn-sm" style={{ fontSize: '0.78rem', marginLeft: 'auto' }}>
+                    <Download size={15} aria-hidden="true" /> Exporter CSV
+                  </button>
                 </div>
 
                 {clients.length === 0 ? (

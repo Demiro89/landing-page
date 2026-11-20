@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from './prisma';
 import { clientIp } from './clientIp';
+import { logServerFailure } from './securityLog';
 
 /**
  * Limitation de débit adossée à la base (fonctionne en environnement serverless,
@@ -56,7 +57,7 @@ export async function enforceKeyRateLimit(key: string, max: number, windowSec: n
 
     return null;
   } catch (err) {
-    console.error('[rateLimit] erreur:', (err as Error).message);
+    logServerFailure('rateLimit', err);
     // failClosed : sur un endpoint sensible, une panne DB ne doit pas ouvrir la
     // porte au brute-force. On répond 429 plutôt que d'autoriser la requête.
     if (failClosed) {

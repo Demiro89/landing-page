@@ -2,13 +2,14 @@ import { Resend } from 'resend';
 import { escapeHtml } from './html';
 import { unpaidReminderMessage } from './unpaidReminders';
 import type { AccountEmailSendOptions } from './accountEmail';
+import { APP_URL } from './appUrl';
+import { logServerFailure } from './securityLog';
 
 // Le fallback évite une erreur au build quand la clé est absente (mode simulation) ;
 // chaque fonction vérifie RESEND_API_KEY avant tout envoi réel.
 const resend = new Resend(process.env.RESEND_API_KEY || 're_placeholder');
 
 const FROM_EMAIL = 'StreamMalin <noreply@streammalin.fr>';
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://streammalin.fr';
 
 export async function sendOrderDetailsEmail(
   toEmail: string,
@@ -94,14 +95,14 @@ export async function sendOrderDetailsEmail(
     });
 
     if (error) {
-      console.error('Resend error:', error);
+      logServerFailure('email/delivery', error);
       return { success: false, error };
     }
 
     console.log(`Email envoyé via Resend: ${data?.id}`);
     return { success: true, messageId: data?.id };
   } catch (err) {
-    console.error('Erreur envoi email:', err);
+    logServerFailure('email/delivery', err);
     return { success: false, error: err };
   }
 }
@@ -241,14 +242,14 @@ export async function sendCancellationEmail(
     });
 
     if (error) {
-      console.error('Resend cancellation error:', error);
+      logServerFailure('email/cancellation', error);
       return { success: false, error };
     }
 
     console.log(`Email résiliation envoyé via Resend: ${data?.id}`);
     return { success: true, messageId: data?.id };
   } catch (err) {
-    console.error('Erreur envoi email résiliation:', err);
+    logServerFailure('email/cancellation', err);
     return { success: false, error: err };
   }
 }
@@ -388,10 +389,10 @@ export async function sendRenewalEmail(
 </body>
 </html>`,
     });
-    if (error) { console.error('Resend renewal error:', error); return { success: false, error }; }
+    if (error) { logServerFailure('email/renewal', error); return { success: false, error }; }
     return { success: true, messageId: data?.id };
   } catch (err) {
-    console.error('Erreur envoi email renouvellement:', err);
+    logServerFailure('email/renewal', err);
     return { success: false, error: err };
   }
 }

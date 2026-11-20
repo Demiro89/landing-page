@@ -1,6 +1,6 @@
 import React from 'react';
-import Link from 'next/link';
 import Footer from './Footer';
+import SiteHeader from './SiteHeader';
 import { LEGAL_LAST_UPDATED } from '@/lib/legalConfig';
 
 export default function LegalPage({
@@ -17,17 +17,8 @@ export default function LegalPage({
   updatedAt?: string | null;
 }) {
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      {/* Navbar */}
-      <header className="navbar">
-        <div className="nav-inner">
-          <Link href="/" className="nav-logo">
-            <div className="nav-logo-icon">SM</div>
-            <span className="gradient-text">StreamMalin</span>
-          </Link>
-          <Link href="/" className="btn btn-ghost btn-sm">← Accueil</Link>
-        </div>
-      </header>
+    <div className="site-theme site-legal">
+      <SiteHeader />
 
       <main style={{ flex: 1 }}>
         <article className="legal-wrap">

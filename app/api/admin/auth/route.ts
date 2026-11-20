@@ -10,6 +10,7 @@ import { verifyTotpAndGetCounter } from '@/lib/totp';
 import { decrypt } from '@/lib/crypto';
 import { lockAdminTotp } from '@/lib/adminTotp';
 import { readJsonObject } from '@/lib/requestJson';
+import { logServerFailure } from '@/lib/securityLog';
 import { markAdminFresh, ADMIN_FRESH_COOKIE } from '@/lib/adminFreshness';
 
 export const dynamic = 'force-dynamic';
@@ -99,7 +100,6 @@ export async function POST(request: Request) {
           const usedCounter = secret ? verifyTotpAndGetCounter(secret, String(totp), 2) : null;
 
           if (!secret || usedCounter === null) {
-            console.error('[admin/auth] TOTP invalide — secret disponible:', !!secret);
             return NextResponse.json(
               { success: false, needsTotp: true, error: 'Code incorrect. Vérifiez l\'heure de votre téléphone.' },
               { status: 401 }
@@ -152,7 +152,7 @@ export async function POST(request: Request) {
       { status: 401 }
     );
   } catch (error) {
-    console.error("Erreur d'authentification admin:", error);
+    logServerFailure('admin/auth', error);
     return NextResponse.json(
       { success: false, error: 'Erreur interne du serveur' },
       { status: 500 }

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { logServerFailure } from '@/lib/securityLog';
 import { prisma } from '@/lib/prisma';
 import { setSession } from '@/lib/clientAuth';
 import { readAccountToken } from '@/lib/accountTokens';
@@ -44,7 +45,7 @@ export async function GET(request: Request) {
 
     return NextResponse.redirect(new URL('/?verify=success', request.url));
   } catch (error: unknown) {
-    console.error('[verify]', error);
+    logServerFailure('client/verify', error);
     return NextResponse.redirect(new URL('/?verify=error', request.url));
   }
 }

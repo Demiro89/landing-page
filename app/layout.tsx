@@ -1,8 +1,12 @@
 import type { Metadata, Viewport } from 'next';
+import { Inter, Outfit } from 'next/font/google';
 import { headers } from 'next/headers';
+import { APP_URL } from '@/lib/appUrl';
 import './globals.css';
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.streammalin.fr';
+const inter = Inter({ subsets: ['latin'], display: 'swap', variable: '--font-inter' });
+const outfit = Outfit({ subsets: ['latin'], display: 'swap', variable: '--font-outfit' });
+
 const TITLE = 'StreamMalin | Location d’abonnements streaming';
 const DESCRIPTION =
   'Location d’abonnements vidéo et musique selon disponibilité. Consultez les prix mensuels, les conditions d’accès et l’éligibilité. Service indépendant, support en français.';
@@ -32,7 +36,7 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  themeColor: '#101416',
+  themeColor: '#f7f6f3',
 };
 
 const jsonLd = {
@@ -52,7 +56,7 @@ export default async function RootLayout({
   const nonce = (await headers()).get('x-nonce') ?? undefined;
 
   return (
-    <html lang="fr" className="scroll-smooth">
+    <html lang="fr" className={`${inter.variable} ${outfit.variable} scroll-smooth`}>
       {/* Le fond et la couleur de texte sont définis dans globals.css (variables de thème). */}
       <body className="relative min-h-screen font-sans antialiased overflow-x-hidden">
         {/* Application Content */}

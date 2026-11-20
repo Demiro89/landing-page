@@ -1,8 +1,9 @@
 export const ACCESS_STATUSES = ['active', 'cancelled_pending'] as const;
 export const STOCK_CONSUMING_STATUSES = ['active', 'unpaid', 'cancelled_pending'];
 
-export function canReadAccess(status: string): boolean {
-  return ACCESS_STATUSES.some((allowed) => allowed === status);
+export function canReadAccess(status: string, cancellationEffectiveAt?: Date | null, now = new Date()): boolean {
+  return status === 'active' || (status === 'cancelled_pending' &&
+    (!cancellationEffectiveAt || cancellationEffectiveAt > now));
 }
 
 export function ownsOrder(
